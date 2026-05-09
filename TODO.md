@@ -443,7 +443,7 @@ public sealed class InvalidMoveException : Exception
 
 ---
 
-### Step 1.8 — `BriscolaEngine` — `StartGame` [M]
+### Step 1.8 — `BriscolaEngine` — `StartGame` [M] [x]
 
 **What:** the deal.
 
@@ -493,7 +493,7 @@ public sealed class BriscolaEngine : IBriscolaEngine
 
 ---
 
-### Step 1.9 — `BriscolaEngine` — `PlayCard`, trick resolution, drawing [M]
+### Step 1.9 — `BriscolaEngine` — `PlayCard`, trick resolution, drawing [M] [x]
 
 **What:** the per-move state transition.
 
