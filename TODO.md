@@ -1153,7 +1153,7 @@ Uses `WebApplicationFactory<Program>` with a test config overriding `ConnectionS
 
 **Goal:** REST surface complete enough to drive the lobby end-to-end via curl.
 
-### Step 4.1 — `Briscola.Api` host [S]
+### Step 4.1 — `Briscola.Api` host [S] [x]
 
 **Where:** `backend/src/Briscola.Api/Program.cs`, plus `appsettings.json` and `appsettings.Development.json`.
 
@@ -1190,7 +1190,7 @@ The class is partial-class friendly: `public partial class Program {}` for `WebA
 
 ---
 
-### Step 4.2 — Versioning & route prefix [S]
+### Step 4.2 — Versioning & route prefix [S] [x]
 
 - All controllers attribute-routed under `[Route("api/v1/[controller]")]`.
 - `[ApiController]` everywhere.
@@ -1199,7 +1199,7 @@ The class is partial-class friendly: `public partial class Program {}` for `WebA
 
 ---
 
-### Step 4.3 — DTOs [S]
+### Step 4.3 — DTOs [S] [x]
 
 **Where:** `backend/src/Briscola.Api/Dtos/`
 
@@ -1219,7 +1219,7 @@ Enums serialized as strings (`JsonStringEnumConverter`).
 
 ---
 
-### Step 4.4 — Controllers [S each, M for Games]
+### Step 4.4 — Controllers [S each, M for Games] [x]
 
 **`AuthController`** at `api/v1/auth`:
 - `POST register` (anonymous, rate-limited).
@@ -1251,7 +1251,7 @@ Enums serialized as strings (`JsonStringEnumConverter`).
 
 ---
 
-### Step 4.5 — FluentValidation [S]
+### Step 4.5 — FluentValidation [S] [x]
 
 - `RegisterRequestValidator`, `LoginRequestValidator`, etc. — one per DTO.
 - Username regex `^[a-zA-Z0-9_-]{3,32}$`; password length ≥ 10, must contain ≥ 1 letter and ≥ 1 digit.
@@ -1259,7 +1259,7 @@ Enums serialized as strings (`JsonStringEnumConverter`).
 
 ---
 
-### Step 4.6 — CORS, security headers [S]
+### Step 4.6 — CORS, security headers [S] [x]
 
 - `CorsOptions { string[] AllowedOrigins }`. The named policy allows those origins, methods `GET POST PATCH DELETE OPTIONS`, headers `Authorization, Content-Type, X-Correlation-Id`, credentials enabled.
 - `SecurityHeadersMiddleware` writes:
@@ -1271,7 +1271,7 @@ Enums serialized as strings (`JsonStringEnumConverter`).
 
 ---
 
-### Step 4.7 — Rate limiting [S]
+### Step 4.7 — Rate limiting [S] [x]
 
 Use `Microsoft.AspNetCore.RateLimiting` (built into ASP.NET Core since .NET 7; we're on .NET 10).
 
