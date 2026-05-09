@@ -7,6 +7,14 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Briscola.Infrastructure\Briscola.Infrastructure.csproj" />
+    <ProjectReference Include="..\Briscola.Infrastructure.Sqlite.Migrations\Briscola.Infrastructure.Sqlite.Migrations.csproj" />
+    <ProjectReference Include="..\Briscola.Infrastructure.Postgres.Migrations\Briscola.Infrastructure.Postgres.Migrations.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="FluentValidation" Version="12.0.0" />
+    <PackageReference Include="FluentValidation.DependencyInjectionExtensions" Version="12.0.0" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="10.0.0" />
   </ItemGroup>
 
 </Project>
