@@ -607,7 +607,7 @@ public sealed class BriscolaEngine : IBriscolaEngine
 
 **Goal:** rules wrapped in use-cases; persistence/identity/clock behind interfaces; orchestrator with single-writer concurrency.
 
-### Step 2.1 — Project setup [S]
+### Step 2.1 — Project setup [S] [~]
 
 **Where:** `backend/src/Briscola.Application/`
 
