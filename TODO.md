@@ -335,7 +335,7 @@ internal static class Deck
 
 ---
 
-### Step 1.5 — Hand representation [S]
+### Step 1.5 — Hand representation [S] [x]
 
 **What:** decide how a per-seat hand is represented in `GameState`.
 
@@ -367,7 +367,7 @@ internal static class HandHelpers
 
 ---
 
-### Step 1.6 — `GameState` immutable record [M]
+### Step 1.6 — `GameState` immutable record [M] [x]
 
 **What:** the snapshot type; *all* engine transitions take a `GameState` and return a new `GameState`.
 
@@ -413,7 +413,7 @@ public abstract record GameOutcome
 
 ---
 
-### Step 1.7 — `InvalidMoveException` [S]
+### Step 1.7 — `InvalidMoveException` [S] [x]
 
 **What:** typed exception with stable error codes.
 
