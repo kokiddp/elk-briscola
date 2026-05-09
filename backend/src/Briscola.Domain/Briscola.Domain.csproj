@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Briscola.Domain</RootNamespace>
+    <AssemblyName>Briscola.Domain</AssemblyName>
+  </PropertyGroup>
+
+</Project>

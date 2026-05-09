@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <RootNamespace>Briscola.Api</RootNamespace>
+    <AssemblyName>Briscola.Api</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Briscola.Infrastructure\Briscola.Infrastructure.csproj" />
+  </ItemGroup>
+
+</Project>

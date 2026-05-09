@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Briscola.Application</RootNamespace>
+    <AssemblyName>Briscola.Application</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Briscola.Domain\Briscola.Domain.csproj" />
+  </ItemGroup>
+
+</Project>

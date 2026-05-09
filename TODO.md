@@ -61,7 +61,7 @@ How to read this file:
 
 ---
 
-### Step 0.2 — Backend skeleton (solution + projects, no code) [S]
+### Step 0.2 — Backend skeleton (solution + projects, no code) [S] [x]
 
 **What:** create the .NET 10 solution and four empty projects. No production code yet — just project files so CI can compile zero LOC.
 
