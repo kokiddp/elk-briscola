@@ -1,0 +1,28 @@
+{
+  "/api": {
+    "target": "http://localhost:5080",
+    "secure": false,
+    "changeOrigin": true
+  },
+  "/hubs": {
+    "target": "http://localhost:5080",
+    "secure": false,
+    "ws": true,
+    "changeOrigin": true
+  },
+  "/card-sets": {
+    "target": "http://localhost:5080",
+    "secure": false,
+    "changeOrigin": true
+  },
+  "/healthz": {
+    "target": "http://localhost:5080",
+    "secure": false,
+    "changeOrigin": true
+  },
+  "/readyz": {
+    "target": "http://localhost:5080",
+    "secure": false,
+    "changeOrigin": true
+  }
+}

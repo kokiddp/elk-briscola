@@ -1290,7 +1290,7 @@ Apply per-action via `[EnableRateLimiting("auth-login")]`.
 
 ---
 
-### Step 4.8 — Angular dev proxy [S]
+### Step 4.8 — Angular dev proxy [S] [x]
 
 **Where:** `frontend/proxy.conf.json`
 
