@@ -21,6 +21,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Briscola.Application.Tests"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Briscola.Api.IntegrationTests", "tests\Briscola.Api.IntegrationTests\Briscola.Api.IntegrationTests.csproj", "{57EAECD9-4DEC-4D1D-9CCE-1748AF282E96}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Briscola.Infrastructure.Sqlite.Migrations", "src\Briscola.Infrastructure.Sqlite.Migrations\Briscola.Infrastructure.Sqlite.Migrations.csproj", "{FB8A9656-CE43-4572-8936-D34709F80227}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Briscola.Infrastructure.Postgres.Migrations", "src\Briscola.Infrastructure.Postgres.Migrations\Briscola.Infrastructure.Postgres.Migrations.csproj", "{ACE170D7-5D42-4310-872E-63B154900BA1}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -115,6 +119,30 @@ Global
 		{57EAECD9-4DEC-4D1D-9CCE-1748AF282E96}.Release|x64.Build.0 = Release|Any CPU
 		{57EAECD9-4DEC-4D1D-9CCE-1748AF282E96}.Release|x86.ActiveCfg = Release|Any CPU
 		{57EAECD9-4DEC-4D1D-9CCE-1748AF282E96}.Release|x86.Build.0 = Release|Any CPU
+		{FB8A9656-CE43-4572-8936-D34709F80227}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FB8A9656-CE43-4572-8936-D34709F80227}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FB8A9656-CE43-4572-8936-D34709F80227}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{FB8A9656-CE43-4572-8936-D34709F80227}.Debug|x64.Build.0 = Debug|Any CPU
+		{FB8A9656-CE43-4572-8936-D34709F80227}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{FB8A9656-CE43-4572-8936-D34709F80227}.Debug|x86.Build.0 = Debug|Any CPU
+		{FB8A9656-CE43-4572-8936-D34709F80227}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FB8A9656-CE43-4572-8936-D34709F80227}.Release|Any CPU.Build.0 = Release|Any CPU
+		{FB8A9656-CE43-4572-8936-D34709F80227}.Release|x64.ActiveCfg = Release|Any CPU
+		{FB8A9656-CE43-4572-8936-D34709F80227}.Release|x64.Build.0 = Release|Any CPU
+		{FB8A9656-CE43-4572-8936-D34709F80227}.Release|x86.ActiveCfg = Release|Any CPU
+		{FB8A9656-CE43-4572-8936-D34709F80227}.Release|x86.Build.0 = Release|Any CPU
+		{ACE170D7-5D42-4310-872E-63B154900BA1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{ACE170D7-5D42-4310-872E-63B154900BA1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{ACE170D7-5D42-4310-872E-63B154900BA1}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{ACE170D7-5D42-4310-872E-63B154900BA1}.Debug|x64.Build.0 = Debug|Any CPU
+		{ACE170D7-5D42-4310-872E-63B154900BA1}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{ACE170D7-5D42-4310-872E-63B154900BA1}.Debug|x86.Build.0 = Debug|Any CPU
+		{ACE170D7-5D42-4310-872E-63B154900BA1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{ACE170D7-5D42-4310-872E-63B154900BA1}.Release|Any CPU.Build.0 = Release|Any CPU
+		{ACE170D7-5D42-4310-872E-63B154900BA1}.Release|x64.ActiveCfg = Release|Any CPU
+		{ACE170D7-5D42-4310-872E-63B154900BA1}.Release|x64.Build.0 = Release|Any CPU
+		{ACE170D7-5D42-4310-872E-63B154900BA1}.Release|x86.ActiveCfg = Release|Any CPU
+		{ACE170D7-5D42-4310-872E-63B154900BA1}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -127,5 +155,7 @@ Global
 		{D7CEF000-881E-4921-B952-C7F9BB198033} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 		{35BDE09C-BDCE-4C77-B728-0812676B8CC9} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 		{57EAECD9-4DEC-4D1D-9CCE-1748AF282E96} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
+		{FB8A9656-CE43-4572-8936-D34709F80227} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
+		{ACE170D7-5D42-4310-872E-63B154900BA1} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 	EndGlobalSection
 EndGlobal

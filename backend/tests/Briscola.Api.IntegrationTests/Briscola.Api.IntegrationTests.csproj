@@ -28,6 +28,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Briscola.Api\Briscola.Api.csproj" />
+    <ProjectReference Include="..\..\src\Briscola.Infrastructure.Sqlite.Migrations\Briscola.Infrastructure.Sqlite.Migrations.csproj" />
+    <ProjectReference Include="..\..\src\Briscola.Infrastructure.Postgres.Migrations\Briscola.Infrastructure.Postgres.Migrations.csproj" />
   </ItemGroup>
 
 </Project>

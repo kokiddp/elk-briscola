@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Briscola.Infrastructure.Sqlite.Migrations</RootNamespace>
+    <AssemblyName>Briscola.Infrastructure.Sqlite.Migrations</AssemblyName>
+    <!--
+      EF-generated migration .cs files trigger CA1861 (prefer static readonly
+      fields over constant array arguments). We don't hand-edit migrations,
+      so we suppress the analyzer for this project only.
+    -->
+    <NoWarn>$(NoWarn);CA1861</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.7" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.7" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.7">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Briscola.Infrastructure\Briscola.Infrastructure.csproj" />
+  </ItemGroup>
+
+</Project>

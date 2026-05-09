@@ -1036,7 +1036,7 @@ builder.Services.AddDbContext<BriscolaDbContext>((sp, opts) =>
 
 ---
 
-### Step 3.3 — Migration assemblies [M]
+### Step 3.3 — Migration assemblies [M] [x]
 
 **Where:**
 - `backend/src/Briscola.Infrastructure.Sqlite.Migrations/` (csproj refs `Briscola.Infrastructure`)
