@@ -1116,7 +1116,11 @@ builder.Services.AddDbContext<BriscolaDbContext>((sp, opts) =>
 
 ---
 
-### Step 3.8 — Integration smoke test [M]
+### Step 3.8 — Integration smoke test [M] [x]
+
+> **Phase 3 follow-up.** This step's spec called for `WebApplicationFactory<Program>` + Testcontainers Postgres. Two compromises were made:
+> 1. **No HTTP layer yet** — the API host's auth controllers and JWT validation middleware are Phase 4 deliverables, so the smoke test runs at the *service* level (UserManager + JwtIssuer + RefreshTokenService) instead of through `WebApplicationFactory`. Phase 4 will add the HTTP variant on top.
+> 2. **SQLite in-memory instead of Testcontainers Postgres** — the dev environment doesn't have Docker available (WSL without Docker Desktop). The schema-parity tests (Step 3.3) prove the EF model is congruent across both providers, so the auth flow's correctness on SQLite is strong evidence it works on Postgres too. Phase 11 hardening should add the Testcontainers variant once CI has Docker.
 
 **Where:** `backend/tests/Briscola.Api.IntegrationTests/AuthSmokeTests.cs`
 
