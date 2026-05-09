@@ -11,6 +11,8 @@ How to read this file:
 
 > Conventions used everywhere below: namespace prefix `Briscola.*`; C# 14 / .NET 10 (LTS); Angular 21 standalone components; Node 22 LTS; SCSS; UTC timestamps; no `cd` chains in scripts (use absolute paths). All code identifiers in this document are the **canonical** names — implement them exactly as written.
 
+> **Read [AGENTS.md § Tooling environment](AGENTS.md#tooling-environment-wsl-gotchas--version-pins) before running any `dotnet` / `npm` / `npx` commands — it documents the WSL `~/.elk-env.sh` prelude and the version pins (.NET 10.0.203, Node v22.22.2, FluentAssertions 7.2.2, etc.) that the repo expects. AGENTS also has a "Records, equality, and `ImmutableArray<T>` known footgun" section that's load-bearing for Phase 3+ work — don't introduce wrapper types around `ImmutableArray<T>` without reading it first.**
+
 ---
 
 ## Table of contents
@@ -148,7 +150,7 @@ How to read this file:
 
 ### Step 0.4 — GitHub Actions CI [S] [~] [!]
 
-> **[!] partial**: workflow files written and YAML-validated locally; full acceptance ("workflows run and pass on a no-op PR") deferred until a GitHub remote exists. Same commands run cleanly on the local machine in steps 0.2 / 0.3.
+> **[!] partial**: workflow files written and YAML-validated locally; full acceptance ("workflows run and pass on a no-op PR") deferred until a GitHub remote exists. As of post-Phase-2: the same underlying commands all pass locally (`dotnet build/test -c Release`, `npm run lint/build/test:ci/format:check`) — 2247 tests, 0 warnings, 0 lint errors. When a remote is wired up, push to a branch, open a no-op PR, and flip this to `[x]` if the workflows go green.
 
 **What:** wire CI so every PR is gated on build + test + lint.
 
@@ -972,7 +974,17 @@ These came out of the post-implementation review; none block Phase 3, but they s
 
 **Where:** `backend/src/Briscola.Infrastructure/`
 
-**Refs:** `Briscola.Application` (project); NuGet: `Microsoft.EntityFrameworkCore`, `Microsoft.EntityFrameworkCore.Sqlite`, `Npgsql.EntityFrameworkCore.PostgreSQL`, `Microsoft.AspNetCore.Identity.EntityFrameworkCore`, `Microsoft.AspNetCore.Authentication.JwtBearer`, `Serilog`, `Serilog.AspNetCore`, `Serilog.Sinks.Console`, `Serilog.Sinks.File`, `BCrypt.Net-Next` (for game-room passwords; user passwords use Identity's PBKDF2).
+**Refs:** `Briscola.Application` (project). NuGet packages, all on the .NET 10 release line where they have one:
+
+- `Microsoft.EntityFrameworkCore` (10.x), `Microsoft.EntityFrameworkCore.Sqlite` (10.x), `Microsoft.EntityFrameworkCore.Design` (10.x; PrivateAssets=all).
+- `Npgsql.EntityFrameworkCore.PostgreSQL` (matching 10.x).
+- `Microsoft.AspNetCore.Identity.EntityFrameworkCore` (10.x).
+- `Microsoft.AspNetCore.Authentication.JwtBearer` (10.x).
+- `Serilog` + `Serilog.AspNetCore` + `Serilog.Sinks.Console` + `Serilog.Sinks.File` (latest stable).
+- `Serilog.Formatting.Compact` (for prod JSON output).
+- `BCrypt.Net-Next` (for game-room passwords — distinct from ASP.NET Identity's user-password hashing).
+
+If a 10.x version isn't on NuGet at implementation time, pin to the highest stable that targets `net10.0` and add a note to a new `backend/README.md` (we should create one when version pins start accumulating).
 
 ---
 
@@ -987,19 +999,26 @@ These came out of the post-implementation review; none block Phase 3, but they s
 
 - `ApplicationUser : IdentityUser<Guid>` — `DisplayName` (required, 1..32), `ActiveCardSetId` (string, default `"placeholder"`), `CreatedAt` (UTC).
 - `RefreshTokenEntity` — `Id`, `UserId`, `TokenHash` (SHA-256 hex), `ExpiresAt`, `RevokedAt?`, `ReplacedByTokenId?`.
-- `GameEntity` — mirrors `GameRecord` plus `RowVersion` (`byte[]`, EF concurrency token; for Postgres mapped to `xmin`).
-- `GameSeatEntity` — composite key `(GameId, SeatIndex)`, plus `UserId`, `JoinedAt`, `LeftAt?`.
-- `GameMoveEntity` — `Id` (PK), `GameId`, `MoveIndex`, `SeatIndex`, `Type`, `PayloadJson`, `CreatedAt`. Unique `(GameId, MoveIndex)`.
+- `GameEntity` — mirrors `GameRecord` from `Briscola.Application.Persistence`, including:
+  - `Id`, `Mode`, `Name`, `Status`, `CreatedByUserId`, `CreatedAt`, `StartedAt?`, `EndedAt?`,
+  - `ShuffleSeed` (`long`), `StateSnapshotJson` (`text` on SQLite / `jsonb` on Postgres), `BriscolaSuit`, `IsPrivate`, `PasswordHash?`,
+  - `Version` (`long`, application-managed optimistic-concurrency token — see below).
+  - **No** `RowVersion`/`xmin`. The application contract talks in `long Version`; mapping it to a provider-specific concurrency token would force the application port to learn about `byte[]`.
+- `GameSeatEntity` — composite key `(GameId, SeatIndex)`, plus `UserId?`, `JoinedAt`, `LeftAt?`. The `EfGameRepository` projects `GameSeats` rows into `GameRecord.SeatUserIds: ImmutableArray<Guid?>` on read and writes them back as a set on update.
+- `GameMoveEntity` — `Id` (PK), `GameId`, `MoveIndex`, `SeatIndex`, `Type`, `PayloadJson`, `CreatedAt`. Unique `(GameId, MoveIndex)`. The repository's `GetNextMoveIndexAsync(gameId)` returns `MAX(MoveIndex) + 1` (or 0 if empty).
 - `GameResultEntity` — `GameId` (PK), `Kind`, `WinnerKey?`, `SeatScoresJson`, `TeamScoresJson?`, `Reason`.
 - `ChatMessageEntity` — `Id`, `Scope`, `GameId?`, `UserId`, `Text` (`varchar(500)`), `CreatedAt`.
 - `RankingEntity` — `UserId` (PK, FK Users), `Elo`, `Wins`, `Losses`, `Draws`, `GamesPlayed`, `UpdatedAt`.
+- `RankingProcessedGameEntity` — `GameId` (PK). Single-row marker that drives `IRankingRepository.HasProcessedGameAsync` / `MarkProcessedGameAsync`. Required for Elo idempotency per Phase 2's `RankingService`.
 
 **Configurations** in `IEntityTypeConfiguration<T>` classes (NOT inline in `OnModelCreating` — keeps the DbContext thin):
 
 - All `string` columns get explicit `HasMaxLength`.
-- All `DateTimeOffset` columns get `HasConversion<DateTimeOffsetToBinaryConverter>` on SQLite, raw `timestamptz` on Postgres.
+- All `DateTimeOffset` columns: SQLite uses `HasConversion<DateTimeOffsetToBinaryConverter>`; Postgres uses raw `timestamptz`.
+- `GameEntity.StateSnapshotJson`: `text` on SQLite, `jsonb` on Postgres.
 - Indexes per the README schema section.
-- `GameEntity.RowVersion` configured with `IsRowVersion()`.
+- `GameEntity.Version`: plain `long`, explicitly NOT `IsRowVersion()`. `EfGameRepository.UpdateAsync` does the read-modify-write and increments the column inside a transaction; returns `false` on mismatch.
+- `GameMoveEntity` unique index on `(GameId, MoveIndex)` is load-bearing — it's how we detect bugs in the move-log hydration path.
 
 **Provider switching:**
 
@@ -1058,15 +1077,31 @@ builder.Services.AddDbContext<BriscolaDbContext>((sp, opts) =>
 
 ---
 
-### Step 3.6 — Repositories (port implementations) [S]
+### Step 3.6 — Repositories and adapter ports (Infrastructure implementations) [M]
 
-**Where:** `backend/src/Briscola.Infrastructure/Persistence/Repositories/`
+**Where:**
+- `backend/src/Briscola.Infrastructure/Persistence/Repositories/Ef*Repository.cs`
+- `backend/src/Briscola.Infrastructure/Codecs/JsonGameStateCodec.cs`
+- `backend/src/Briscola.Infrastructure/Auth/BCryptGamePasswordHasher.cs`
 
-- `EfGameRepository : IGameRepository`.
+**Repositories implementing `Briscola.Application.Ports.*`:**
+
+- `EfGameRepository : IGameRepository` — implements all 7 methods including `GetNextMoveIndexAsync(gameId)` (a single `MAX(MoveIndex)` query). Reads `GameSeats` rows and projects into `GameRecord.SeatUserIds`. Writes seat changes as a set-based update inside the same transaction as the parent `Games` row update.
+  - `UpdateAsync` reads the current `Version`, compares to the incoming record, writes `record with { Version = current.Version + 1 }` only if matched, returns `false` on mismatch. Surfaces `DbUpdateConcurrencyException` as `ConcurrencyConflictException`. Orchestrator and lobby handlers already retry up to 3 times.
 - `EfChatRepository : IChatRepository`.
-- `EfRankingRepository : IRankingRepository`.
+- `EfRankingRepository : IRankingRepository` — `HasProcessedGameAsync` / `MarkProcessedGameAsync` operate on `RankingProcessedGameEntity` (single-row dedup). `GetAsync` returns the existing ranking or auto-creates one at default Elo (mirrors `InMemoryRankingRepository` from Phase 2 tests).
 
-`EfGameRepository.UpdateAsync` returns the row count from `SaveChangesAsync` and surfaces `DbUpdateConcurrencyException` as a `ConcurrencyConflictException` defined in the application layer; orchestrator/lobby handlers retry up to 3 times.
+**Adapter ports also implemented here** (kept out of Application by design):
+
+- `JsonGameStateCodec : IGameStateCodec` — `System.Text.Json` round-trip of `GameState` with `JsonStringEnumConverter` and `ImmutableArrayJsonConverter` (custom — `ImmutableArray<T>` doesn't round-trip out of the box; needed because `GameState.Hands` and `Pozzi` are `ImmutableArray<ImmutableArray<Card>>`).
+- `BCryptGamePasswordHasher : IGamePasswordHasher` — wraps `BCrypt.Net-Next`. NOT shared with ASP.NET Identity's user-password hashing; lobby-game passwords are a separate trust boundary.
+
+**Tests** under `Briscola.Api.IntegrationTests/Persistence/`:
+
+- `JsonGameStateCodecTests` — round-trip a fully populated `GameState` (including 4p with non-empty pozzi and a captured `GameOutcome.Winner`) and assert deep equality field-by-field. This closes the Phase 2 follow-up "snapshot codec coverage" item — `InMemoryGameStateCodec` was a pass-through.
+- `EfGameRepositoryConcurrencyTests` — two concurrent `UpdateAsync` calls on the same `Version`: exactly one succeeds, the other gets `false`. Run against Testcontainers Postgres.
+- `EfGameRepositoryMoveIndexTests` — append moves at indices 0, 1, 2, then call `GetNextMoveIndexAsync` and assert it returns 3.
+- `EfRankingRepositoryIdempotencyTests` — `HasProcessedGameAsync` returns false initially, true after `MarkProcessedGameAsync`.
 
 ---
 
@@ -1127,11 +1162,15 @@ Uses `WebApplicationFactory<Program>` with a test config overriding `ConnectionS
 10. `AddControllers().AddJsonOptions(o => o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));`.
 11. `AddSignalR()` (hubs registered in Phase 5).
 12. `AddSwaggerGen` (dev only, conditional).
-13. Application-layer service registrations: `AddSingleton<GameOrchestrator>`, `AddScoped<LobbyService>`, …
-14. Build the app.
-15. Middleware order: `UseSerilogRequestLogging` → `UseExceptionHandler("/error")` → `UseSecurityHeaders()` → `UseHsts()` (prod) → `UseHttpsRedirection()` (prod) → `UseStaticFiles()` (for `wwwroot/card-sets/`) → `UseRouting` → `UseCors` → `UseRateLimiter` → `UseAuthentication` → `UseAuthorization` → `MapControllers` → `MapHubs` → `MapHealthChecks`.
-16. **Migrations on startup** behind `Migrations:RunOnStartup=true` flag (default false in prod); for dev/SQLite it's true.
-17. `app.Run();`
+13. Application-layer service registrations via `services.AddBriscolaApplication()` (the extension defined in `Briscola.Application/DependencyInjection.cs` — already present from Phase 2). It registers:
+    - Singletons: `IClock` (`SystemClock`), `IGameEventBus` (`InMemoryGameEventBus`), `ITimerService` (`SystemTimerService`), `IRandomSourceFactory` (`SystemRandomSourceFactory`), `IBriscolaEngine` (`BriscolaEngine`), `GameOrchestrator`.
+    - Scopes: `LobbyService`, `RankingService`, `MatchHistoryService`.
+    - Hosted: `OpenLobbyJanitor`, `GameEventDispatcher` (added in Phase 5 — fans `IGameEventBus` events out to SignalR).
+14. Infrastructure registrations: `services.AddBriscolaInfrastructure(configuration)` registers EF repositories (`EfGameRepository`, `EfChatRepository`, `EfRankingRepository`), `IGameStateCodec` (`JsonGameStateCodec`), `IGamePasswordHasher` (`BCryptGamePasswordHasher`), JWT issuer / refresh-token service, and any options the infrastructure exposes.
+15. Build the app.
+16. Middleware order: `UseSerilogRequestLogging` → `UseExceptionHandler("/error")` → `UseSecurityHeaders()` → `UseHsts()` (prod) → `UseHttpsRedirection()` (prod) → `UseStaticFiles()` (for `wwwroot/card-sets/`) → `UseRouting` → `UseCors` → `UseRateLimiter` → `UseAuthentication` → `UseAuthorization` → `MapControllers` → `MapHubs` → `MapHealthChecks`.
+17. **Migrations on startup** behind `Migrations:RunOnStartup=true` flag (default false in prod); for dev/SQLite it's true. After migrations, call `await orchestrator.HydrateAsync(ct)` to load any games left in `Status = Running` from a previous process restart.
+18. `app.Run();`
 
 The class is partial-class friendly: `public partial class Program {}` for `WebApplicationFactory<Program>` to find it.
 
@@ -1159,8 +1198,8 @@ For every endpoint a request DTO and a response DTO. Examples:
 - `MePatchRequest { string? DisplayName, string? ActiveCardSetId }`
 - `CreateGameRequest { GameMode Mode, string Name, bool IsPrivate, string? Password }`
 - `JoinGameRequest { string? Password }`
-- `GameSummary { Guid Id, GameMode Mode, string Name, GameStatus Status, int Players, int MaxPlayers, string CreatedByDisplayName, DateTimeOffset CreatedAt, bool IsPrivate }`
-- `GameDetail` (extends `GameSummary` with seat list and (if running and caller is a participant) authoritative state).
+- `GameSummary` — application-layer record produced by `LobbyService.ListAsync`. Real shape (from Phase 2): `Guid Id, GameMode Mode, string Name, GameStatus Status, int OccupiedSeats, int TotalSeats, bool IsPrivate, DateTimeOffset CreatedAt, DateTimeOffset? StartedAt`. The REST controller may choose to enrich it with `string CreatedByDisplayName` (a join against `Users.DisplayName`) for UI display — that's a controller-layer concern, not an application-port one.
+- `GameDetail` (extends `GameSummary` with seat list and, if running and the caller is a participant, an authoritative `RedactedStateForUser`).
 
 Enums serialized as strings (`JsonStringEnumConverter`).
 
@@ -1340,7 +1379,65 @@ public interface IGameClient
 }
 ```
 
-A background `GameEventDispatcher` `IHostedService` subscribes to `IGameEventBus` and fans out to `IHubContext<GameHub, IGameClient>` groups. The dispatcher is the **only** code that calls `IHubContext` for game events — keeps the orchestrator clean of SignalR.
+---
+
+### Step 5.2b — `GameEventDispatcher` hosted service [M]
+
+**Where:** `backend/src/Briscola.Api/Hubs/GameEventDispatcher.cs`
+
+The bridge between the application layer's `IGameEventBus` and SignalR. **The only code that calls `IHubContext<GameHub, IGameClient>` for game events.** Keeping all SignalR concerns out of `GameOrchestrator` / `GameRoom` is what lets the application layer stay framework-agnostic.
+
+**Shape:**
+
+```csharp
+public sealed class GameEventDispatcher(
+    IGameEventBus bus,
+    IHubContext<GameHub, IGameClient> hub,
+    ILogger<GameEventDispatcher> logger) : BackgroundService
+{
+    protected override async Task ExecuteAsync(CancellationToken ct)
+    {
+        await foreach (IGameEvent evt in bus.ReadAllAsync(ct).WithCancellation(ct))
+        {
+            try { await DispatchAsync(evt, ct); }
+            catch (Exception ex) { logger.LogError(ex, "Dispatch failed for {Event}", evt.GetType().Name); }
+        }
+    }
+
+    private Task DispatchAsync(IGameEvent evt, CancellationToken ct) => evt switch
+    {
+        JoinedEvent j           => hub.Clients.User(j.TargetUserId.ToString()).Joined(ToDto(j.Snapshot)),
+        StateUpdatedEvent s     => hub.Clients.User(s.TargetUserId.ToString()).StateUpdated(ToDto(s.Snapshot)),
+        CardPlayedEvent c       => hub.Clients.Group(GameGroup(c.GameId)).CardPlayed(ToDto(c)),
+        TrickResolvedEvent t    => hub.Clients.Group(GameGroup(t.GameId)).TrickResolved(ToDto(t)),
+        CardsDrawnEvent d       => DispatchDrawAsync(d, ct),
+        PhaseChangedEvent p     => hub.Clients.Group(GameGroup(p.GameId)).PhaseChanged(p.NewPhase.ToString()),
+        GameFinishedEvent f     => hub.Clients.Group(GameGroup(f.GameId)).GameFinished(ToDto(f)),
+        PlayerDisconnectedEvent pd => hub.Clients.Group(GameGroup(pd.GameId)).PlayerDisconnected(pd.SeatIndex, pd.GraceDeadlineUtc),
+        PlayerReconnectedEvent pr  => hub.Clients.Group(GameGroup(pr.GameId)).PlayerReconnected(pr.SeatIndex),
+        ChatMessageEvent ch     => hub.Clients.Group(GameGroup(ch.GameId)).ChatMessage(ToDto(ch)),
+        InvalidMoveRejectedEvent im => hub.Clients.User(im.TargetUserId.ToString()).InvalidMove(im.Code.ToString()),
+        IdleWarningEvent iw     => hub.Clients.Group(GameGroup(iw.GameId)).IdleWarning(iw.SeatIndex, iw.ForfeitDeadlineUtc),
+        _                       => Task.CompletedTask,
+    };
+
+    private static string GameGroup(Guid id) => $"game:{id}";
+}
+```
+
+**Notes:**
+
+- Spectators join `game:{id}:spectators`. For broadcast events that carry hand-derived data (e.g. `StateUpdatedEvent` carries a `RedactedStateForUser` that already has hand counts only for non-targets — that's fine), spectator-targeted variants are produced by the room when needed (see Step 5.3). The dispatcher routes; it does not redact.
+- `CardsDrawnEvent.TargetUserId` is non-null for the per-recipient draw notification (only that user sees the actual `DrawnCard`). Broadcast a count-only variant to everyone else in the same group. Implementation detail of `DispatchDrawAsync` — write a unit test.
+- The dispatcher catches per-event exceptions and logs them. It does NOT die on a single bad event; the bus is a long-running stream.
+- Registered in DI as `services.AddHostedService<GameEventDispatcher>()` from `Briscola.Api`'s `Program.cs` (Step 4.1 is already updated to know about this).
+
+**Tests** in `Briscola.Api.IntegrationTests/Hubs/GameEventDispatcherTests.cs`:
+
+- Publishing a targeted event sends to exactly one connection.
+- Publishing a broadcast event sends to every connection in the group, including spectators (with their redacted variant if applicable).
+- An event whose handler throws is logged and the dispatcher keeps consuming.
+- `CardsDrawnEvent` with a non-null `DrawnCard` reaches only the `TargetUserId`'s connection; the broadcast variant carries a null `DrawnCard` for everyone else.
 
 ---
 
@@ -1570,8 +1667,19 @@ Each component is standalone and signal-driven.
 
 ### Step 9.1 — Backend manifest discovery [S]
 
-- `CardSetCatalog` singleton scans `wwwroot/card-sets/*/manifest.json` at startup; logs any malformed manifests; refuses to start if `placeholder` is missing.
-- `GET /api/v1/card-sets` returns the catalog.
+**Where:**
+- `backend/src/Briscola.Api/wwwroot/card-sets/{setId}/manifest.json` (+ asset files) — physical assets live in the API project so static-file middleware can serve them at `/card-sets/{setId}/{file}`.
+- `backend/src/Briscola.Api/CardSets/CardSetCatalog.cs` — the scanner / accessor.
+- `backend/src/Briscola.Api/Controllers/CardSetsController.cs` — REST surface.
+
+The catalog and the controller live in `Briscola.Api`, NOT in the application layer — the application layer doesn't know about `wwwroot` or HTTP. If `LobbyService` or any other application-layer service ever needs to validate a card-set id, it gets a small port (`ICardSetCatalog` in `Briscola.Application.Ports`) with the implementation registered from `Briscola.Api`.
+
+**`CardSetCatalog`:**
+- Singleton (`AddSingleton<CardSetCatalog>`).
+- Scans `wwwroot/card-sets/*/manifest.json` at startup. Logs any malformed manifests at `Warning`. **Refuses to start** if `placeholder` is missing — that's an installation bug, not a runtime warning.
+- Exposes `IReadOnlyList<CardSetManifest> All()` and `bool Contains(string id)`.
+
+**`GET /api/v1/card-sets`** returns the cached catalog as a list of DTOs (id, name, license, preview path). Response is the same for every caller (no auth state changes the result), so it can be served behind a 5-minute response-cache header in production.
 
 ### Step 9.2 — `placeholder` SVG set [S]
 
@@ -1862,7 +1970,7 @@ test('two players play a 2p game to completion', async ({ browser }) => {
 | Risk | Mitigation |
 |---|---|
 | Rules ambiguity (regional variants) | One canonical spec in `docs/game-rules.md` and Phase-1 tests; deviations require an ADR. |
-| Concurrency bugs in the orchestrator | Single-writer channel per room; property tests with random interleavings; explicit RowVersion concurrency on seat-fill races. |
+| Concurrency bugs in the orchestrator | Single-writer channel per room; property tests with random interleavings; optimistic-concurrency `Version` field with retry on seat-fill races. |
 | Card art licensing | Plug-in architecture means we ship without it; sourcing is a content task with a checklist; per-card fallback to `placeholder`. |
 | Disconnect storms | Server-authoritative timers; reconnect is idempotent; snapshots persisted per move; in-memory event bus is per-process (horizontal scale is v2). |
 | Cheating clients | Server is the only source of truth; redacted state per recipient; `CardNotInHand` errors logged and metered. |
@@ -1871,3 +1979,6 @@ test('two players play a 2p game to completion', async ({ browser }) => {
 | Stuck `Open` games | Background `OpenLobbyJanitor` moves them to `Abandoned` after `Game:OpenLobbyTtlMinutes`. |
 | JWT secret leakage | Env-var-only, rotation procedure documented; access tokens short-lived; refresh-token reuse triggers chain revocation. |
 | Single-process orchestrator becomes a bottleneck | Designed to run as one instance for v1; a future v2 can shard rooms across instances using a redis-backed channel; today the in-memory bus is acceptable. |
+| FluentAssertions license trap (v8+ commercial) | Pinned to 7.2.2 (last Apache-2.0). AGENTS.md and README tech-stack table both call this out. If we need v8 features, we either accept the license or migrate to AwesomeAssertions (community fork) — that's a deliberate decision, not a casual `dotnet add package` bump. |
+| WSL toolchain trap (Windows shims on `PATH`) | Documented in AGENTS.md § Tooling environment; `~/.elk-env.sh` prepends Linux bins. Any PR adding a new `npx`/`dotnet` invocation in scripts must source the prelude or document why not. |
+| Stale `GameRoom._record` after a concurrency conflict | Phase 2 follow-up item: room is currently "poisoned" if an external write bumps `Version` — subsequent commands keep failing with `GameCommandException`. Phase 3 / 5 will add eviction-from-orchestrator + refetch on conflict. |

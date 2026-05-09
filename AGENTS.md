@@ -58,6 +58,56 @@ If a step's acceptance criteria are unclear or ambiguous, **ask the user** rathe
 
 ---
 
+## Tooling environment (WSL gotchas + version pins)
+
+The repo is developed on WSL2 / Ubuntu 24.04. A new shell does NOT inherit the right toolchain by default; the project keeps an env-prelude at `~/.elk-env.sh` that puts Linux .NET and Linux Node *ahead of* the Windows shims that WSL inherits via `/mnt/c`.
+
+```sh
+# ~/.elk-env.sh
+export DOTNET_ROOT="$HOME/.dotnet"
+export PATH="$HOME/.nvm/versions/node/v22.22.2/bin:$DOTNET_ROOT:$DOTNET_ROOT/tools:$PATH"
+```
+
+Source it at the start of any Bash session before running `dotnet`, `npm`, or `npx`:
+
+```sh
+. ~/.elk-env.sh
+dotnet --version    # 10.0.203
+node --version      # v22.22.2
+```
+
+**Without this**, `npx -p @angular/cli@21 ng new …` finds the Windows nvm4w `npx`, runs `cmd.exe` with a WSL path it can't resolve, and fails with `EPERM: operation not permitted, mkdir 'C:\Windows\frontend'`. If you see that error, the prelude isn't sourced.
+
+### Pinned versions (don't drift without a reason)
+
+| Tool | Version | Notes |
+|---|---|---|
+| .NET SDK | 10.0.203 | Installed via `dotnet-install.sh` into `~/.dotnet`. No sudo. |
+| Node | v22.22.2 (LTS "Jod") | Installed via nvm; default alias = `lts/jod`. |
+| `xunit` | 2.9.3 | What the .NET 10 `dotnet new xunit` template ships. |
+| `Microsoft.NET.Test.Sdk` | 17.14.1 | Same. |
+| `xunit.runner.visualstudio` | 3.1.4 | Same. |
+| `coverlet.collector` | 6.0.4 | Same. |
+| `FluentAssertions` | 7.2.2 | Last Apache-2.0 release; v8+ is commercial. |
+| `@angular/cli` | 21.2.x | And every `@angular/*` peer at the matching major. |
+| `@testing-library/angular` | 19.x | Compatible with Angular 21 + Vitest. |
+
+### `dotnet new sln` defaults to `.slnx` on .NET 10
+
+The new XML solution format is the default. We use the legacy `.sln` because `Briscola.sln` is the canonical name in [TODO.md](TODO.md). When recreating the solution, force the format:
+
+```sh
+dotnet new sln -n Briscola --format sln
+```
+
+If you ever need to migrate to `.slnx`, do it as a separate ADR.
+
+### `ng new` and `--standalone`
+
+Angular 21's `ng new` makes standalone components the default; the legacy `--standalone` flag is a no-op. Don't pass it. The default app class is `App` (in `app.ts`), NOT `AppComponent` — anywhere our docs or tests still say `AppComponent`, treat it as a typo for `App`.
+
+---
+
 ## How to update TODO.md
 
 `TODO.md` is mutable. You will update it routinely. Rules:
@@ -141,8 +191,8 @@ If the checklist surfaces a mismatch, **fix it before moving on.**
 
 Strict four-project structure: `Briscola.Domain`, `Briscola.Application`, `Briscola.Infrastructure`, `Briscola.Api`.
 
-- `Briscola.Domain` references **nothing** outside the BCL.
-- `Briscola.Application` references `Briscola.Domain` and abstractions packages (`Microsoft.Extensions.*`). **No EF Core, no ASP.NET, no SignalR, no JSON.**
+- `Briscola.Domain` references **nothing** outside the BCL. Verified by grep — no `PackageReference` or `ProjectReference` rows in `Briscola.Domain.csproj`, and only `using System.*` / `using Briscola.Domain.*` directives in any source file.
+- `Briscola.Application` references `Briscola.Domain` and abstractions packages (`Microsoft.Extensions.*`). **No EF Core, no ASP.NET, no SignalR.** `System.Text.Json` IS allowed for non-snapshot serialization (e.g. `MoveRecord.PayloadJson`); snapshot serialization must go through `IGameStateCodec` so the JSON-vs-other choice stays in Infrastructure.
 - `Briscola.Infrastructure` references `Briscola.Application` and concrete framework packages (EF Core providers, Identity, Serilog, BCrypt).
 - `Briscola.Api` references `Briscola.Infrastructure`. This is the only project that knows about HTTP and SignalR.
 
@@ -150,14 +200,54 @@ If you find yourself wanting a project to reference "down" the dependency arrow,
 
 ### Language
 
-- C# 14 (the language version that ships with .NET 10), `<Nullable>enable</Nullable>`, `<ImplicitUsings>enable</ImplicitUsings>`, `<TreatWarningsAsErrors>true</TreatWarningsAsErrors>` in Release.
+- C# 14 (the language version that ships with .NET 10), `<Nullable>enable</Nullable>`, `<ImplicitUsings>enable</ImplicitUsings>`.
+- **`<TreatWarningsAsErrors>true</TreatWarningsAsErrors>` is set ONLY in Release** (via `Directory.Build.props`'s `<PropertyGroup Condition="'$(Configuration)' == 'Release'">`). When verifying acceptance, always run `dotnet build … --configuration Release` and `dotnet test … --configuration Release`. A clean Debug build is not a clean Release build.
 - Prefer `record` and `record struct` for value types.
 - Prefer `ImmutableArray<T>` over `T[]` for state snapshots; `IReadOnlyList<T>` for return types.
 - File-scoped namespaces.
-- Primary constructors only when they don't compromise clarity.
+- Primary constructors are fine; use them when they shorten the file without obscuring intent.
 - Avoid `var` when the right-hand side is not obviously a type (e.g., factory methods returning interfaces).
 - No `async void`. Hub callbacks return `Task`.
 - Always pass `CancellationToken` through async chains; default value only at the outermost public boundary.
+
+### Records, equality, and `ImmutableArray<T>` — known footgun
+
+A `record` with `ImmutableArray<T>` (or `ImmutableArray<ImmutableArray<T>>`) fields **does not** get correct value equality out of the box. The auto-generated `Equals` calls `EqualityComparer<ImmutableArray<T>>.Default.Equals`, which falls back to **reference equality** on the underlying array. Two semantically-identical states will compare unequal.
+
+Implications:
+
+- **Don't compare `GameState`s for equality** in production code paths. Serialize-and-compare, or assert specific fields. (`GameState.Tests` already follows this convention.)
+- **Don't introduce wrapper classes** around `ImmutableArray<T>` (e.g. a `Hand` class) just to "improve ergonomics." If equality matters, you'll have to implement `Equals`/`GetHashCode`/`IEquatable<T>` everywhere — Phase 1 considered and rejected this for `Hand`.
+- If equality on a record with `ImmutableArray<T>` is genuinely required, override `Equals` to call `SequenceEqual` on each array field. Document why.
+
+### `required` init properties
+
+`GameState`'s shape uses `required` init-only properties on a `sealed record`. This is the preferred pattern for Domain/Application snapshot types: the compiler enforces full initialization at construction, the type is immutable after, and `with`-expressions still work for transitions.
+
+### `[ExcludeFromCodeCoverage]` on data records
+
+Plain DTO records (DTOs, command records, event records, `…Record` persistence types) get `[ExcludeFromCodeCoverage]`. `coverlet` can't see through compiler-generated record `Equals`/`GetHashCode`/`PrintMembers`, so leaving them in coverage drops the percentage with no real signal. Apply liberally to anything that's "just data" — but NOT to anything with behavior.
+
+### `InternalsVisibleTo` for testing internals
+
+Domain-internal types (e.g. `Briscola.Domain.Primitives.Deck`) stay `internal` to enforce the assembly's public surface, with one assembly attribute making them visible to the test project:
+
+```csharp
+// backend/src/Briscola.Domain/AssemblyInfo.cs
+using System.Runtime.CompilerServices;
+[assembly: InternalsVisibleTo("Briscola.Domain.Tests")]
+```
+
+Use this pattern in any production assembly whose public surface should stay tight. Do NOT make types public just to test them.
+
+### Code analyzer suppressions (project-scoped)
+
+Two warnings have legitimate project-wide suppressions:
+
+- **CA1707 (no underscores in identifiers)** — suppressed in `backend/tests/Directory.Build.props` only. xUnit-style test names (`Method_Should_Behave`) are conventional.
+- **CA1716 (member name conflicts with VB.NET reserved word, e.g. `Next`)** — suppressed in `Briscola.Domain.csproj` only. We follow `System.Random.Next`'s precedent.
+
+Don't suppress analyzer warnings elsewhere without justification; new suppressions need a comment explaining why.
 
 ### Naming
 
@@ -165,11 +255,12 @@ If you find yourself wanting a project to reference "down" the dependency arrow,
 - Async methods: `…Async` suffix.
 - DTOs: `XxxRequest`, `XxxResponse`, `XxxDto`. **Never** reuse domain types as DTOs.
 - Configuration option classes: `XxxOptions`, with `public const string SectionName = "Xxx";`.
+- **No shadow interfaces.** If a type already has a usable interface in `Briscola.Domain.Primitives.*`, the application layer consumes it directly — do not redeclare a same-named interface in `Briscola.Application.Ports.*` "to mark the boundary." That created a real bug in Phase 2 (caller code had to write `Ports.IRandomSource …` to disambiguate); we kill it on sight.
 
 ### Error handling
 
 - Domain throws `InvalidMoveException(InvalidMoveCode)` only.
-- Application throws specific typed exceptions (`ConcurrencyConflictException`, `LobbyClosedException`, `InvalidPasswordException`).
+- Application throws specific typed exceptions in `Briscola.Application.Errors`: `ConcurrencyConflictException`, `LobbyConflictException`, `InvalidPasswordException`, `GameNotFoundException`, `GameCommandException`. All inherit from `BriscolaApplicationException`.
 - API maps every exception type to a stable `ProblemDetails` shape with a stable error code. **No bare 500s for expected error paths.**
 - Don't catch `Exception` and swallow. If you catch, log with context and rethrow or convert.
 
@@ -189,6 +280,22 @@ If you find yourself wanting a project to reference "down" the dependency arrow,
 - All EF Core access goes through repositories implementing `Briscola.Application.Ports.*`. **No DbContext usage outside `Briscola.Infrastructure`.**
 - Use `AsNoTracking()` for queries that don't intend to update.
 - Migrations live in their own per-provider assemblies. Never edit a generated migration after it's been merged to `main`; create a new one.
+- Optimistic concurrency uses a **plain `long Version` column** managed by the application — not EF's `byte[] RowVersion`. `IGameRepository.UpdateAsync` matches `current.Version == record.Version`, increments on success, returns `false` on mismatch. Callers retry up to 3 times, then surface `ConcurrencyConflictException`.
+- The move log uses a strictly-increasing `(GameId, MoveIndex)` unique key. `GameRoom` hydrates `_moveIndex` from `IGameRepository.GetNextMoveIndexAsync` at the top of its process loop so a process restart on a Running game keeps the sequence intact.
+- Snapshot serialization goes through `IGameStateCodec` (`JsonGameStateCodec` in Infrastructure). The Application layer holds the port; nobody outside Infrastructure imports `System.Text.Json` for snapshot I/O.
+- Lobby-game passwords go through `IGamePasswordHasher` (`BCryptGamePasswordHasher` in Infrastructure). **Distinct** from ASP.NET Identity's user-password hasher — different trust boundary, different rotation rules. Don't share the implementation.
+
+### Game-state lifecycle
+
+- One `GameRoom` per Running game inside `GameOrchestrator`. Single-writer model: a `Channel<GameCommand>` per room, a single `ProcessLoopAsync` consumer. **All state mutation happens on that one task — no locks, no shared mutable state.**
+- `GameRoom` is constructed only for `Running` games; pre-game lobby flow lives entirely on `LobbyService`. The room's command set is `PlayCard / ViewOwnPile / Disconnect / Reconnect / IdleTick / ForfeitOnDisconnect`. There is **no** `JoinGameCommand` or `LeaveGameCommand` — proposing one is a sign you're trying to do lobby work in the wrong place.
+- After every successful state mutation: persist the snapshot via `IGameStateCodec`, append a `MoveRecord`, publish events via `IGameEventBus`. The order matters and is documented in TODO Phase 2 § Process loop semantics.
+
+### Dependency injection
+
+- Singletons: `GameOrchestrator`, `IBriscolaEngine`, `IGameEventBus`, `ITimerService`, `IRandomSourceFactory`, `IClock`, hosted services.
+- Scoped: `LobbyService`, `RankingService`, `MatchHistoryService`, anything per-request that touches `IUserContext`.
+- Tests construct services manually — no DI container in the test suite. The `TestGameFactory` helper is the canonical setup pattern.
 
 ---
 
@@ -267,9 +374,19 @@ frontend/src/app/
 
 ### How to write tests
 
-- **Backend:** xUnit + FluentAssertions. `[Theory]` + `[InlineData]` for table-driven cases. **Never** make tests dependent on test order.
+- **Backend:** xUnit + FluentAssertions **pinned to 7.2.2** (last Apache-2.0 release before v8 commercial relicensing). Don't bump unless we accept the new license. `[Theory]` + `[InlineData]` / `[MemberData]` for table-driven cases. **Never** make tests dependent on test order.
 - **Frontend:** Vitest + `@testing-library/angular`. Use `screen.getByRole(...)` over `getByTestId` when possible. (Vitest is the Angular CLI default since v20+; APIs are Jest-compatible for the surface we use.)
 - **Integration:** Testcontainers Postgres in a class fixture; never mock the DB at the integration level.
+- **Test-double pattern:** the canonical Application-layer test setup is `TestGameFactory` in `_TestDoubles/`, which composes `FakeClock` + `InMemoryGameRepository` + `RecordingGameEventBus` + `FakeTimerService` etc. New tests should reuse it; new test doubles go in `_TestDoubles/` and stay `internal`.
+
+### Test runtime budget
+
+The "no individual test > 500 ms; suite < 30 s" guideline from Phase 1 turned out to be conservative. Real numbers as of Phase 2:
+
+- Domain suite: 2199 tests (incl. 2000 random-game property tests) in ~600 ms.
+- Application suite: 48 tests in ~120 ms.
+
+If a test takes more than ~50 ms in isolation, ask whether it should — most application tests should be far below that. Property tests can take longer; that's fine.
 
 ### What NOT to test
 

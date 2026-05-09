@@ -103,7 +103,7 @@ If you are about to write code in this repository, **read [AGENTS.md](AGENTS.md)
 | Database (prod) | PostgreSQL 16 | Free, robust, well-supported by EF Core |
 | Migrations | EF Core migrations (per-provider) | Two migration projects, one per provider |
 | Logging | Serilog → console + rolling file | Structured logs, easy to ship to ELK/Loki |
-| Testing (BE) | xUnit + FluentAssertions + `WebApplicationFactory` + Testcontainers (Postgres) | Domain unit tests in-process; integration tests against a real Postgres container — no EF in-memory provider (its semantics drift from real DBs) |
+| Testing (BE) | xUnit + FluentAssertions **7.2.2** + `WebApplicationFactory` + Testcontainers (Postgres) | Domain unit tests in-process; integration tests against a real Postgres container — no EF in-memory provider (its semantics drift from real DBs). FluentAssertions pinned at 7.2.2 (last Apache-2.0 release before v8 commercial relicensing) |
 | Frontend | Angular 21 standalone components, signals, SCSS | Modern, signal-based reactivity; latest stable as of May 2026 |
 | Frontend state | Angular signals + small service stores | No NgRx — keeps the bundle and mental model small |
 | Frontend HTTP | Angular `HttpClient` | Standard |
@@ -282,7 +282,7 @@ These permissions are gated by a server-computed `Phase == LastHand` flag, deriv
 
 ## Domain model
 
-Pure C# types in `Briscola.Domain`, no framework dependencies.
+Pure C# types in `Briscola.Domain`, no framework dependencies. The shapes below are the real implementation as of Phase 1 — see `backend/src/Briscola.Domain/` for the canonical source.
 
 ```csharp
 public enum Suit { Bastoni, Coppe, Denari, Spade }
@@ -291,75 +291,81 @@ public enum Suit { Bastoni, Coppe, Denari, Spade }
 // via static tables, NOT via the enum's underlying integer value.
 public enum Rank { Asso, Tre, Re, Cavallo, Fante, Sette, Sei, Cinque, Quattro, Due }
 
-public enum GameMode  { TwoPlayer, FourPlayerTeams }
-public enum GamePhase { Dealing, Playing, LastHand, Finished }
+public enum GameMode   { TwoPlayer, FourPlayerTeams }
+public enum GamePhase  { Dealing, Playing, LastHand, Finished }
 public enum GameStatus { Open, Running, Finished, Abandoned }
 
 public readonly record struct Card(Suit Suit, Rank Rank);
+public readonly record struct Seat(int Index, Guid? PlayerId);  // identity-agnostic; engine uses raw indices
 
 public static class CardTables
 {
     // Trick-taking strength: higher value beats lower within the same suit.
+    // The default arm throws ArgumentOutOfRangeException so a future Rank
+    // member added without updating this table fails loudly.
     public static int Strength(Rank r) => r switch
     {
-        Rank.Asso    => 10,
-        Rank.Tre     => 9,
-        Rank.Re      => 8,
-        Rank.Cavallo => 7,
-        Rank.Fante   => 6,
-        Rank.Sette   => 5,
-        Rank.Sei     => 4,
-        Rank.Cinque  => 3,
-        Rank.Quattro => 2,
-        Rank.Due     => 1,
+        Rank.Asso => 10, Rank.Tre => 9, Rank.Re => 8, Rank.Cavallo => 7, Rank.Fante => 6,
+        Rank.Sette => 5, Rank.Sei => 4, Rank.Cinque => 3, Rank.Quattro => 2, Rank.Due => 1,
+        _ => throw new ArgumentOutOfRangeException(nameof(r), r, "Unknown rank"),
     };
 
     public static int Points(Rank r) => r switch
     {
-        Rank.Asso    => 11,
-        Rank.Tre     => 10,
-        Rank.Re      => 4,
-        Rank.Cavallo => 3,
-        Rank.Fante   => 2,
-        _            => 0,
+        Rank.Asso => 11, Rank.Tre => 10, Rank.Re => 4, Rank.Cavallo => 3, Rank.Fante => 2,
+        Rank.Sette or Rank.Sei or Rank.Cinque or Rank.Quattro or Rank.Due => 0,
+        _ => throw new ArgumentOutOfRangeException(nameof(r), r, "Unknown rank"),
     };
+
+    public static IReadOnlyList<Card> FullDeck { get; } = /* every (Suit, Rank) once */;
+    public const int TotalDeckPoints = 120;
 }
 
-public sealed record PlayedCard(int SeatIndex, Card Card);
+public readonly record struct PlayedCard(int SeatIndex, Card Card);
 
+// Closed discriminated union — the base record's constructor is private
+// so external code can't subclass.
 public abstract record GameOutcome
 {
-    public sealed record Winner(int SeatOrTeam) : GameOutcome;     // seat index in 2p, team id in 4p
-    public sealed record Draw() : GameOutcome;
+    public sealed record Winner(int SeatOrTeam) : GameOutcome;  // seat in 2p, team id in 4p
+    public sealed record Draw                  : GameOutcome;   // no payload, no parens
 }
 
-public sealed class GameState
+// Authoritative snapshot. All transitions return a new GameState (never mutate).
+public sealed record GameState
 {
-    public Guid GameId { get; init; }
-    public GameMode Mode { get; init; }
-    public int DealerSeat { get; init; }
-    public IReadOnlyList<Seat> Seats { get; init; }       // 2 or 4
-    public Suit BriscolaSuit { get; init; }
-    public Card BriscolaCard { get; init; }               // shown perpendicular under the stock
-    public IReadOnlyList<Card> Stock { get; init; }       // tail = briscola card
-    public IReadOnlyList<PlayedCard> CurrentTrick { get; init; }
-    public int LeaderSeat { get; init; }
-    public int NextToPlaySeat { get; init; }
-    public GamePhase Phase { get; init; }
-    public IReadOnlyList<int> SeatScores { get; init; }   // per seat; team scores derived
-    public GameOutcome? Outcome { get; init; }            // set only when Phase == Finished
+    public required Guid GameId { get; init; }
+    public required GameMode Mode { get; init; }
+    public required long ShuffleSeed { get; init; }                          // for replay
+    public required int DealerSeat { get; init; }
+    public required ImmutableArray<ImmutableArray<Card>> Hands { get; init; } // index = seat
+    public required ImmutableArray<ImmutableArray<Card>> Pozzi { get; init; } // captured pile per seat
+    public required ImmutableArray<Card> Stock { get; init; }                // tail = briscola card
+    public required Card BriscolaCard { get; init; }
+    public required Suit BriscolaSuit { get; init; }
+    public required ImmutableArray<PlayedCard> CurrentTrick { get; init; }
+    public required int LeaderSeat { get; init; }
+    public required int NextToPlaySeat { get; init; }
+    public required GamePhase Phase { get; init; }
+    public required int TrickNumber { get; init; }
+    public required ImmutableArray<int> SeatScores { get; init; }
+    public GameOutcome? Outcome { get; init; }                               // set only on Finished
 }
 
 public interface IBriscolaEngine
 {
     GameState StartGame(GameSetup setup, IRandomSource rng);
     GameState PlayCard(GameState state, int seatIndex, Card card);  // throws InvalidMoveException
-    bool IsLegalMove(GameState state, int seatIndex, Card card);
-    TrickResult? ResolveTrickIfComplete(GameState state);
+    bool       IsLegalMove(GameState state, int seatIndex, Card card);
 }
+
+// Errors live in Briscola.Domain.Errors.
+public enum InvalidMoveCode { NotYourTurn, CardNotInHand, GameFinished, WrongPhase, PileViewNotAllowed }
 ```
 
-The engine is **deterministic** given an `IRandomSource` (seedable for tests). State transitions are pure functions returning new `GameState` values — no mutation of inputs. The engine asserts at end-of-game that **scores sum to 120**; if they don't, it throws — this is a defensive in-production invariant, not just a test.
+The engine is **deterministic** given an `IRandomSource` (seedable for tests). State transitions are pure functions returning new `GameState` values — no mutation of inputs. The engine asserts at end-of-game that **scores sum to 120**; if they don't, it throws `InvalidOperationException("score-sum invariant violated")` — this is a defensive in-production invariant, not just a test.
+
+> **Equality footgun.** A `record` with `ImmutableArray<T>` fields uses reference equality on the array — two semantically-equal `GameState`s compare unequal. Don't compare states for equality in production paths; serialize-and-compare or assert specific fields. (See [AGENTS.md § Records, equality, and `ImmutableArray<T>`](AGENTS.md#records-equality-and-immutablearrayt--known-footgun).)
 
 ---
 
@@ -368,7 +374,11 @@ The engine is **deterministic** given an `IRandomSource` (seedable for tests). S
 ### Projects
 
 - **Briscola.Domain** — rules engine, value types, no external deps.
-- **Briscola.Application** — services, DTOs, ports: `IGameRepository`, `IChatRepository`, `IRankingRepository`, `IUserContext`, `IClock`, `IRandomSource`. Implementations live in `Infrastructure`.
+- **Briscola.Application** — services, DTOs, ports. Implementations live in `Infrastructure`.
+  - **Persistence ports:** `IGameRepository` (incl. `GetAsync`, `ListByStatusAsync`, `CreateAsync`, `UpdateAsync` returning `bool` for optimistic-concurrency, `AppendMoveAsync`, `SaveResultAsync`, `GetNextMoveIndexAsync`), `IChatRepository`, `IRankingRepository` (incl. `HasProcessedGameAsync` / `MarkProcessedGameAsync` for Elo idempotency).
+  - **Identity / time / chance:** `IUserContext`, `IClock`, `IRandomSourceFactory` (creates a fresh seeded RNG per game start so the seed lands in `GameState.ShuffleSeed`).
+  - **Cross-cutting boundaries:** `IGameStateCodec` (opaque snapshot serialization — JSON lives in Infrastructure), `IGamePasswordHasher` (game-room password hashing — distinct from ASP.NET Identity's user-password hasher), `IGameEventBus` (single multiplexed `Channel<IGameEvent>` consumed by the API layer's `GameEventDispatcher`).
+- **Briscola.Application** consumes `Briscola.Domain.Primitives.IRandomSource` directly — there is **no** application-layer shadow interface for the RNG.
 - **Briscola.Infrastructure** — EF Core `BriscolaDbContext`, repositories, Identity stores, JWT issuance, Serilog config.
 - **Briscola.Api** — controllers, SignalR hubs, DI composition, `Program.cs`.
 
@@ -458,11 +468,13 @@ Server → client:
 - `chatMessage(GameChatMessage)`
 
 Client → server:
-- `joinGame(gameId)` (also re-used for reconnect)
-- `playCard(card)` — server validates against engine; rejection returns an `InvalidMove` error
-- `viewOwnPile()` — only allowed in `LastHandPhase`; server returns the pile contents
-- `sendChat(text)`
-- `leaveGame()`
+- `joinGame(gameId)` (also re-used for reconnect; idempotent — replaying it returns the current authoritative snapshot every time).
+- `playCard(gameId, card)` — server validates against engine; rejection returns an `InvalidMove` error with one of the codes below.
+- `viewOwnPile(gameId)` — only allowed in `LastHand`; server returns the pile contents to the calling user only (private `StateUpdatedEvent` with `MyPozzo` populated).
+- `sendChat(gameId, text)`
+- `leaveGame(gameId)` — semantics differ by game status:
+  - **Open** game: removes the seat. The lobby UI returns to the create/join screen. Equivalent to `POST /games/{id}/leave`.
+  - **Running** game: behaves as a disconnect. The reconnect grace timer starts; the player has `Game:ReconnectGraceSeconds` to come back before the team-or-seat forfeits. There is no REST equivalent — closing the browser tab triggers the same path via `OnDisconnectedAsync`.
 
 **Authentication:** the Angular client uses `@microsoft/signalr`'s `accessTokenFactory` option to supply the JWT on each (re)connect; ASP.NET Core's SignalR JWT integration accepts the token via the `access_token` query string for the WebSocket handshake. Identity then flows through `Context.UserIdentifier`.
 
@@ -709,15 +721,23 @@ Games
   Id, Mode, Name, Status (Open|Running|Finished|Abandoned),
   CreatedByUserId, CreatedAt, StartedAt, EndedAt,
   ShuffleSeed (long, persisted at game start for replayability),
-  StateSnapshot (JSON), BriscolaSuit,
-  IsPrivate, PasswordHash?
+  StateSnapshotJson (text/jsonb), BriscolaSuit,
+  IsPrivate, PasswordHash?,
+  Version (long, optimistic-concurrency token; manually incremented on
+            every UPDATE through IGameRepository.UpdateAsync — see Backend
+            design § Optimistic concurrency)
 
 GameSeats
-  GameId, SeatIndex, UserId, JoinedAt, LeftAt?
+  GameId, SeatIndex, UserId?, JoinedAt, LeftAt?
+  // PK (GameId, SeatIndex). UserId is nullable so an Open game with
+  // unfilled seats can still have rows (or it can have fewer rows; the
+  // application port presents seats as an Indexed-by-seat array of Guid?).
 
 GameMoves
-  Id, GameId, MoveIndex, SeatIndex, MoveType, Payload (JSON), CreatedAt
+  Id, GameId, MoveIndex, SeatIndex, MoveType, PayloadJson, CreatedAt
   // MoveType ∈ { PlayCard, Forfeit, Disconnect, Reconnect, IdleTimeout }
+  // PayloadJson is canonical JSON (System.Text.Json), e.g.
+  //   {"suit":"Bastoni","rank":"Asso"} for PlayCard.
   // Chat is NOT in GameMoves; it lives in ChatMessages.
 
 GameResults
@@ -731,11 +751,19 @@ ChatMessages
 
 Rankings
   UserId, Elo, Wins, Losses, Draws, GamesPlayed, UpdatedAt
+
+RankingProcessedGames
+  GameId (PK)
+  // Single-row marker that RankingService.ApplyResultAsync(gameId) has
+  // already run for this game. Drives the idempotency contract on
+  // IRankingRepository.HasProcessedGameAsync / MarkProcessedGameAsync.
 ```
 
 Indexes on hot lookups: `Games(Status)`, `GameSeats(UserId)`, `GameSeats(GameId, SeatIndex)` unique, `GameMoves(GameId, MoveIndex)` unique, `ChatMessages(GameId, CreatedAt)`, `RefreshTokens(UserId)`, `RefreshTokens(TokenHash)` unique.
 
-**Replayability:** `Games.ShuffleSeed` + ordered `GameMoves` rows are sufficient to reproduce any game deterministically — useful for support and post-mortem debugging.
+**Replayability:** `Games.ShuffleSeed` + ordered `GameMoves` rows are sufficient to reproduce any game deterministically — useful for support and post-mortem debugging. The application can recover an in-flight game by reading the latest `GameMoves.MoveIndex` (`IGameRepository.GetNextMoveIndexAsync`) so the move log keeps a strictly-increasing sequence across process restarts.
+
+**Optimistic concurrency:** `Games.Version` is a plain `long` (NOT EF's `byte[] RowVersion` / Postgres `xmin`) so the application port can talk in stable types across providers. `IGameRepository.UpdateAsync(record)` matches `current.Version == record.Version`, writes `Version + 1` on success, returns `false` on mismatch. Callers retry up to 3 times before throwing `ConcurrencyConflictException`.
 
 ---
 
@@ -784,45 +812,61 @@ Indexes on hot lookups: `Games(Status)`, `GameSeats(UserId)`, `GameSeats(GameId,
 
 ### Prerequisites
 
-- .NET 10 SDK
-- Node 22+ (LTS)
-- (Optional, for prod-like local) Docker
+- .NET 10 SDK (10.0.203 in the dev environment; install via the official `dotnet-install.sh` if your distro doesn't ship it).
+- Node 22 LTS via `nvm` (alias `lts/jod`).
+- (Optional, for prod-like local) Docker.
+
+### WSL2 specifically
+
+If you're on WSL2 and have Windows Node / nvm4w on `PATH`, `npx` will pick the Windows binaries first and fail with `EPERM: operation not permitted, mkdir 'C:\Windows\frontend'`. The repo expects a small env-prelude (see [AGENTS.md § Tooling environment](AGENTS.md#tooling-environment-wsl-gotchas--version-pins)) that puts the Linux toolchain ahead of the shims:
+
+```bash
+. ~/.elk-env.sh
+dotnet --version  # 10.0.203
+node --version    # v22.22.2
+```
+
+Source it at the start of every shell that runs `dotnet` / `npm` / `npx`.
 
 ### Backend (SQLite, fastest path)
 
 ```bash
-cd backend
-dotnet restore
-dotnet ef database update --project src/Briscola.Infrastructure --startup-project src/Briscola.Api
-dotnet run --project src/Briscola.Api
-# API at http://localhost:5080
-# Swagger at http://localhost:5080/swagger
+. ~/.elk-env.sh   # WSL only — see above
+dotnet restore backend/Briscola.sln
+dotnet ef database update \
+  --project backend/src/Briscola.Infrastructure \
+  --startup-project backend/src/Briscola.Api
+dotnet run --project backend/src/Briscola.Api
+# API at http://localhost:5080  (Swagger at /swagger in dev)
 ```
+
+> The .NET 10 SDK creates `.slnx` solutions by default. We use the legacy `.sln` (forced via `dotnet new sln --format sln`) to keep the canonical `Briscola.sln` filename.
 
 ### Frontend
 
 ```bash
+. ~/.elk-env.sh   # WSL only — see above
 cd frontend
 npm install
 npm start
-# Angular dev server at http://localhost:4200, proxies /api and /hubs to :5080
+# Angular 21 dev server at http://localhost:4200; proxies /api, /hubs, /card-sets to :5080
 ```
 
 ### Postgres locally
 
 ```bash
 docker compose -f docker-compose.dev.yml up -d
-# then run backend with ConnectionStrings:Provider=Postgres
+# then run backend with ConnectionStrings__Provider=Postgres
 ```
 
 ### Tests
 
 ```bash
-# backend
-cd backend && dotnet test
+# backend (Release config — that's where TreatWarningsAsErrors applies)
+dotnet test backend/Briscola.sln --configuration Release
 
 # frontend
-cd frontend && npm test
+cd frontend && npm run test:ci
 
 # e2e (requires both servers running, or use the all-in-one compose)
 cd frontend && npm run e2e
