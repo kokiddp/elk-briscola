@@ -1,7 +1,10 @@
 using System.Diagnostics.CodeAnalysis;
+using Briscola.Application.Ports;
 using Briscola.Infrastructure.Auth;
+using Briscola.Infrastructure.Codecs;
 using Briscola.Infrastructure.Persistence;
 using Briscola.Infrastructure.Persistence.Entities;
+using Briscola.Infrastructure.Persistence.Repositories;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -73,6 +76,17 @@ public static class DependencyInjection
             .Bind(configuration.GetSection(JwtOptions.SectionName));
         services.AddScoped<JwtIssuer>();
         services.AddScoped<RefreshTokenService>();
+
+        // Adapter-port implementations of Briscola.Application.Ports.* — kept
+        // out of Application by design (System.Text.Json + BCrypt are
+        // infrastructure concerns).
+        services.AddSingleton<IGameStateCodec, JsonGameStateCodec>();
+        services.AddSingleton<IGamePasswordHasher, BCryptGamePasswordHasher>();
+
+        // EF-backed repositories. Scoped because BriscolaDbContext is scoped.
+        services.AddScoped<IGameRepository, EfGameRepository>();
+        services.AddScoped<IChatRepository, EfChatRepository>();
+        services.AddScoped<IRankingRepository, EfRankingRepository>();
 
         return services;
     }

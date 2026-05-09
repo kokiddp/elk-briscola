@@ -1077,7 +1077,7 @@ builder.Services.AddDbContext<BriscolaDbContext>((sp, opts) =>
 
 ---
 
-### Step 3.6 — Repositories and adapter ports (Infrastructure implementations) [M]
+### Step 3.6 — Repositories and adapter ports (Infrastructure implementations) [M] [x]
 
 **Where:**
 - `backend/src/Briscola.Infrastructure/Persistence/Repositories/Ef*Repository.cs`
