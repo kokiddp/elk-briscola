@@ -46,7 +46,7 @@ If you are about to write code in this repository, **read [AGENTS.md](AGENTS.md)
 
 ```
 ┌─────────────────────────┐                   ┌─────────────────────────────┐
-│   Angular SPA           │  REST + WS        │   ASP.NET Core 8 backend    │
+│   Angular SPA           │  REST + WS        │   ASP.NET Core 10 backend   │
 │   (standalone, signals) │ ◄───────────────► │   ┌───────────────────────┐ │
 │                         │                   │   │ Controllers (REST)    │ │
 │  - Auth screens         │                   │   │ SignalR GameHub       │ │
