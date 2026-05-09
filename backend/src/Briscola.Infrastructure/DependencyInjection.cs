@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using Briscola.Infrastructure.Auth;
 using Briscola.Infrastructure.Persistence;
 using Briscola.Infrastructure.Persistence.Entities;
 using Microsoft.AspNetCore.Identity;
@@ -62,6 +63,16 @@ public static class DependencyInjection
             .AddRoles<IdentityRole<Guid>>()
             .AddEntityFrameworkStores<BriscolaDbContext>()
             .AddDefaultTokenProviders();
+
+        // JWT issuance / refresh-token rotation. The actual JWT bearer
+        // *validation* middleware lives in Briscola.Api (Phase 4) so the
+        // Infrastructure project doesn't take a dependency on ASP.NET Core
+        // pipeline types. JwtIssuer and RefreshTokenService are the
+        // building blocks the Phase 4 controllers will call.
+        services.AddOptions<JwtOptions>()
+            .Bind(configuration.GetSection(JwtOptions.SectionName));
+        services.AddScoped<JwtIssuer>();
+        services.AddScoped<RefreshTokenService>();
 
         return services;
     }

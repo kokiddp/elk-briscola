@@ -1064,7 +1064,7 @@ builder.Services.AddDbContext<BriscolaDbContext>((sp, opts) =>
 
 ---
 
-### Step 3.5 — JWT issuance & refresh tokens [M]
+### Step 3.5 — JWT issuance & refresh tokens [M] [x]
 
 **Where:** `backend/src/Briscola.Infrastructure/Auth/`
 
