@@ -1055,7 +1055,7 @@ builder.Services.AddDbContext<BriscolaDbContext>((sp, opts) =>
 
 ---
 
-### Step 3.4 — ASP.NET Identity wiring [M]
+### Step 3.4 — ASP.NET Identity wiring [M] [x]
 
 - `IdentityCore<ApplicationUser>` with `AddEntityFrameworkStores<BriscolaDbContext>()`.
 - Password options: `RequireDigit=true`, `RequiredLength=10`, `RequireNonAlphanumeric=false`, `RequireUppercase=false`, `RequireLowercase=false`. (Length over complexity.)
