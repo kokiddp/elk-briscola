@@ -14,7 +14,7 @@ public sealed class LobbyService(
     IGamePasswordHasher passwordHasher,
     IGameStateCodec stateCodec,
     IBriscolaEngine engine,
-    Ports.IRandomSource randomSource,
+    IRandomSourceFactory randomSourceFactory,
     IClock clock,
     GameOrchestrator orchestrator)
 {
@@ -162,6 +162,7 @@ public sealed class LobbyService(
     private GameRecord StartRecord(GameRecord record, ImmutableArray<Guid?> seats)
     {
         ImmutableArray<Guid> players = seats.Select(id => id!.Value).ToImmutableArray();
+        Ports.IRandomSource randomSource = randomSourceFactory.Create();
         GameState state = engine.StartGame(
             new GameSetup(record.Id, record.Mode, DealerSeat: 0, players),
             randomSource);

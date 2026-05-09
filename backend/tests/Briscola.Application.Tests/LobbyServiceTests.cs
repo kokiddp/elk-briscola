@@ -52,6 +52,33 @@ public sealed class LobbyServiceTests
     }
 
     [Fact]
+    public async Task Each_started_game_gets_fresh_shuffle_seed()
+    {
+        TestFixture fixture = new();
+        GameRecord first = await fixture.Service.CreateAsync(
+            new CreateGameRequest(GameMode.TwoPlayer, "one", IsPrivate: false, Password: null),
+            Guid.NewGuid(),
+            CancellationToken.None);
+        GameRecord second = await fixture.Service.CreateAsync(
+            new CreateGameRequest(GameMode.TwoPlayer, "two", IsPrivate: false, Password: null),
+            Guid.NewGuid(),
+            CancellationToken.None);
+
+        GameRecord firstStarted = await fixture.Service.JoinAsync(
+            first.Id,
+            Guid.NewGuid(),
+            password: null,
+            CancellationToken.None);
+        GameRecord secondStarted = await fixture.Service.JoinAsync(
+            second.Id,
+            Guid.NewGuid(),
+            password: null,
+            CancellationToken.None);
+
+        firstStarted.ShuffleSeed.Should().NotBe(secondStarted.ShuffleSeed);
+    }
+
+    [Fact]
     public async Task List_returns_game_summaries()
     {
         TestFixture fixture = new();
@@ -295,7 +322,7 @@ public sealed class LobbyServiceTests
                 new FakePasswordHasher(),
                 Codec,
                 engine,
-                new FakeRandomSource(),
+                new FakeRandomSourceFactory(),
                 Clock,
                 orchestrator);
         }

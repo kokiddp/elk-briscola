@@ -623,6 +623,7 @@ public sealed class BriscolaEngine : IBriscolaEngine
 
 - `IClock.cs` — `DateTimeOffset UtcNow { get; }`. Default impl `SystemClock` provided here for non-test use; the application layer's DI registers it.
 - `IRandomSource.cs` — re-exposes `Briscola.Domain.Primitives.IRandomSource`.
+- `IRandomSourceFactory.cs` — creates a fresh `IRandomSource` per game start so persisted shuffle seeds are replayable.
 - `IUserContext.cs` — `Guid UserId { get; }`, `string UserName { get; }`. Implementation lives in `Briscola.Api`.
 - `IGameRepository.cs`:
   ```csharp

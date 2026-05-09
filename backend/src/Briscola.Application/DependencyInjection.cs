@@ -22,7 +22,7 @@ public static class DependencyInjection
         services.AddSingleton<IClock, SystemClock>();
         services.AddSingleton<IGameEventBus, InMemoryGameEventBus>();
         services.AddSingleton<ITimerService, SystemTimerService>();
-        services.AddTransient<IRandomSource, SystemRandomSource>();
+        services.AddSingleton<IRandomSourceFactory, SystemRandomSourceFactory>();
         services.AddSingleton<IBriscolaEngine, BriscolaEngine>();
         services.AddSingleton<GameOrchestrator>();
         services.AddScoped<LobbyService>();
