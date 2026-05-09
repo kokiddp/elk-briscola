@@ -607,7 +607,7 @@ public sealed class BriscolaEngine : IBriscolaEngine
 
 **Goal:** rules wrapped in use-cases; persistence/identity/clock behind interfaces; orchestrator with single-writer concurrency.
 
-### Step 2.1 — Project setup [S] [~]
+### Step 2.1 — Project setup [S] [x]
 
 **Where:** `backend/src/Briscola.Application/`
 
@@ -615,7 +615,7 @@ public sealed class BriscolaEngine : IBriscolaEngine
 
 ---
 
-### Step 2.2 — Ports (interfaces) [S]
+### Step 2.2 — Ports (interfaces) [S] [x]
 
 **Where:** `backend/src/Briscola.Application/Ports/`
 
@@ -629,7 +629,7 @@ public sealed class BriscolaEngine : IBriscolaEngine
   Task<GameRecord?> GetAsync(Guid id, CancellationToken ct);
   Task<IReadOnlyList<GameRecord>> ListByStatusAsync(GameStatus status, int take, CancellationToken ct);
   Task CreateAsync(GameRecord record, CancellationToken ct);
-  Task UpdateAsync(GameRecord record, CancellationToken ct);
+  Task<bool> UpdateAsync(GameRecord record, CancellationToken ct);
   Task AppendMoveAsync(Guid gameId, MoveRecord move, CancellationToken ct);
   Task SaveResultAsync(GameResultRecord result, CancellationToken ct);
   ```
@@ -650,6 +650,18 @@ public sealed class BriscolaEngine : IBriscolaEngine
   ```
   - In-memory implementation lives in `Briscola.Application/Bus/InMemoryGameEventBus.cs`: a single `Channel<IGameEvent>(UnboundedChannelOptions { SingleReader = true, SingleWriter = false })`. The dispatcher is the only consumer; it routes by `evt.GameId` to the right SignalR group. Multi-instance horizontal scaling is **not** a v1 requirement.
   - For tests, a `RecordingGameEventBus` captures published events into a list and exposes them synchronously.
+- `IGameStateCodec.cs` — opaque snapshot serialization boundary:
+  ```csharp
+  string Serialize(GameState state);
+  GameState Deserialize(string snapshot);
+  ```
+  The Application layer depends on this port so JSON stays in Infrastructure.
+- `IGamePasswordHasher.cs` — game-room password hashing boundary:
+  ```csharp
+  string Hash(string password);
+  bool Verify(string password, string hash);
+  ```
+  Concrete hashing lives outside Application.
 
 **Records used by ports** (in `Briscola.Application/Persistence/Records.cs`):
 
@@ -659,7 +671,8 @@ public sealed record GameRecord(
     Guid CreatedByUserId, DateTimeOffset CreatedAt,
     DateTimeOffset? StartedAt, DateTimeOffset? EndedAt,
     long ShuffleSeed, string StateSnapshotJson,
-    Suit BriscolaSuit, bool IsPrivate, string? PasswordHash);
+    Suit BriscolaSuit, bool IsPrivate, string? PasswordHash,
+    ImmutableArray<Guid?> SeatUserIds, long Version);
 
 public sealed record MoveRecord(
     Guid Id, Guid GameId, int MoveIndex, int SeatIndex,
@@ -684,9 +697,11 @@ public sealed record RankingRecord(
     Guid UserId, int Elo, int Wins, int Losses, int Draws, int GamesPlayed, DateTimeOffset UpdatedAt);
 ```
 
+`IRankingRepository` also exposes `HasProcessedGameAsync(gameId, ct)` and `MarkProcessedGameAsync(gameId, ct)` so `RankingService` can enforce result idempotency without coupling itself to a concrete schema.
+
 ---
 
-### Step 2.3 — `GameOptions` [S]
+### Step 2.3 — `GameOptions` [S] [x]
 
 **Where:** `backend/src/Briscola.Application/Configuration/GameOptions.cs`
 
@@ -706,7 +721,7 @@ Bound from the config section `Game` in `Briscola.Api`'s `Program.cs`. **Always 
 
 ---
 
-### Step 2.4 — `GameOrchestrator` & `GameRoom` [M]
+### Step 2.4 — `GameOrchestrator` & `GameRoom` [M] [x]
 
 **Where:**
 - `backend/src/Briscola.Application/Orchestration/GameOrchestrator.cs`
@@ -725,6 +740,7 @@ public sealed record ViewOwnPileCommand(Guid GameId, Guid UserId) : GameCommand(
 public sealed record DisconnectCommand(Guid GameId, Guid UserId) : GameCommand(GameId);
 public sealed record ReconnectCommand(Guid GameId, Guid UserId) : GameCommand(GameId);
 public sealed record IdleTickCommand(Guid GameId, DateTimeOffset At) : GameCommand(GameId);
+public sealed record ForfeitOnDisconnectCommand(Guid GameId, int SeatIndex) : GameCommand(GameId);
 ```
 
 **Events** (records implementing `IGameEvent`):
@@ -742,6 +758,7 @@ public sealed record PlayerDisconnectedEvent(Guid GameId, DateTimeOffset At, int
 public sealed record PlayerReconnectedEvent(Guid GameId, DateTimeOffset At, int SeatIndex) : IGameEvent;
 public sealed record ChatMessageEvent(Guid GameId, DateTimeOffset At, Guid FromUserId, string FromDisplayName, ChatScope Scope, string Text) : IGameEvent;
 public sealed record InvalidMoveRejectedEvent(Guid GameId, DateTimeOffset At, Guid TargetUserId, InvalidMoveCode Code) : IGameEvent;
+public sealed record IdleWarningEvent(Guid GameId, DateTimeOffset At, int SeatIndex, DateTimeOffset ForfeitDeadlineUtc) : IGameEvent;
 ```
 
 `RedactedStateForUser` is built by the room when a `JoinedEvent` or `StateUpdatedEvent` is emitted: each recipient gets their own copy (their hand visible, others' hand counts only).
@@ -753,7 +770,7 @@ public sealed record RedactedStateForUser(
     Card BriscolaCard, Suit BriscolaSuit, int StockCount,
     ImmutableArray<int> HandCountsBySeat,
     ImmutableArray<Card>? MyHand,                 // null for spectators
-    ImmutableArray<int>? MyPozzo,                 // available only on viewOwnPile during LastHand
+    ImmutableArray<Card>? MyPozzo,                // available only on viewOwnPile during LastHand
     ImmutableArray<PlayedCard> CurrentTrick,
     ImmutableArray<int> SeatScores,
     GameOutcome? Outcome);
@@ -786,7 +803,7 @@ For each command popped from the channel:
 
 ---
 
-### Step 2.5 — Reconnect & idle timers [M]
+### Step 2.5 — Reconnect & idle timers [M] [x]
 
 **Where:** `backend/src/Briscola.Application/Orchestration/Timers/`
 
@@ -818,7 +835,7 @@ For each command popped from the channel:
 
 ---
 
-### Step 2.6 — `LobbyService` [S]
+### Step 2.6 — `LobbyService` [S] [x]
 
 **Where:** `backend/src/Briscola.Application/Lobby/LobbyService.cs`
 
@@ -848,7 +865,7 @@ Task LeaveAsync(Guid gameId, Guid userId, CancellationToken ct);
 
 ---
 
-### Step 2.7 — `RankingService` [S]
+### Step 2.7 — `RankingService` [S] [x]
 
 **Where:** `backend/src/Briscola.Application/Ranking/RankingService.cs`
 
@@ -878,17 +895,17 @@ rating[seat1] -= delta; rating[seat3] -= delta
 
 **Update statistics:** `Wins`, `Losses`, `Draws`, `GamesPlayed`, `UpdatedAt` (UTC).
 
-**Idempotency:** `RankingService.ApplyResultAsync(gameId, result)` checks whether `gameId` has already been applied (via a `ProcessedGames` set in the `Rankings` schema, or a flag on `GameResults`). Re-application is a no-op.
+**Idempotency:** `RankingService.ApplyResultAsync(gameRecord, result)` checks whether `result.GameId` has already been applied (via a `ProcessedGames` set in the `Rankings` schema, or a flag on `GameResults`). Re-application is a no-op.
 
 ---
 
-### Step 2.8 — `MatchHistoryService` [S]
+### Step 2.8 — `MatchHistoryService` [S] [x]
 
 Trivial wrapper that, on game end, persists a `GameResultRecord`. `GameMoves` is already persisted incrementally by the orchestrator. No additional logic.
 
 ---
 
-### Step 2.9 — `Briscola.Application.Tests` [M]
+### Step 2.9 — `Briscola.Application.Tests` [M] [x]
 
 **Where:** `backend/tests/Briscola.Application.Tests/`
 
@@ -896,14 +913,19 @@ Trivial wrapper that, on game end, persists a `GameResultRecord`. `GameMoves` is
 - `FakeClock : IClock` — settable `UtcNow`.
 - `FakeRandomSource : IRandomSource` — fixed seed for reproducibility.
 - `InMemoryGameRepository`, `InMemoryChatRepository`, `InMemoryRankingRepository` — `Dictionary`-backed.
-- `FakeTimerService` — virtual time; `Advance(TimeSpan)` triggers due callbacks.
+- `FakeTimerService` — virtual time; `AdvanceAsync(TimeSpan)` triggers due callbacks.
 - `RecordingGameEventBus` — captures events for assertions.
 
 **Test classes:**
 
 - `OrchestratorConcurrencyTests`:
-  - **1000 interleaved commands** test: spawn 8 producer tasks, each enqueueing valid moves on a single room; assert final state is consistent (`SeatScores.Sum() == 120`).
+  - **1000 interleaved commands** test: spawn 8 producer tasks, each enqueueing valid room commands on a single room; assert final state is consistent.
   - `Single_writer_invariant`: two `PlayCardCommand`s for the same seat in the same trick → only the first succeeds, second yields `InvalidMoveRejectedEvent`.
+- `GameOrchestratorTests`:
+  - Hydrate running games from persistence and route commands to the room.
+  - Missing game and lazy factory behavior.
+- `GameRoomEventTests`:
+  - Trick-resolution, draw, final-result, view-own-pile, stale persistence, and forfeit event paths.
 - `ReconnectTests`:
   - Happy path: disconnect → reconnect inside grace → state resumes; outstanding turn unaffected.
   - Idempotent reconnect: 5 consecutive `ReconnectCommand`s emit one `PlayerReconnectedEvent` and 5 `JoinedEvent` snapshots (snapshots are idempotent broadcasts).
@@ -923,9 +945,11 @@ Trivial wrapper that, on game end, persists a `GameResultRecord`. `GameMoves` is
   - Private game requires correct password.
   - Open-lobby janitor abandons games > TTL.
 - `EventBusTests`:
-  - Pub/sub multi-subscriber semantics.
+  - Single-reader FIFO semantics.
+- `MatchHistoryServiceTests`:
+  - Saves a `GameResultRecord` through `IGameRepository`.
 
-**Acceptance:** all tests green; line coverage on `Briscola.Application` ≥ 85%.
+**Acceptance:** all tests green; line coverage on `Briscola.Application` ≥ 85% (verified at 98.58%).
 
 **Phase 2 exit:** application layer fully exercised in tests against in-memory fakes; no API/persistence code yet.
 

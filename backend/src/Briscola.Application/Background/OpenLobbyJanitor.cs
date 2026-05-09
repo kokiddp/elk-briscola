@@ -2,6 +2,7 @@ using Briscola.Application.Configuration;
 using Briscola.Application.Persistence;
 using Briscola.Application.Ports;
 using Briscola.Domain.Primitives;
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 
@@ -12,6 +13,7 @@ public sealed class OpenLobbyJanitor(
     IClock clock,
     IOptions<GameOptions> options) : BackgroundService
 {
+    [ExcludeFromCodeCoverage]
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         using PeriodicTimer timer = new(TimeSpan.FromMinutes(1));

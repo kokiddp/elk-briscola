@@ -134,19 +134,6 @@ public sealed class LobbyService(
         throw new ConcurrencyConflictException($"Game {gameId} could not be left after retries.");
     }
 
-    public async Task AbandonExpiredOpenGamesAsync(CancellationToken ct)
-    {
-        IReadOnlyList<GameRecord> openGames =
-            await games.ListByStatusAsync(GameStatus.Open, take: int.MaxValue, ct).ConfigureAwait(false);
-        DateTimeOffset cutoff = clock.UtcNow.AddMinutes(-60);
-
-        foreach (GameRecord game in openGames.Where(g => g.CreatedAt < cutoff))
-        {
-            await games.UpdateAsync(game with { Status = GameStatus.Abandoned, EndedAt = clock.UtcNow }, ct)
-                .ConfigureAwait(false);
-        }
-    }
-
     private async Task<GameRecord> LoadOpenGameAsync(Guid gameId, CancellationToken ct)
     {
         GameRecord record = await games.GetAsync(gameId, ct).ConfigureAwait(false)

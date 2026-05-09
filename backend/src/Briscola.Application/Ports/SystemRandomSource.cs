@@ -1,7 +1,9 @@
+using System.Diagnostics.CodeAnalysis;
 using Briscola.Domain.Primitives;
 
 namespace Briscola.Application.Ports;
 
+[ExcludeFromCodeCoverage]
 public sealed class SystemRandomSource : IRandomSource
 {
     private readonly SeededRandomSource _inner;

@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using Briscola.Application.Background;
 using Briscola.Application.Configuration;
 using Briscola.Application.Errors;
@@ -51,6 +52,24 @@ public sealed class LobbyServiceTests
     }
 
     [Fact]
+    public async Task List_returns_game_summaries()
+    {
+        TestFixture fixture = new();
+        await fixture.Service.CreateAsync(
+            new CreateGameRequest(GameMode.FourPlayerTeams, "team table", IsPrivate: false, Password: null),
+            Guid.NewGuid(),
+            CancellationToken.None);
+
+        IReadOnlyList<GameSummary> summaries =
+            await fixture.Service.ListAsync(GameStatus.Open, CancellationToken.None);
+
+        summaries.Should().ContainSingle().Which.Should().Match<GameSummary>(s =>
+            s.Name == "team table"
+            && s.OccupiedSeats == 1
+            && s.TotalSeats == 4);
+    }
+
+    [Fact]
     public async Task Concurrent_joins_for_last_seat_allow_exactly_one_winner()
     {
         TestFixture fixture = new();
@@ -94,6 +113,75 @@ public sealed class LobbyServiceTests
     }
 
     [Fact]
+    public async Task Leave_open_game_clears_existing_seat()
+    {
+        TestFixture fixture = new();
+        Guid creator = Guid.NewGuid();
+        GameRecord created = await fixture.Service.CreateAsync(
+            new CreateGameRequest(GameMode.TwoPlayer, "table", IsPrivate: false, Password: null),
+            creator,
+            CancellationToken.None);
+
+        await fixture.Service.LeaveAsync(created.Id, creator, CancellationToken.None);
+
+        GameRecord? after = await fixture.Games.GetAsync(created.Id, CancellationToken.None);
+        after!.SeatUserIds.Should().OnlyContain(static userId => userId == null);
+    }
+
+    [Fact]
+    public async Task Rejoining_same_open_game_is_idempotent()
+    {
+        TestFixture fixture = new();
+        Guid creator = Guid.NewGuid();
+        GameRecord created = await fixture.Service.CreateAsync(
+            new CreateGameRequest(GameMode.TwoPlayer, "table", IsPrivate: false, Password: null),
+            creator,
+            CancellationToken.None);
+
+        GameRecord joined = await fixture.Service.JoinAsync(
+            created.Id,
+            creator,
+            password: null,
+            CancellationToken.None);
+
+        joined.SeatUserIds.Count(id => id == creator).Should().Be(1);
+        joined.Status.Should().Be(GameStatus.Open);
+    }
+
+    [Fact]
+    public async Task Join_full_open_record_reports_conflict()
+    {
+        TestFixture fixture = new();
+        Guid gameId = Guid.NewGuid();
+        Guid[] users = [Guid.NewGuid(), Guid.NewGuid()];
+        GameRecord fullOpen = new(
+            gameId,
+            GameMode.TwoPlayer,
+            "full",
+            GameStatus.Open,
+            users[0],
+            fixture.Clock.UtcNow,
+            StartedAt: null,
+            EndedAt: null,
+            ShuffleSeed: 0,
+            StateSnapshotJson: string.Empty,
+            BriscolaSuit: Suit.Bastoni,
+            IsPrivate: false,
+            PasswordHash: null,
+            users.Select(u => (Guid?)u).ToImmutableArray(),
+            Version: 0);
+        await fixture.Games.CreateAsync(fullOpen, CancellationToken.None);
+
+        Func<Task> act = () => fixture.Service.JoinAsync(
+            gameId,
+            Guid.NewGuid(),
+            password: null,
+            CancellationToken.None);
+
+        await act.Should().ThrowAsync<LobbyConflictException>();
+    }
+
+    [Fact]
     public async Task Private_game_requires_correct_password()
     {
         TestFixture fixture = new();
@@ -115,6 +203,50 @@ public sealed class LobbyServiceTests
             "secret",
             CancellationToken.None);
         joined.Status.Should().Be(GameStatus.Running);
+    }
+
+    [Fact]
+    public async Task Private_game_creation_requires_password()
+    {
+        TestFixture fixture = new();
+
+        Func<Task> act = () => fixture.Service.CreateAsync(
+            new CreateGameRequest(GameMode.TwoPlayer, "private", IsPrivate: true, Password: null),
+            Guid.NewGuid(),
+            CancellationToken.None);
+
+        await act.Should().ThrowAsync<InvalidPasswordException>();
+    }
+
+    [Fact]
+    public async Task Joining_missing_game_throws_not_found()
+    {
+        TestFixture fixture = new();
+        Guid missingGameId = Guid.NewGuid();
+
+        Func<Task> act = () => fixture.Service.JoinAsync(
+            missingGameId,
+            Guid.NewGuid(),
+            password: null,
+            CancellationToken.None);
+
+        (await act.Should().ThrowAsync<GameNotFoundException>())
+            .Which.GameId.Should().Be(missingGameId);
+    }
+
+    [Fact]
+    public async Task Leave_by_non_seated_user_is_no_op()
+    {
+        TestFixture fixture = new();
+        GameRecord created = await fixture.Service.CreateAsync(
+            new CreateGameRequest(GameMode.TwoPlayer, "table", IsPrivate: false, Password: null),
+            Guid.NewGuid(),
+            CancellationToken.None);
+
+        await fixture.Service.LeaveAsync(created.Id, Guid.NewGuid(), CancellationToken.None);
+
+        GameRecord? after = await fixture.Games.GetAsync(created.Id, CancellationToken.None);
+        after!.SeatUserIds.Count(static id => id.HasValue).Should().Be(1);
     }
 
     [Fact]

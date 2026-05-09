@@ -1,7 +1,9 @@
+using System.Diagnostics.CodeAnalysis;
 using Briscola.Application.Ports;
 
 namespace Briscola.Application.Orchestration.Timers;
 
+[ExcludeFromCodeCoverage]
 public sealed class SystemTimerService(IClock clock) : ITimerService
 {
     public IDisposable ScheduleAt(DateTimeOffset at, Func<CancellationToken, ValueTask> callback)

@@ -103,6 +103,16 @@ public sealed class RankingServiceTests
         (await repo.GetAsync(b, CancellationToken.None)).Elo.Should().Be(1488);
     }
 
+    [Fact]
+    public void New_user_ranking_uses_default_values()
+    {
+        Guid userId = Guid.NewGuid();
+
+        RankingRecord record = RankingService.NewUserRanking(userId, Now);
+
+        record.Should().Be(new RankingRecord(userId, 1500, 0, 0, 0, 0, Now));
+    }
+
     private static InMemoryRankingRepository Seed(Guid a, int eloA, Guid b, int eloB)
     {
         InMemoryRankingRepository repo = new(Now);

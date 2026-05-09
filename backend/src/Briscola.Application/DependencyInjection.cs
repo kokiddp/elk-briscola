@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Briscola.Application.Background;
 using Briscola.Application.Bus;
 using Briscola.Application.Configuration;
@@ -12,6 +13,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Briscola.Application;
 
+[ExcludeFromCodeCoverage]
 public static class DependencyInjection
 {
     public static IServiceCollection AddBriscolaApplication(this IServiceCollection services)

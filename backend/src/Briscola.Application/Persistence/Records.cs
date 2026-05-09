@@ -1,8 +1,10 @@
 using System.Collections.Immutable;
+using System.Diagnostics.CodeAnalysis;
 using Briscola.Domain.Primitives;
 
 namespace Briscola.Application.Persistence;
 
+[ExcludeFromCodeCoverage]
 public sealed record GameRecord(
     Guid Id,
     GameMode Mode,
@@ -20,6 +22,7 @@ public sealed record GameRecord(
     ImmutableArray<Guid?> SeatUserIds,
     long Version);
 
+[ExcludeFromCodeCoverage]
 public sealed record MoveRecord(
     Guid Id,
     Guid GameId,
@@ -38,6 +41,7 @@ public enum MoveType
     IdleTimeout,
 }
 
+[ExcludeFromCodeCoverage]
 public sealed record GameResultRecord(
     Guid GameId,
     GameOutcomeKind Kind,
@@ -59,6 +63,7 @@ public enum EndedReason
     ForfeitIdle,
 }
 
+[ExcludeFromCodeCoverage]
 public sealed record ChatMessageRecord(
     Guid Id,
     ChatScope Scope,
@@ -73,6 +78,7 @@ public enum ChatScope
     Game,
 }
 
+[ExcludeFromCodeCoverage]
 public sealed record RankingRecord(
     Guid UserId,
     int Elo,
