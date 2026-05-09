@@ -970,7 +970,7 @@ These came out of the post-implementation review; none block Phase 3, but they s
 
 **Goal:** persistence and auth wired up against SQLite (dev) and Postgres (prod).
 
-### Step 3.1 — Project setup [S]
+### Step 3.1 — Project setup [S] [x]
 
 **Where:** `backend/src/Briscola.Infrastructure/`
 
