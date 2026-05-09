@@ -88,7 +88,7 @@ How to read this file:
 
 ### Step 0.3 — Frontend skeleton (Angular workspace) [M] [x]
 
-**What:** initialize an Angular 21 standalone workspace with strict TS, SCSS, Jest, ESLint, and Prettier. Split into three sequential sub-steps.
+**What:** initialize an Angular 21 standalone workspace with strict TS, SCSS, Vitest (the new CLI default), ESLint, and Prettier. Split into three sequential sub-steps.
 
 **Where:** `frontend/`
 

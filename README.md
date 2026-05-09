@@ -472,7 +472,7 @@ Client → server:
 
 ### `InvalidMove` error codes (public contract)
 
-The hub's `invalidMove` push delivers a stable string code. Clients are expected to handle these by name; do not parse messages.
+The hub's `invalidMove` push delivers a stable string code (the name of an `InvalidMoveCode` enum member in `Briscola.Domain.Errors`). Clients are expected to handle these by name; do not parse messages.
 
 | Code | Meaning |
 |---|---|
