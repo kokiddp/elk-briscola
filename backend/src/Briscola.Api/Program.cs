@@ -18,6 +18,7 @@ using FluentValidation;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using Serilog;
@@ -62,13 +63,20 @@ builder.Services.AddScoped<IUserContext, HttpUserContext>();
 // 5) Authentication + Authorization. SecurityStampValidator re-checks the
 //    user's current SecurityStamp on every request so password change
 //    invalidates outstanding access tokens.
-JwtOptions jwt = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>() ?? new JwtOptions();
-byte[] signingBytes = TryDecodeBase64(jwt.SigningKey) ?? Encoding.UTF8.GetBytes(jwt.SigningKey);
-
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(opts =>
+//
+//    JwtBearerOptions are bound through IConfigureOptions so the validator
+//    sees the same JwtOptions snapshot as JwtIssuer. Reading
+//    builder.Configuration eagerly here would race the test factory's
+//    in-memory config overrides (which apply during host build).
+builder.Services.AddSingleton<IConfigureOptions<JwtBearerOptions>>(sp =>
+    new ConfigureNamedOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme, opts =>
     {
-        opts.RequireHttpsMetadata = !builder.Environment.IsDevelopment();
+        IHostEnvironment env = sp.GetRequiredService<IHostEnvironment>();
+        JwtOptions jwt = sp.GetRequiredService<IOptions<JwtOptions>>().Value;
+        byte[] signingBytes = TryDecodeBase64(jwt.SigningKey)
+            ?? Encoding.UTF8.GetBytes(jwt.SigningKey);
+
+        opts.RequireHttpsMetadata = !env.IsDevelopment();
         opts.SaveToken = false;
         opts.TokenValidationParameters = new TokenValidationParameters
         {
@@ -101,8 +109,9 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                 return Task.CompletedTask;
             },
         };
-    });
+    }));
 
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer();
 builder.Services.AddAuthorization();
 
 // 6) Rate limiting (per-policy; opt-in via [EnableRateLimiting] on actions).
@@ -176,7 +185,9 @@ app.UseExceptionHandler(new ExceptionHandlerOptions
     ExceptionHandler = ApiProblemDetails.WriteAsync,
 });
 app.UseSecurityHeaders();
-if (!app.Environment.IsDevelopment())
+bool disableHttpsRedirect = string.Equals(
+    app.Configuration["DISABLE_HTTPS_REDIRECTION"], "true", StringComparison.OrdinalIgnoreCase);
+if (!app.Environment.IsDevelopment() && !disableHttpsRedirect)
 {
     app.UseHsts();
     app.UseHttpsRedirection();

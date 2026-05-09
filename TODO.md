@@ -1306,7 +1306,7 @@ Wire in `angular.json` under `serve.options.proxyConfig`.
 
 ---
 
-### Step 4.9 — `Briscola.Api.IntegrationTests` (REST slice) [M]
+### Step 4.9 — `Briscola.Api.IntegrationTests` (REST slice) [M] [x]
 
 **Tests:**
 
