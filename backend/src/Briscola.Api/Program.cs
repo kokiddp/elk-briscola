@@ -170,12 +170,20 @@ if (builder.Environment.IsDevelopment())
 WebApplication app = builder.Build();
 
 // 12) Migrations on startup (gated; default off in prod, on in Development).
+//     After migrations, hydrate the orchestrator with any games left in
+//     Running status from a prior process restart so their rooms exist
+//     on the new process and reconnects/forfeits can flow through.
 MigrationOptions migrations = app.Services.GetRequiredService<Microsoft.Extensions.Options.IOptions<MigrationOptions>>().Value;
 if (migrations.RunOnStartup)
 {
     using IServiceScope scope = app.Services.CreateScope();
     BriscolaDbContext db = scope.ServiceProvider.GetRequiredService<BriscolaDbContext>();
     await db.Database.MigrateAsync().ConfigureAwait(false);
+}
+{
+    Briscola.Application.Orchestration.GameOrchestrator orchestrator =
+        app.Services.GetRequiredService<Briscola.Application.Orchestration.GameOrchestrator>();
+    await orchestrator.HydrateAsync(app.Lifetime.ApplicationStopping).ConfigureAwait(false);
 }
 
 // 13) Middleware pipeline (order matters).

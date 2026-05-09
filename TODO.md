@@ -1323,6 +1323,17 @@ Wire in `angular.json` under `serve.options.proxyConfig`.
 
 ---
 
+### Phase 4 follow-up items (deferred for later phases)
+
+- **`GET /me/history?page=&size=` (Phase 10).** Listed in step 4.4 alongside `/me` and `/me/ranking`, but the corresponding repository method (`IGameRepository.ListEndedForUserAsync` or equivalent) doesn't exist in the Application layer yet — `MatchHistoryService` only writes results. Phase 10 ("Match history, ranking, spectator") is the natural home; pulling the endpoint forward would require partial Application work. Tracked here so Phase 10 doesn't lose it.
+- **`POST /games/{id}/spectate` (Phase 5).** Listed in step 4.4 but spectator support is fundamentally a SignalR group concept (the spec says "adds caller to spectators group; server pushes redacted state"). Pure REST gives the caller nothing useful without the hub push. Implement alongside `GameHub` in Phase 5.
+- **Scope handling for `GameOrchestrator` / `OpenLobbyJanitor` (carry-over from Phase 2 + Phase 3).** Phase 4's `Program.cs` disables the DI scope-validator because both classes inject `IGameRepository` directly, which is Scoped under EF. The architectural fix is `IServiceScopeFactory` — likely landing in Phase 5 alongside `GameEventDispatcher` since both touch orchestrator startup.
+- **`InvalidMoveException` → 400 with `code: "NotYourTurn"`.** Step 4.4 documents this mapping but no handler raises `InvalidMoveException` until Phase 5's hubs/commands. The `ApiProblemDetails` class will need to grow this case when the hub plumbs commands through controllers (or when REST adds `POST /games/{id}/play-card`, if we go that route — likely no, hubs handle it).
+- **Stale-record recovery (still open from Phase 2).** `GameRoom.PersistStateAsync`'s `ConcurrencyConflictException` path doesn't refresh `_record.Version`. Phase 4's controllers map the exception to a 409, so callers retry, but the room stays poisoned. Fix in Phase 5.
+- **Hydrate orphan task (still open from Phase 2).** `GameOrchestrator.HydrateAsync` is now wired into startup, but `_rooms.TryAdd` orphans `GameRoom` instances on duplicates. Phase 5 cleanup item.
+
+---
+
 ## Phase 5 — SignalR hubs
 
 **Goal:** real-time multiplayer fully working server-side.

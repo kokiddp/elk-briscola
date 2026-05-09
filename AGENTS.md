@@ -297,6 +297,31 @@ Don't suppress analyzer warnings elsewhere without justification; new suppressio
 - Scoped: `LobbyService`, `RankingService`, `MatchHistoryService`, anything per-request that touches `IUserContext`.
 - Tests construct services manually — no DI container in the test suite. The `TestGameFactory` helper is the canonical setup pattern.
 
+> **Phase 4 carry-over:** `Briscola.Api/Program.cs` currently disables the DI scope-validator (`ValidateScopes = false`) because Phase 2's `GameOrchestrator` and `OpenLobbyJanitor` inject `IGameRepository` directly even though the EF-backed implementation is Scoped. The right fix is `IServiceScopeFactory` in both classes (open as a Phase 5 follow-up — see [TODO Phase 4 follow-ups](TODO.md#phase-4-follow-up-items-deferred-for-later-phases)). Don't remove the scope-validator opt-out without doing that refactor first, or the host won't boot.
+
+### Configuring authentication options against `WebApplicationFactory<T>`
+
+A REST integration test that overrides `JwtOptions` via `IWebHostBuilder.ConfigureAppConfiguration` will silently 401 every authenticated call if the host reads the JWT signing key **eagerly** during `Program.cs` startup. `WebApplicationFactory` adds its in-memory configuration *after* `WebApplication.CreateBuilder(args)` returns, so a line like:
+
+```csharp
+JwtOptions jwt = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>();
+... .AddJwtBearer(opts => opts.TokenValidationParameters = ... new SymmetricSecurityKey(jwt.SigningKey) ...);
+```
+
+binds the *appsettings* signing key into the validator, while `JwtIssuer` (resolved via `IOptions<JwtOptions>` later) sees the *test* signing key. Tokens signed with one key fail validation against the other.
+
+The fix: register `IConfigureNamedOptions<JwtBearerOptions>` and resolve `IOptions<JwtOptions>` inside the configure callback (lazy resolution). See `Briscola.Api/Program.cs` step 5 for the canonical shape.
+
+### FluentValidation v12 + ASP.NET Core (no auto-validation package)
+
+`FluentValidation.AspNetCore` is archived. The modern recipe is:
+1. Reference `FluentValidation` and `FluentValidation.DependencyInjectionExtensions` only.
+2. Register validators with `services.AddValidatorsFromAssembly(typeof(Program).Assembly)`.
+3. Run them yourself in an `IAsyncActionFilter` (see `FluentValidationFilter`) and throw `ValidationException` on failure.
+4. Catch `ValidationException` in the global `UseExceptionHandler` and turn it into a `ValidationProblemDetails` 422 response.
+
+Don't bring back the archived auto-validation package; it doesn't target ASP.NET Core 10.
+
 ---
 
 ## Coding conventions — frontend (Angular 21)
@@ -385,7 +410,7 @@ The "no individual test > 500 ms; suite < 30 s" guideline from Phase 1 turned ou
 
 - Domain suite: 2199 tests (incl. 2000 random-game property tests) in ~600 ms.
 - Application suite: 48 tests in ~120 ms.
-- Integration suite (Phase 3): 51 tests in ~2 s — the slowest tests are the `SchemaParityTests` (boot two providers + run migrations) and `IdentitySmokeTests` (PBKDF2 hashing dominates).
+- Integration suite (Phase 4): 64 tests in ~3-4 s — Phase 3's 51 plus 13 REST scenarios via `WebApplicationFactory<Program>`. Each REST fixture spins up its own in-memory SQLite (per-class isolation), so the cost is dominated by host startup (~150 ms each) plus PBKDF2 hashing in Identity flows. If the REST suite drifts above ~10 s, the first lever is sharing one factory per class via `IClassFixture<T>` rather than instantiating in `IAsyncLifetime`.
 
 If a test takes more than ~50 ms in isolation, ask whether it should — most application tests should be far below that. Property tests can take longer; that's fine.
 

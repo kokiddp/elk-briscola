@@ -20,12 +20,16 @@ These are the versions our csprojs reference today. When a `dotnet add package` 
 | `Serilog.Enrichers.Environment` | 3.0.1 | `WithMachineName` / `WithEnvironmentName` enrichers. |
 | `Serilog.Enrichers.Thread` | 4.0.0 | `WithThreadId` enricher. |
 | `BCrypt.Net-Next` | 4.0.3 | Lobby-game password hashing — distinct from ASP.NET Identity's PBKDF2. |
+| `FluentValidation` | 12.0.0 | Request DTO validators in `Briscola.Api.Validation`. v12 dropped the archived `FluentValidation.AspNetCore` auto-validation package; we run validators in a custom `IAsyncActionFilter` ([details in AGENTS.md](../AGENTS.md#fluentvalidation-v12--aspnet-core-no-auto-validation-package)). |
+| `FluentValidation.DependencyInjectionExtensions` | 12.0.0 | `services.AddValidatorsFromAssembly(...)`. |
+| `Swashbuckle.AspNetCore` | 10.0.0 | Swagger/OpenAPI UI in dev only. v10 changed the `Microsoft.OpenApi.Models` namespace to flat `Microsoft.OpenApi`; if you see CS0234 around `OpenApiInfo`, that's why. |
+| `Microsoft.AspNetCore.Mvc.Testing` (test only) | 10.0.7 | `WebApplicationFactory<Program>` for the REST integration suite. |
 | `FluentAssertions` (test only) | 7.2.2 | **Last Apache-2.0 release before v8 commercial relicensing.** Don't bump without accepting the new license — see [AGENTS.md § Testing conventions](../AGENTS.md#testing-conventions). |
 | `xunit` (test only) | 2.9.3 | What the .NET 10 `dotnet new xunit` template ships. |
 | `Microsoft.NET.Test.Sdk` (test only) | 17.14.1 | Same. |
 | `xunit.runner.visualstudio` (test only) | 3.1.4 | Same. |
 | `coverlet.collector` (test only) | 6.0.4 | Same. |
-| `Testcontainers.PostgreSql` (test only) | 4.11.0 | Drives the integration suite against a real Postgres container. |
+| `Testcontainers.PostgreSql` (test only) | (not yet referenced) | Phase 11 hardening will add this; current Phase 3/4 integration tests run on SQLite in-memory because the dev environment is WSL without Docker. |
 
 ## Building & testing locally
 
