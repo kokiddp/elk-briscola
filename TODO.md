@@ -988,7 +988,7 @@ If a 10.x version isn't on NuGet at implementation time, pin to the highest stab
 
 ---
 
-### Step 3.2 — `BriscolaDbContext` & entity types [M]
+### Step 3.2 — `BriscolaDbContext` & entity types [M] [x]
 
 **Where:**
 - `backend/src/Briscola.Infrastructure/Persistence/BriscolaDbContext.cs`
