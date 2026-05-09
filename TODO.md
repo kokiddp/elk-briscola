@@ -1105,7 +1105,7 @@ builder.Services.AddDbContext<BriscolaDbContext>((sp, opts) =>
 
 ---
 
-### Step 3.7 — Serilog config [S]
+### Step 3.7 — Serilog config [S] [x]
 
 **Where:** `backend/src/Briscola.Infrastructure/Logging/SerilogSetup.cs`
 

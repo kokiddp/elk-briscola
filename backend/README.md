@@ -17,6 +17,8 @@ These are the versions our csprojs reference today. When a `dotnet add package` 
 | `Serilog.Sinks.Console` | 6.1.1 | Latest stable. |
 | `Serilog.Sinks.File` | 7.0.0 | Latest stable. |
 | `Serilog.Formatting.Compact` | 3.0.0 | For prod JSON output via `CompactJsonFormatter`. |
+| `Serilog.Enrichers.Environment` | 3.0.1 | `WithMachineName` / `WithEnvironmentName` enrichers. |
+| `Serilog.Enrichers.Thread` | 4.0.0 | `WithThreadId` enricher. |
 | `BCrypt.Net-Next` | 4.0.3 | Lobby-game password hashing — distinct from ASP.NET Identity's PBKDF2. |
 | `FluentAssertions` (test only) | 7.2.2 | **Last Apache-2.0 release before v8 commercial relicensing.** Don't bump without accepting the new license — see [AGENTS.md § Testing conventions](../AGENTS.md#testing-conventions). |
 | `xunit` (test only) | 2.9.3 | What the .NET 10 `dotnet new xunit` template ships. |
