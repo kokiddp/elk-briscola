@@ -59,6 +59,20 @@ public sealed class CardTablesTests
     }
 
     [Fact]
+    public void Strength_throws_for_unknown_rank()
+    {
+        Action act = () => CardTables.Strength((Rank)999);
+        act.Should().Throw<ArgumentOutOfRangeException>().WithMessage("Unknown rank*");
+    }
+
+    [Fact]
+    public void Points_throws_for_unknown_rank()
+    {
+        Action act = () => CardTables.Points((Rank)999);
+        act.Should().Throw<ArgumentOutOfRangeException>().WithMessage("Unknown rank*");
+    }
+
+    [Fact]
     public void Strength_is_not_derived_from_enum_underlying_int()
     {
         // Regression guard against the original buggy spec which encoded

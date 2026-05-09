@@ -544,7 +544,7 @@ public sealed class BriscolaEngine : IBriscolaEngine
 
 ---
 
-### Step 1.10 — `Briscola.Domain.Tests` — exhaustive coverage [L]
+### Step 1.10 — `Briscola.Domain.Tests` — exhaustive coverage [L] [x]
 
 **Where:** `backend/tests/Briscola.Domain.Tests/`
 
