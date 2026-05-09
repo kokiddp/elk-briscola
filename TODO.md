@@ -39,7 +39,7 @@ How to read this file:
 
 **Goal:** an empty but consistent monorepo that builds and runs trivially on CI. No business logic yet.
 
-### Step 0.1 — Top-level files [S]
+### Step 0.1 — Top-level files [S] [x]
 
 **What:** create `.editorconfig`, `.gitignore`, `LICENSE`, empty stubs for `docs/`.
 

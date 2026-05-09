@@ -21,7 +21,7 @@ coverage/
 *.coveragexml
 .dotnet/
 appsettings.*.local.json
-appsettings.Development.json
+# appsettings.Development.json IS committed (dev-friendly defaults; no secrets).
 
 # Node / Angular
 node_modules/
