@@ -376,7 +376,7 @@ frontend/src/app/
 
 - **Backend:** xUnit + FluentAssertions **pinned to 7.2.2** (last Apache-2.0 release before v8 commercial relicensing). Don't bump unless we accept the new license. `[Theory]` + `[InlineData]` / `[MemberData]` for table-driven cases. **Never** make tests dependent on test order.
 - **Frontend:** Vitest + `@testing-library/angular`. Use `screen.getByRole(...)` over `getByTestId` when possible. (Vitest is the Angular CLI default since v20+; APIs are Jest-compatible for the surface we use.)
-- **Integration:** Testcontainers Postgres in a class fixture; never mock the DB at the integration level.
+- **Integration:** ideally Testcontainers Postgres in a class fixture, but the Phase 3 implementation runs on **SQLite in-memory** because Docker is unavailable in this WSL dev environment. The `SchemaParityTests` boot both providers and assert the EF model is congruent, so SQLite-based integration tests are sufficient evidence the Postgres path works too. When CI gains Docker (Phase 11), add a parallel `Testcontainers.PostgreSql` fixture rather than swapping the existing one. **Never mock the DB** at the integration level — that lesson predates the WSL constraint.
 - **Test-double pattern:** the canonical Application-layer test setup is `TestGameFactory` in `_TestDoubles/`, which composes `FakeClock` + `InMemoryGameRepository` + `RecordingGameEventBus` + `FakeTimerService` etc. New tests should reuse it; new test doubles go in `_TestDoubles/` and stay `internal`.
 
 ### Test runtime budget
@@ -385,6 +385,7 @@ The "no individual test > 500 ms; suite < 30 s" guideline from Phase 1 turned ou
 
 - Domain suite: 2199 tests (incl. 2000 random-game property tests) in ~600 ms.
 - Application suite: 48 tests in ~120 ms.
+- Integration suite (Phase 3): 51 tests in ~2 s — the slowest tests are the `SchemaParityTests` (boot two providers + run migrations) and `IdentitySmokeTests` (PBKDF2 hashing dominates).
 
 If a test takes more than ~50 ms in isolation, ask whether it should — most application tests should be far below that. Property tests can take longer; that's fine.
 

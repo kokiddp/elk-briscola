@@ -962,7 +962,7 @@ These came out of the post-implementation review; none block Phase 3, but they s
 - **Stale-record recovery.** `GameRoom.PersistStateAsync` throws `GameCommandException` when `IGameRepository.UpdateAsync` returns false (Version mismatch). The room state and `_record.Version` are NOT refreshed on failure, so subsequent commands on the same room keep failing — the room is effectively poisoned. Fix in Phase 3 or 5: on concurrency conflict, refetch the record, evict the room from `GameOrchestrator._rooms`, and surface a structured error to the caller so the API layer can ask the client to retry.
 - **Hydrate orphan task.** `GameOrchestrator.HydrateAsync` calls `_rooms.TryAdd(record.Id, GameRoom.FromRecord(...))`. If `TryAdd` returns false (room already exists), the freshly-constructed `GameRoom` leaks: its `ProcessLoopAsync` task spins idle forever and its idle-check timer fires reconnect/idle commands into a dead channel. Memory leak, not crash. Fix: check `TryAdd` return value and `Dispose` the orphan (will require `GameRoom` to be `IDisposable`).
 - **4p team Elo magnitude.** `RankingService.ApplyFourPlayerAsync` adds `+delta` to each of two teammates and `-delta` to each of two opponents. Net team rating change is `2*delta`. For K=24 this is plausible for a 4-player game (more variance than 1v1) but is worth re-examining when Phase 10 wires up real ranked matches: consider halving the delta for teams to keep per-team K constant, or document the choice as intentional.
-- **Snapshot codec coverage.** `InMemoryGameStateCodec` is a dictionary-backed pass-through; it doesn't verify real JSON round-tripping. Phase 3 must add an EF-side codec implementation AND an integration test that round-trips a full `GameState` through it.
+- ~~**Snapshot codec coverage.**~~ **Closed in Phase 3.6:** `JsonGameStateCodec` (System.Text.Json + custom `ImmutableArrayJsonConverter` + `GameOutcomeJsonConverter`) replaces `InMemoryGameStateCodec` in production wiring. `JsonGameStateCodecTests` round-trips a fully populated `GameState` (4p with non-empty pozzi and a captured `GameOutcome.Winner`).
 
 ---
 
@@ -1099,9 +1099,9 @@ builder.Services.AddDbContext<BriscolaDbContext>((sp, opts) =>
 **Tests** under `Briscola.Api.IntegrationTests/Persistence/`:
 
 - `JsonGameStateCodecTests` — round-trip a fully populated `GameState` (including 4p with non-empty pozzi and a captured `GameOutcome.Winner`) and assert deep equality field-by-field. This closes the Phase 2 follow-up "snapshot codec coverage" item — `InMemoryGameStateCodec` was a pass-through.
-- `EfGameRepositoryConcurrencyTests` — two concurrent `UpdateAsync` calls on the same `Version`: exactly one succeeds, the other gets `false`. Run against Testcontainers Postgres.
-- `EfGameRepositoryMoveIndexTests` — append moves at indices 0, 1, 2, then call `GetNextMoveIndexAsync` and assert it returns 3.
-- `EfRankingRepositoryIdempotencyTests` — `HasProcessedGameAsync` returns false initially, true after `MarkProcessedGameAsync`.
+- `EfGameRepositoryTests.UpdateAsync_with_stale_version_returns_false` — re-using an old `Version` returns `false`; matching version succeeds and bumps to N+1. SQLite in-memory (Testcontainers Postgres deferred to Phase 11 — see Step 3.8 follow-up).
+- `EfGameRepositoryTests.GetNextMoveIndexAsync_*` — append moves at indices 0, 1, 2, then call `GetNextMoveIndexAsync` and assert it returns 3.
+- `EfRankingRepositoryTests.HasProcessedGame_false_then_true_after_mark` and `MarkProcessedGame_is_idempotent`.
 
 ---
 
@@ -1136,6 +1136,16 @@ Uses `WebApplicationFactory<Program>` with a test config overriding `ConnectionS
 **Acceptance:** all green; integration suite runs in < 60 s on CI.
 
 **Phase 3 exit:** can register and authenticate against both providers; migrations run cleanly on both; schema-parity test green.
+
+---
+
+### Phase 3 follow-up items (deferred for later phases)
+
+- **HTTP-level auth flow tests.** Step 3.8 ran the auth flow at the service level (`UserManager` + `JwtIssuer` + `RefreshTokenService`) because the `Briscola.Api` host is a Phase 4 deliverable. **Phase 4.9 must add the `WebApplicationFactory<Program>` variant** of `AuthFlowSmokeTests`, exercising `/api/v1/auth/{register,login,refresh,change-password}` end-to-end, including the `security_stamp` validator rejecting access tokens minted before a password change.
+- **Testcontainers Postgres.** All integration tests currently run on SQLite in-memory because Docker is unavailable in this dev environment (WSL without Docker Desktop). The `SchemaParityTests` prove the EF model is congruent across providers, but Phase 11 hardening should add a parallel test suite that runs the same scenarios against a real Postgres instance via `Testcontainers.PostgreSql`. Targeted scenarios: optimistic-concurrency on `GameEntity.Version`, idempotency markers, JSON column round-tripping (jsonb vs text).
+- **Stale-record recovery (carried from Phase 2).** Still open — Phase 4 should wire the `ConcurrencyConflictException` path through to a structured 409 response and have `GameRoom` evict-and-rehydrate on the conflict instead of poisoning the room.
+- **Hydrate orphan task (carried from Phase 2).** Still open — `GameOrchestrator.HydrateAsync` must check the `_rooms.TryAdd` return value and dispose the orphan `GameRoom`. Will land alongside Phase 5's `GameEventDispatcher` since both touch orchestrator startup.
+- **4p team Elo magnitude (carried from Phase 2).** Still open — revisit when Phase 10 wires up real ranked 4p matches.
 
 ---
 
