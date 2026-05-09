@@ -1,0 +1,52 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors / IDEs
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+
+# .NET
+bin/
+obj/
+*.dll
+*.pdb
+*.exe
+TestResults/
+coverage/
+*.coverage
+*.coveragexml
+.dotnet/
+appsettings.*.local.json
+appsettings.Development.json
+
+# Node / Angular
+node_modules/
+dist/
+.angular/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.tsbuildinfo
+
+# Playwright
+playwright-report/
+test-results/
+.playwright/
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# Local databases (SQLite dev artifacts)
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+
+# Misc build outputs
+*.log
