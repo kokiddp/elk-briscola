@@ -77,8 +77,8 @@ If you are about to write code in this repository, **read [AGENTS.md](AGENTS.md)
                                               └──────────────┬──────────────┘
                                                              │
                                                 ┌────────────▼─────────────┐
-                                                │  SQLite (dev)            │
-                                                │  PostgreSQL (prod)       │
+                                                │  PostgreSQL (dev + prod) │
+                                                │  SQLite (alt provider)   │
                                                 └──────────────────────────┘
 ```
 
@@ -97,10 +97,9 @@ If you are about to write code in this repository, **read [AGENTS.md](AGENTS.md)
 |---|---|---|
 | Backend runtime | .NET 10 (LTS, GA Nov 2025) | Latest LTS, supported through Nov 2028 |
 | Web framework | ASP.NET Core 10 (controllers + SignalR) | Idiomatic, fits the REST + realtime split |
-| ORM | EF Core 10 | Provider-swappable (SQLite ↔ PostgreSQL) |
+| ORM | EF Core 10 | Provider-swappable (PostgreSQL ↔ SQLite) |
 | Identity | ASP.NET Core Identity + JWT bearer | Username/password registration, JWT works for REST and SignalR |
-| Database (dev) | SQLite | Zero-setup local dev |
-| Database (prod) | PostgreSQL 16 | Free, robust, well-supported by EF Core |
+| Database (dev + prod) | PostgreSQL 17 | Dev/prod parity; brought up locally via `docker-compose.dev.yml`. SQLite remains a supported alternate provider (selected via `ConnectionStrings:Provider=Sqlite`) for environments without Docker. |
 | Migrations | EF Core migrations (per-provider) | Two migration projects, one per provider |
 | Logging | Serilog → console + rolling file | Structured logs, easy to ship to ELK/Loki |
 | Testing (BE) | xUnit + FluentAssertions **7.2.2** + `WebApplicationFactory` + Testcontainers (Postgres) | Domain unit tests in-process; integration tests against a real Postgres container — no EF in-memory provider (its semantics drift from real DBs). FluentAssertions pinned at 7.2.2 (last Apache-2.0 release before v8 commercial relicensing) |
@@ -669,7 +668,7 @@ Every configurable value is an environment variable using the ASP.NET Core doubl
 
 | Key | Default | Notes |
 |---|---|---|
-| `ConnectionStrings__Provider` | `Sqlite` | One of `Sqlite` or `Postgres`. |
+| `ConnectionStrings__Provider` | `Postgres` | One of `Postgres` or `Sqlite`. |
 | `ConnectionStrings__Default` | — | **Required.** Connection string for the chosen provider. |
 
 ### `Cors`
@@ -820,7 +819,7 @@ Indexes on hot lookups: `Games(Status)`, `GameSeats(UserId)`, `GameSeats(GameId,
 
 - .NET 10 SDK (10.0.203 in the dev environment; install via the official `dotnet-install.sh` if your distro doesn't ship it).
 - Node 22 LTS via `nvm` (alias `lts/jod`).
-- (Optional, for prod-like local) Docker.
+- Docker (Postgres for dev + Testcontainers Postgres for the integration suite). On WSL2, Docker Desktop with WSL integration enabled.
 
 ### WSL2 specifically
 
@@ -834,19 +833,31 @@ node --version    # v22.22.2
 
 Source it at the start of every shell that runs `dotnet` / `npm` / `npx`.
 
-### Backend (SQLite, fastest path)
+### Backend (Postgres, default)
 
 ```bash
 . ~/.elk-env.sh   # WSL only — see above
+docker compose -f docker-compose.dev.yml up -d   # Postgres 17 on :5432
 dotnet restore backend/Briscola.sln
-dotnet ef database update \
-  --project backend/src/Briscola.Infrastructure \
-  --startup-project backend/src/Briscola.Api
 dotnet run --project backend/src/Briscola.Api
 # API at http://localhost:5080  (Swagger at /swagger in dev)
+# Migrations apply on startup in Development (Migrations:RunOnStartup=true).
 ```
 
 > The .NET 10 SDK creates `.slnx` solutions by default. We use the legacy `.sln` (forced via `dotnet new sln --format sln`) to keep the canonical `Briscola.sln` filename.
+
+### Backend on SQLite (alternate provider, no Docker required)
+
+```bash
+. ~/.elk-env.sh
+ConnectionStrings__Provider=Sqlite \
+  ConnectionStrings__Default="Data Source=./briscola-dev.db" \
+  dotnet run --project backend/src/Briscola.Api
+```
+
+The SQLite provider stays first-class — `SchemaParityTests` and the
+EF repository tests under `tests/Briscola.Api.IntegrationTests/Persistence/`
+exercise it on every CI run.
 
 ### Frontend
 
@@ -856,13 +867,6 @@ cd frontend
 npm install
 npm start
 # Angular 21 dev server at http://localhost:4200; proxies /api, /hubs, /card-sets to :5080
-```
-
-### Postgres locally
-
-```bash
-docker compose -f docker-compose.dev.yml up -d
-# then run backend with ConnectionStrings__Provider=Postgres
 ```
 
 ### Tests

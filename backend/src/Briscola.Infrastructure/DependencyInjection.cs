@@ -27,12 +27,20 @@ public static class DependencyInjection
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(configuration);
 
-        var provider = configuration["ConnectionStrings:Provider"] ?? "Sqlite";
-        var connectionString = configuration.GetConnectionString("Default")
-            ?? throw new InvalidOperationException("ConnectionStrings:Default is not configured.");
-
-        services.AddDbContext<BriscolaDbContext>(opts =>
+        // The provider/connection string are resolved lazily via the
+        // IServiceProvider overload of AddDbContext so test fixtures can
+        // override ConnectionStrings:* through ConfigureAppConfiguration
+        // *after* this extension has run. Reading `configuration` eagerly
+        // here would race the test override and silently fall back to
+        // appsettings.json. (Same pattern as the JwtBearerOptions wiring
+        // in Briscola.Api/Program.cs.)
+        services.AddDbContext<BriscolaDbContext>((sp, opts) =>
         {
+            IConfiguration cfg = sp.GetRequiredService<IConfiguration>();
+            string provider = cfg["ConnectionStrings:Provider"] ?? "Postgres";
+            string connectionString = cfg.GetConnectionString("Default")
+                ?? throw new InvalidOperationException("ConnectionStrings:Default is not configured.");
+
             switch (provider)
             {
                 case "Sqlite":

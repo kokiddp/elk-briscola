@@ -401,7 +401,7 @@ frontend/src/app/
 
 - **Backend:** xUnit + FluentAssertions **pinned to 7.2.2** (last Apache-2.0 release before v8 commercial relicensing). Don't bump unless we accept the new license. `[Theory]` + `[InlineData]` / `[MemberData]` for table-driven cases. **Never** make tests dependent on test order.
 - **Frontend:** Vitest + `@testing-library/angular`. Use `screen.getByRole(...)` over `getByTestId` when possible. (Vitest is the Angular CLI default since v20+; APIs are Jest-compatible for the surface we use.)
-- **Integration:** ideally Testcontainers Postgres in a class fixture, but the Phase 3 implementation runs on **SQLite in-memory** because Docker is unavailable in this WSL dev environment. The `SchemaParityTests` boot both providers and assert the EF model is congruent, so SQLite-based integration tests are sufficient evidence the Postgres path works too. When CI gains Docker (Phase 11), add a parallel `Testcontainers.PostgreSql` fixture rather than swapping the existing one. **Never mock the DB** at the integration level — that lesson predates the WSL constraint.
+- **Integration:** Testcontainers Postgres via `PostgresContainerPool` (one container shared across the test assembly, per-fixture databases via `CREATE DATABASE`). `BriscolaApiFactory` boots the real `Briscola.Api` host against its provisioned database so REST + SignalR tests run against the same engine production uses. Phase 3's `Persistence/` tests still use a `SqliteRepositoryFixture` so the SQLite provider stays exercised on every CI run — `SchemaParityTests` is the cross-provider safety net. **Never mock the DB** at the integration level.
 - **Test-double pattern:** the canonical Application-layer test setup is `TestGameFactory` in `_TestDoubles/`, which composes `FakeClock` + `InMemoryGameRepository` + `RecordingGameEventBus` + `FakeTimerService` etc. New tests should reuse it; new test doubles go in `_TestDoubles/` and stay `internal`.
 
 ### Test runtime budget
@@ -410,7 +410,7 @@ The "no individual test > 500 ms; suite < 30 s" guideline from Phase 1 turned ou
 
 - Domain suite: 2199 tests (incl. 2000 random-game property tests) in ~600 ms.
 - Application suite: 48 tests in ~120 ms.
-- Integration suite (Phase 4): 64 tests in ~3-4 s — Phase 3's 51 plus 13 REST scenarios via `WebApplicationFactory<Program>`. Each REST fixture spins up its own in-memory SQLite (per-class isolation), so the cost is dominated by host startup (~150 ms each) plus PBKDF2 hashing in Identity flows. If the REST suite drifts above ~10 s, the first lever is sharing one factory per class via `IClassFixture<T>` rather than instantiating in `IAsyncLifetime`.
+- Integration suite (Phase 5.1, post-Postgres switch): 69 tests in ~9 s. Breakdown: 28 SQLite-fixture repository/auth tests (~1 s), 5 SignalR LobbyHub tests (~3 s), 36 REST/WebApplicationFactory tests against per-fixture Postgres databases (~5 s). Container start-up is amortized: `PostgresContainerPool` boots one Postgres 17 container once per `dotnet test` run (~3 s) and hands out fresh databases via `CREATE DATABASE` (≈50 ms each). If the suite drifts past ~30 s, the first lever is reducing host start-ups (one factory per class via `IClassFixture<T>`).
 
 If a test takes more than ~50 ms in isolation, ask whether it should — most application tests should be far below that. Property tests can take longer; that's fine.
 

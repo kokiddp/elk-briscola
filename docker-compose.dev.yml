@@ -1,0 +1,20 @@
+services:
+  postgres:
+    image: postgres:17.2-alpine
+    container_name: briscola-dev-postgres
+    environment:
+      POSTGRES_USER: briscola
+      POSTGRES_PASSWORD: briscola-dev
+      POSTGRES_DB: briscola
+    ports:
+      - "5432:5432"
+    volumes:
+      - briscola-dev-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U briscola -d briscola"]
+      interval: 2s
+      timeout: 2s
+      retries: 20
+
+volumes:
+  briscola-dev-pgdata:

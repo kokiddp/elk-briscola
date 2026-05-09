@@ -29,7 +29,7 @@ These are the versions our csprojs reference today. When a `dotnet add package` 
 | `Microsoft.NET.Test.Sdk` (test only) | 17.14.1 | Same. |
 | `xunit.runner.visualstudio` (test only) | 3.1.4 | Same. |
 | `coverlet.collector` (test only) | 6.0.4 | Same. |
-| `Testcontainers.PostgreSql` (test only) | (not yet referenced) | Phase 11 hardening will add this; current Phase 3/4 integration tests run on SQLite in-memory because the dev environment is WSL without Docker. |
+| `Testcontainers.PostgreSql` (test only) | 4.11.0 | One process-wide Postgres container (managed by `PostgresContainerPool`), shared across every REST/SignalR fixture; per-fixture isolation via `CREATE DATABASE`. Closes the Phase 3 follow-up that originally deferred this to Phase 11. |
 
 ## Building & testing locally
 

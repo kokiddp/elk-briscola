@@ -45,7 +45,13 @@ public sealed class LobbyService(
             StartedAt: null,
             EndedAt: null,
             ShuffleSeed: 0,
-            StateSnapshotJson: string.Empty,
+            // Postgres `jsonb` rejects empty strings; "{}" is a valid empty
+            // object that's never read for Open games (GameRoom.FromRecord
+            // is only called once a game transitions to Running, at which
+            // point the orchestrator overwrites this with the serialized
+            // GameState). The whitespace check in FromRecord remains the
+            // safety net.
+            StateSnapshotJson: "{}",
             BriscolaSuit: Suit.Bastoni,
             req.IsPrivate,
             hash,
