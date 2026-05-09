@@ -404,7 +404,7 @@ Before announcing "Phase N is done":
 
 - [ ] Every step in the phase is `[x]`.
 - [ ] The phase's "Exit" line at the end of the section is satisfied.
-- [ ] CI is green on a freshly-pushed branch.
+- [ ] CI is green on the latest pushed branch (skip this check until a remote is configured; instead run the same commands locally and confirm green).
 - [ ] Coverage thresholds (Phase 1 ≥ 95% domain; Phase 2 ≥ 85% application) are met.
 - [ ] No `[!]` blockers carried over.
 - [ ] Coherence checklist passes against README.md.

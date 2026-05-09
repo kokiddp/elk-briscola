@@ -82,30 +82,71 @@ How to read this file:
 
 **Tests:** add a single placeholder xUnit test in `Briscola.Domain.Tests` that asserts `1 == 1` so `dotnet test` exits 0.
 
-**Acceptance:** `cd backend && dotnet build` succeeds with 0 warnings; `dotnet test` reports 1 passing test.
+**Acceptance:** `dotnet build backend/Briscola.sln --configuration Release` succeeds with 0 warnings (Release config is where `TreatWarningsAsErrors` applies); `dotnet test backend/Briscola.sln --configuration Release` reports 1 passing test.
 
 ---
 
-### Step 0.3 — Frontend skeleton (Angular workspace) [S]
+### Step 0.3 — Frontend skeleton (Angular workspace) [M]
 
-**What:** initialize an Angular 21 standalone workspace with strict TS and SCSS.
+**What:** initialize an Angular 21 standalone workspace with strict TS, SCSS, Jest, ESLint, and Prettier. Split into three sequential sub-steps.
 
 **Where:** `frontend/`
 
-**How:**
-- `npm create @angular@21` (or `npx -p @angular/cli@21 ng new`) with flags: `--style=scss --standalone --strict --routing --skip-git --skip-install --ssr=false`. Then run `npm install`. (As of Angular 17+ standalone is the default; Angular 21 still accepts `--standalone` as a no-op compatibility flag — fine to keep for clarity.)
-- Replace Karma with Jest:
-  - Add devDeps: `jest`, `jest-preset-angular`, `@types/jest`, `@testing-library/angular`, `@testing-library/jest-dom`.
-  - `jest.config.cjs` extends `jest-preset-angular`, with `setupFilesAfterEach: ['<rootDir>/setup-jest.ts']`.
-  - Remove Karma deps and config.
-- Add ESLint via `ng add @angular-eslint/schematics`.
-- Add `prettier` + `prettier-plugin-organize-imports`.
-- `package.json` scripts: `start`, `build`, `test` (`jest`), `test:ci` (`jest --ci --reporters=default --reporters=jest-junit`), `lint`, `format`, `e2e` (placeholder until Phase 13).
-- Strip the boilerplate `app.component.html` to a single `<router-outlet/>`.
+#### Step 0.3a — Generate the Angular workspace [S]
 
-**Tests:** the auto-generated `app.component.spec.ts` is rewritten as a trivial component-renders test under Jest.
+- Run from repo root: `npx -p @angular/cli@21 ng new elk-briscola-frontend --directory=frontend --style=scss --strict --routing --skip-git --skip-install --ssr=false --package-manager=npm`.
+- `cd frontend && npm install`.
+- Strip `app.component.html` to a single `<router-outlet />`.
+- Strip `app.component.ts` to a minimal standalone component importing `RouterOutlet`.
+- Verify: `npm run build` succeeds; `npm start` serves on `:4200`.
 
-**Acceptance:** `cd frontend && npm install && npm run build && npm test && npm run lint` all succeed.
+> Note: as of Angular 17, standalone is the default and the legacy `--standalone` flag is a no-op. Don't pass it.
+
+#### Step 0.3b — Karma → Jest migration [S]
+
+- Add devDeps (pin to versions matching Angular 21; if `jest-preset-angular` for Angular 21 is not yet on npm at implementation time, use the latest published and pin in `package.json`. Document the version chosen in `frontend/README.md`):
+  - `jest`, `jest-preset-angular`, `jest-junit`, `@types/jest`, `@testing-library/angular`, `@testing-library/jest-dom`.
+- Remove Karma deps from `package.json`: `karma`, `karma-chrome-launcher`, `karma-coverage`, `karma-jasmine`, `karma-jasmine-html-reporter`, `jasmine-core`, `@types/jasmine`.
+- Delete `karma.conf.js` and the `test` block from `angular.json`.
+- Create `frontend/jest.config.cjs`:
+  ```js
+  module.exports = {
+    preset: 'jest-preset-angular',
+    setupFilesAfterEach: ['<rootDir>/setup-jest.ts'],
+    moduleNameMapper: { '^@app/(.*)$': '<rootDir>/src/app/$1' },
+    testEnvironment: 'jsdom',
+  };
+  ```
+- Create `frontend/setup-jest.ts`:
+  ```ts
+  import 'jest-preset-angular/setup-jest';
+  import '@testing-library/jest-dom';
+  ```
+- Rewrite `app.component.spec.ts` to a trivial Jest test:
+  ```ts
+  import { render } from '@testing-library/angular';
+  import { AppComponent } from './app.component';
+  test('renders without crashing', async () => {
+    await render(AppComponent);
+  });
+  ```
+- Update `package.json` scripts: `"test": "jest"`, `"test:ci": "jest --ci --reporters=default --reporters=jest-junit"`.
+- Verify: `npm test` runs 1 passing test.
+
+> **Fallback if jest-preset-angular for Angular 21 is unavailable:** keep Karma+Jasmine for v1; revisit at Phase 14. Document the decision as an ADR (`docs/adr/0006-test-runner-choice.md`). The frontend test surface in v1 is small enough that either runner works.
+
+#### Step 0.3c — ESLint + Prettier [S]
+
+- `npx ng add @angular-eslint/schematics --skip-confirmation`.
+- Add `prettier` and `prettier-plugin-organize-imports` as devDeps.
+- Create `.prettierrc.json`: `{ "printWidth": 100, "singleQuote": true, "trailingComma": "all", "plugins": ["prettier-plugin-organize-imports"] }`.
+- Create `.prettierignore`: `dist/`, `node_modules/`, `coverage/`.
+- Add `package.json` scripts: `"lint": "ng lint"`, `"format": "prettier --write ."`, `"format:check": "prettier --check ."`.
+- Verify: `npm run lint` clean; `npm run format:check` clean.
+
+**Tests:** the rewritten `app.component.spec.ts` (one test) passes under Jest.
+
+**Acceptance:** from `frontend/`, all of these succeed: `npm install`, `npm run build`, `npm test`, `npm run lint`, `npm run format:check`.
 
 ---
 
@@ -292,35 +333,39 @@ internal static class Deck
 - `Shuffled_with_same_seed_is_identical`.
 - `Shuffled_with_different_seeds_differs` (statistical: assert at least one position differs, with overwhelming probability).
 
-**Acceptance:** all green; `Deck` is `internal` (not exposed outside the domain assembly).
+**Acceptance:** all green; `Deck` is `internal` (not exposed outside the domain assembly). Add `[assembly: InternalsVisibleTo("Briscola.Domain.Tests")]` in `backend/src/Briscola.Domain/AssemblyInfo.cs` so the test project can call `Deck.Shuffled`.
 
 ---
 
-### Step 1.5 — `Hand` value object [S]
+### Step 1.5 — Hand representation [S]
 
-**What:** an immutable per-seat hand with O(1) membership.
+**What:** decide how a per-seat hand is represented in `GameState`.
 
-**Where:** `backend/src/Briscola.Domain/Primitives/Hand.cs`
+**Decision:** **no `Hand` wrapper class**. Hands are `ImmutableArray<Card>` directly, used positionally by seat index in `GameState.Hands` (see Step 1.6).
 
-**How:**
+**Why no wrapper:**
+- `GameState` is a `record`; record-equality on a wrapper class would require a custom `Equals` because `ImmutableArray<T>` uses reference equality. Either we drop into custom equality everywhere or we just don't introduce the abstraction.
+- We do not actually compare `GameState`s for equality in production paths (we serialize them). Tests assert specific fields, not whole-state equality.
+- Hand size is at most ~3 cards in steady state; "O(1) membership" is a non-concern.
+
+**Helpers** in `backend/src/Briscola.Domain/Primitives/HandHelpers.cs`:
 
 ```csharp
-public sealed class Hand
+internal static class HandHelpers
 {
-    private readonly ImmutableArray<Card> _cards;
-    public Hand(IEnumerable<Card> cards) { _cards = cards.ToImmutableArray(); }
-    public int Count => _cards.Length;
-    public bool Contains(Card c) => _cards.Contains(c);
-    public IEnumerable<Card> Cards => _cards;
-    public Hand Without(Card c) { /* throws if missing */ ... }
-    public Hand With(Card c) { /* appends */ ... }
+    public static ImmutableArray<Card> Without(this ImmutableArray<Card> hand, Card c)
+    {
+        var i = hand.IndexOf(c);
+        if (i < 0) throw new InvalidOperationException($"Card {c} not in hand");
+        return hand.RemoveAt(i);
+    }
+
+    public static ImmutableArray<Card> With(this ImmutableArray<Card> hand, Card c)
+        => hand.Add(c);
 }
 ```
 
-- Implementation uses `ImmutableArray<Card>` (small N — at most 3 cards in steady state, plus transitional draws). The `HashSet`-style membership cost is irrelevant at this size; clarity wins.
-- `Without(c)` throws `InvalidOperationException` if `c` is not present; the engine will translate to `InvalidMoveException` upstream.
-
-**Tests:** `With_then_Without_is_identity`; `Without_missing_throws`; `Contains_works_for_all_40_cards`.
+**Tests** (`HandHelpersTests.cs`): `With_then_Without_is_identity`; `Without_missing_throws`; `Contains_works_for_all_40_cards` (just `hand.Contains(c)`, asserting we don't need our own membership method).
 
 ---
 
@@ -339,7 +384,7 @@ public sealed record GameState
     public required GameMode Mode { get; init; }
     public required long ShuffleSeed { get; init; }
     public required int DealerSeat { get; init; }
-    public required ImmutableArray<Hand> Hands { get; init; }      // index = seat
+    public required ImmutableArray<ImmutableArray<Card>> Hands { get; init; }  // index = seat
     public required ImmutableArray<ImmutableArray<Card>> Pozzi { get; init; } // pile per seat
     public required ImmutableArray<Card> Stock { get; init; }      // tail = briscola card
     public required Card BriscolaCard { get; init; }
@@ -421,7 +466,12 @@ public sealed record GameSetup(
 1. Validate: `PlayerIds.Length` must be 2 if `Mode == TwoPlayer`, 4 if `FourPlayerTeams`. Otherwise throw `ArgumentException`.
 2. Validate: `DealerSeat` in range.
 3. `var deck = Deck.Shuffled(rng);` — array of 40 cards.
-4. **Deal three cards each, in the order: dealer, then dealer+1, …, dealer+N-1, repeat 3 times.** Briscola decks are typically dealt 3 at a time per player ("a tre"), but the *result* is identical to single-card round-robin since the deck is already shuffled. To match conventions and keep tests intuitive, we deal **3 contiguous cards per player in a single round, starting with the seat immediately after the dealer in seat order** (the leader). I.e. `hands[(dealer+1) % N] = deck[0..3]`, `hands[(dealer+2) % N] = deck[3..6]`, … This ordering guarantees that the leader's hand is `deck[0..3]`, which simplifies replay reasoning.
+4. **Deal three cards each, round-robin, starting with the seat immediately after the dealer in seat order.** Three rounds, one card per player per round:
+   - Round 1: card `deck[0]` → leader (seat `(dealer+1) % N`); `deck[1]` → next seat; …; `deck[N-1]` → dealer.
+   - Round 2: card `deck[N]` → leader; … `deck[2N-1]` → dealer.
+   - Round 3: same pattern, cards `deck[2N..3N-1]`.
+
+   This matches the traditional one-at-a-time deal. The result is *not* the same as 3 contiguous cards per player; tests must reflect the round-robin layout.
 5. Take the *next* card after the deal as `briscolaCard = deck[3*N]`. Its suit becomes the trump.
 6. The remaining stock is `deck[3*N + 1 .. 39]` followed by `briscolaCard` at the **tail** (so the briscola is literally the last element of `Stock` and will be the last drawn).
 7. `LeaderSeat = NextToPlaySeat = (DealerSeat + 1) % N`.
@@ -456,7 +506,8 @@ public sealed class BriscolaEngine : IBriscolaEngine
    - If `seatIndex != state.NextToPlaySeat` → `NotYourTurn`.
    - If `!state.Hands[seatIndex].Contains(card)` → `CardNotInHand`.
 2. **Apply the play:**
-   - `hand' = state.Hands[seatIndex].Without(card)`.
+   - `hand' = state.Hands[seatIndex].Without(card)` (extension from `HandHelpers`).
+   - `hands' = state.Hands.SetItem(seatIndex, hand')`.
    - `currentTrick' = state.CurrentTrick.Add(new PlayedCard(seatIndex, card))`.
 3. **If trick is incomplete** (`currentTrick'.Length < N`):
    - `next' = (seatIndex + 1) % N`.
@@ -510,7 +561,7 @@ public sealed class BriscolaEngine : IBriscolaEngine
   - `Stock_count_initial_2p_equals_33` (40 - 6 - 1, with briscola in stock).
   - `Stock_count_initial_4p_equals_27`.
   - `Leader_is_seat_after_dealer_in_seat_order`.
-  - `Leader_hand_equals_deck_first_3_cards` (regression test for the deal order).
+  - `Leader_hand_equals_deck_indices_0_N_2N` (regression test for the round-robin deal order: leader holds `deck[0]`, `deck[N]`, `deck[2N]`).
 - `EngineLegalityTests.cs`:
   - `PlayCard_when_not_my_turn_throws_NotYourTurn`.
   - `PlayCard_card_not_in_hand_throws_CardNotInHand`.
@@ -548,7 +599,7 @@ public sealed class BriscolaEngine : IBriscolaEngine
 **Acceptance:**
 - All tests pass.
 - Line coverage on `Briscola.Domain` ≥ 95% (measured via `coverlet.collector` + `XPlat Code Coverage`; CI uploads the report).
-- No test takes > 200 ms individually; full domain test suite < 5 s.
+- No individual test takes > 500 ms (the property test is the only candidate; tune iteration count if needed). Full domain test suite < 30 s on CI.
 
 **Phase 1 exit:** all tests above green; `dotnet build` clean; `Briscola.Domain` has zero references outside `System.*`.
 
@@ -594,12 +645,13 @@ public sealed class BriscolaEngine : IBriscolaEngine
   Task<RankingRecord> GetAsync(Guid userId, CancellationToken ct);
   Task UpdateAsync(RankingRecord record, CancellationToken ct);
   ```
-- `IGameEventBus.cs` — outbound events, **subscribed to by the API layer's SignalR hub**:
+- `IGameEventBus.cs` — outbound events, **consumed by the API layer's `GameEventDispatcher` hosted service**:
   ```csharp
   ValueTask PublishAsync(IGameEvent evt, CancellationToken ct = default);
-  IAsyncEnumerable<IGameEvent> SubscribeAsync(Guid gameId, CancellationToken ct);
+  IAsyncEnumerable<IGameEvent> ReadAllAsync(CancellationToken ct);   // single multiplexed reader
   ```
-  (In-memory implementation lives in `Briscola.Application` for testing; a process-local `Channel<IGameEvent>` bus is fine — multi-instance horizontal scaling is **not** a v1 requirement.)
+  - In-memory implementation lives in `Briscola.Application/Bus/InMemoryGameEventBus.cs`: a single `Channel<IGameEvent>(UnboundedChannelOptions { SingleReader = true, SingleWriter = false })`. The dispatcher is the only consumer; it routes by `evt.GameId` to the right SignalR group. Multi-instance horizontal scaling is **not** a v1 requirement.
+  - For tests, a `RecordingGameEventBus` captures published events into a list and exposes them synchronously.
 
 **Records used by ports** (in `Briscola.Application/Persistence/Records.cs`):
 
@@ -790,7 +842,9 @@ Task LeaveAsync(Guid gameId, Guid userId, CancellationToken ct);
 
 **Race conditions:** two users may both call `JoinAsync` for the last seat at the same time. Solution: optimistic concurrency token (a `RowVersion`/`Xmin` column on `Games`) + retry on `DbUpdateConcurrencyException`. The `IGameRepository.UpdateAsync` returns `bool` indicating whether the update applied; on `false`, refetch and retry up to 3 times before giving up.
 
-**`LeaveAsync`:** allowed only when `Status == Open`. Returns 409-equivalent error otherwise (the Application returns a typed result; the API maps to HTTP).
+**`LeaveAsync`:** allowed only when `Status == Open` (returns 409-equivalent for `Running` games — the Application returns a typed `LobbyConflictException`; the API maps to HTTP 409).
+
+**Mid-game quit:** there is no "leave a running game" REST endpoint in v1. A player who wants to abandon a `Running` game closes the tab / disconnects; the standard disconnect-grace-then-forfeit path applies. This is documented in README's Disconnect / reconnect handling section.
 
 **`OpenLobbyTtl` background service:** a `BackgroundService` in `Briscola.Application/Background/OpenLobbyJanitor.cs` runs every minute; transitions any `Open` game older than `OpenLobbyTtlMinutes` to `Abandoned`.
 
@@ -1021,7 +1075,12 @@ Uses `WebApplicationFactory<Program>` with a test config overriding `ConnectionS
 
 ### Step 4.1 — `Briscola.Api` host [S]
 
-**Where:** `backend/src/Briscola.Api/Program.cs`
+**Where:** `backend/src/Briscola.Api/Program.cs`, plus `appsettings.json` and `appsettings.Development.json`.
+
+**Config files** (committed; **NO secrets**):
+- `appsettings.json` — production-safe defaults. `ConnectionStrings.Provider = "Sqlite"` (overridden in compose), no signing key. Logging defaults `Information`.
+- `appsettings.Development.json` — `Migrations.RunOnStartup = true`, more verbose logging, dev SQLite path `Data Source=./briscola-dev.db`.
+- All secrets (`Authentication__Jwt__SigningKey`, DB password) come from environment variables only — never appsettings.
 
 **Order of operations in `Program.cs`** (precise):
 
@@ -1221,7 +1280,11 @@ public sealed class GameHub : Hub<IGameClient>
     public Task PlayCard(Guid gameId, Card card) { /* enqueue PlayCardCommand */ }
     public Task ViewOwnPile(Guid gameId) { /* enqueue ViewOwnPileCommand */ }
     public Task SendChat(Guid gameId, string text) { /* validate scope/spectator, persist, broadcast */ }
-    public Task LeaveGame(Guid gameId) { /* leave group; for in-progress games, treat as disconnect */ }
+    public Task LeaveGame(Guid gameId) {
+        // For Open games: removes the seat (delegates to LobbyService.LeaveAsync).
+        // For Running games: behaves as a disconnect (enqueues DisconnectCommand;
+        //   the grace timer is started; client tab closure has identical semantics).
+    }
 
     public override async Task OnDisconnectedAsync(Exception? ex)
     {
@@ -1583,7 +1646,8 @@ Walk `docs/security.md` line by line; each item maps to a test or a review note.
 
 - Multi-stage:
   - Stage 1 (`mcr.microsoft.com/dotnet/sdk:10.0`): copy csprojs, restore, copy rest, publish.
-  - Stage 2 (`mcr.microsoft.com/dotnet/aspnet:10.0`): copy publish output; non-root user (`uid:1000`); `USER 1000`; `EXPOSE 8080`; `HEALTHCHECK CMD curl -f http://localhost:8080/healthz || exit 1`.
+  - Stage 2 (`mcr.microsoft.com/dotnet/aspnet:10.0`): copy publish output; install `curl` (`apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*`) so HEALTHCHECK can run; non-root user (`uid:1000`); `USER 1000`; `EXPOSE 8080`; `HEALTHCHECK --interval=30s --timeout=3s --start-period=15s CMD curl -fsS http://localhost:8080/healthz || exit 1`.
+  - Alternative if image size matters more than convenience: use `mcr.microsoft.com/dotnet/aspnet:10.0-noble-chiseled-extra` (chiseled image with `curl` pre-installed). Document the choice in `docs/deployment.md`.
 - `wwwroot/card-sets/placeholder/` is included in the publish output via `<Content Include="wwwroot\**\*">` in the csproj.
 
 ### Step 12.2 — Frontend Dockerfile [S]
@@ -1618,7 +1682,11 @@ services:
       Migrations__RunOnStartup: "true"
     depends_on: { postgres: { condition: service_healthy } }
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/healthz || exit 1"]
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8080/healthz || exit 1"]
+      interval: 30s
+      timeout: 3s
+      start_period: 15s
+      retries: 3
   frontend:
     build: { context: ./frontend, dockerfile: Dockerfile }
     depends_on: { api: { condition: service_healthy } }

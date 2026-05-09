@@ -143,11 +143,14 @@ elk-briscola/
 │       └── 0004-pluggable-card-sets.md
 ├── backend/
 │   ├── Briscola.sln
+│   ├── Directory.Build.props
 │   ├── src/
-│   │   ├── Briscola.Domain/        # pure rules engine, no dependencies
-│   │   ├── Briscola.Application/   # use-case services, DTOs, interfaces
-│   │   ├── Briscola.Infrastructure/# EF Core, Identity, persistence
-│   │   └── Briscola.Api/           # ASP.NET Core host: controllers + hubs
+│   │   ├── Briscola.Domain/                          # pure rules engine, no dependencies
+│   │   ├── Briscola.Application/                     # use-case services, DTOs, interfaces
+│   │   ├── Briscola.Infrastructure/                  # EF Core, Identity, persistence
+│   │   ├── Briscola.Infrastructure.Sqlite.Migrations/    # EF Core migrations (SQLite)
+│   │   ├── Briscola.Infrastructure.Postgres.Migrations/  # EF Core migrations (PostgreSQL)
+│   │   └── Briscola.Api/                             # ASP.NET Core host: controllers + hubs
 │   └── tests/
 │       ├── Briscola.Domain.Tests/
 │       ├── Briscola.Application.Tests/
