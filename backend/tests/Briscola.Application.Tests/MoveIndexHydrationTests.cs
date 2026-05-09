@@ -31,7 +31,7 @@ public sealed class MoveIndexHydrationTests
         reloaded.Should().NotBeNull();
         GameRoom secondRoom = GameRoom.FromRecord(
             reloaded!,
-            factory.Games,
+            factory.GamesFactory,
             factory.Codec,
             factory.Engine,
             factory.Bus,

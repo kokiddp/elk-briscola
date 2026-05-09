@@ -96,6 +96,12 @@ public static class DependencyInjection
         services.AddScoped<IChatRepository, EfChatRepository>();
         services.AddScoped<IRankingRepository, EfRankingRepository>();
 
+        // Singleton-friendly factory: callers that outlive a request
+        // scope (GameOrchestrator, GameRoom, OpenLobbyJanitor) take
+        // IGameRepositoryFactory and create a fresh scope per unit of
+        // work. See AGENTS.md § Dependency injection for the rule.
+        services.AddSingleton<IGameRepositoryFactory, ScopedGameRepositoryFactory>();
+
         return services;
     }
 }

@@ -13,6 +13,7 @@ internal sealed class TestGameFactory
 {
     public FakeClock Clock { get; } = new(new DateTimeOffset(2026, 5, 9, 12, 0, 0, TimeSpan.Zero));
     public InMemoryGameRepository Games { get; } = new();
+    public InMemoryGameRepositoryFactory GamesFactory { get; }
     public InMemoryGameStateCodec Codec { get; } = new();
     public RecordingGameEventBus Bus { get; } = new();
     public FakeRandomSource Random { get; } = new();
@@ -28,6 +29,7 @@ internal sealed class TestGameFactory
     public TestGameFactory()
     {
         Timers = new FakeTimerService(Clock);
+        GamesFactory = new InMemoryGameRepositoryFactory(Games);
     }
 
     public async Task<(GameRoom Room, GameRecord Record, Guid[] Users)> CreateRunningRoomAsync(
@@ -58,7 +60,7 @@ internal sealed class TestGameFactory
         await Games.CreateAsync(record, CancellationToken.None);
         GameRoom room = GameRoom.FromRecord(
             record,
-            Games,
+            GamesFactory,
             Codec,
             Engine,
             Bus,

@@ -959,8 +959,8 @@ Trivial wrapper that, on game end, persists a `GameResultRecord`. `GameMoves` is
 
 These came out of the post-implementation review; none block Phase 3, but they should be addressed before v1 ships:
 
-- **Stale-record recovery.** `GameRoom.PersistStateAsync` throws `GameCommandException` when `IGameRepository.UpdateAsync` returns false (Version mismatch). The room state and `_record.Version` are NOT refreshed on failure, so subsequent commands on the same room keep failing — the room is effectively poisoned. Fix in Phase 3 or 5: on concurrency conflict, refetch the record, evict the room from `GameOrchestrator._rooms`, and surface a structured error to the caller so the API layer can ask the client to retry.
-- **Hydrate orphan task.** `GameOrchestrator.HydrateAsync` calls `_rooms.TryAdd(record.Id, GameRoom.FromRecord(...))`. If `TryAdd` returns false (room already exists), the freshly-constructed `GameRoom` leaks: its `ProcessLoopAsync` task spins idle forever and its idle-check timer fires reconnect/idle commands into a dead channel. Memory leak, not crash. Fix: check `TryAdd` return value and `Dispose` the orphan (will require `GameRoom` to be `IDisposable`).
+- **Stale-record recovery.** Still open. See the [Phase 4 follow-ups](#phase-4-follow-up-items-deferred-for-later-phases) for the current scoping decision (deferred to Phase 12).
+- ~~**Hydrate orphan task.**~~ **Closed in Phase 5.2b refactor.** `GameRoom` is now `IAsyncDisposable` and orchestrator dispose-on-lost-race semantics eliminated the leak. See the Phase 4 follow-up entry below.
 - **4p team Elo magnitude.** `RankingService.ApplyFourPlayerAsync` adds `+delta` to each of two teammates and `-delta` to each of two opponents. Net team rating change is `2*delta`. For K=24 this is plausible for a 4-player game (more variance than 1v1) but is worth re-examining when Phase 10 wires up real ranked matches: consider halving the delta for teams to keep per-team K constant, or document the choice as intentional.
 - ~~**Snapshot codec coverage.**~~ **Closed in Phase 3.6:** `JsonGameStateCodec` (System.Text.Json + custom `ImmutableArrayJsonConverter` + `GameOutcomeJsonConverter`) replaces `InMemoryGameStateCodec` in production wiring. `JsonGameStateCodecTests` round-trips a fully populated `GameState` (4p with non-empty pozzi and a captured `GameOutcome.Winner`).
 
@@ -1327,10 +1327,10 @@ Wire in `angular.json` under `serve.options.proxyConfig`.
 
 - **`GET /me/history?page=&size=` (Phase 10).** Listed in step 4.4 alongside `/me` and `/me/ranking`, but the corresponding repository method (`IGameRepository.ListEndedForUserAsync` or equivalent) doesn't exist in the Application layer yet — `MatchHistoryService` only writes results. Phase 10 ("Match history, ranking, spectator") is the natural home; pulling the endpoint forward would require partial Application work. Tracked here so Phase 10 doesn't lose it.
 - **`POST /games/{id}/spectate` (Phase 5).** Listed in step 4.4 but spectator support is fundamentally a SignalR group concept (the spec says "adds caller to spectators group; server pushes redacted state"). Pure REST gives the caller nothing useful without the hub push. Implement alongside `GameHub` in Phase 5.
-- **Scope handling for `GameOrchestrator` / `OpenLobbyJanitor` (carry-over from Phase 2 + Phase 3).** Phase 4's `Program.cs` disables the DI scope-validator because both classes inject `IGameRepository` directly, which is Scoped under EF. The architectural fix is `IServiceScopeFactory` — likely landing in Phase 5 alongside `GameEventDispatcher` since both touch orchestrator startup.
+- ~~**Scope handling for `GameOrchestrator` / `OpenLobbyJanitor` (carry-over from Phase 2 + Phase 3).**~~ **Closed in Phase 5.2b refactor:** introduced `IGameRepositoryFactory` / `IGameRepositoryScope` ports (Application) with a production `ScopedGameRepositoryFactory` (Infrastructure) that opens a fresh DI scope per call. `GameRoom`, `GameOrchestrator`, and `OpenLobbyJanitor` now consume the factory rather than capturing a Scoped repo. The `ValidateScopes=false` opt-out is gone from `Program.cs`.
 - **`InvalidMoveException` → 400 with `code: "NotYourTurn"`.** Step 4.4 documents this mapping but no handler raises `InvalidMoveException` until Phase 5's hubs/commands. The `ApiProblemDetails` class will need to grow this case when the hub plumbs commands through controllers (or when REST adds `POST /games/{id}/play-card`, if we go that route — likely no, hubs handle it).
-- **Stale-record recovery (still open from Phase 2).** `GameRoom.PersistStateAsync`'s `ConcurrencyConflictException` path doesn't refresh `_record.Version`. Phase 4's controllers map the exception to a 409, so callers retry, but the room stays poisoned. Fix in Phase 5.
-- **Hydrate orphan task (still open from Phase 2).** `GameOrchestrator.HydrateAsync` is now wired into startup, but `_rooms.TryAdd` orphans `GameRoom` instances on duplicates. Phase 5 cleanup item.
+- **Stale-record recovery (still open from Phase 2).** `GameRoom.PersistStateAsync` throws `GameCommandException` on a `Version` mismatch and leaves `_record` stale; subsequent commands keep failing. Currently unreachable in normal play because `GameRoom` is the sole writer for Running games and runs a single-threaded command loop, but it becomes reachable as soon as we scale horizontally (multiple API processes mutating the same game). Defer to Phase 12 (containerization & deploy) where horizontal scale is the actual concern; the fix is a one-shot eviction in `GameOrchestrator.EnqueueAsync` when the room signals a concurrency conflict.
+- ~~**Hydrate orphan task (still open from Phase 2).**~~ **Closed in Phase 5.2b refactor:** `GameRoom` is now `IAsyncDisposable` (drains the channel + cancels timers), and both `GameOrchestrator.HydrateAsync` and `GameOrchestrator.GetOrCreate` build the candidate eagerly outside `TryAdd` so the orphan can be disposed when the race is lost. `GameOrchestrator` itself is `IAsyncDisposable` and disposes every room on shutdown.
 
 ---
 
@@ -1406,7 +1406,7 @@ public interface IGameClient
 
 ---
 
-### Step 5.2b — `GameEventDispatcher` hosted service [M]
+### Step 5.2b — `GameEventDispatcher` hosted service [M] [x]
 
 **Where:** `backend/src/Briscola.Api/Hubs/GameEventDispatcher.cs`
 

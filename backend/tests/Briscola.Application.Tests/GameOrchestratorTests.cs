@@ -18,7 +18,7 @@ public sealed class GameOrchestratorTests
         (_, Persistence.GameRecord record, Guid[] users) = await factory.CreateRunningRoomAsync();
         RecordingGameEventBus bus = new();
         GameOrchestrator orchestrator = new(
-            factory.Games,
+            factory.GamesFactory,
             factory.Codec,
             new BriscolaEngine(),
             bus,
@@ -82,7 +82,7 @@ public sealed class GameOrchestratorTests
         TestGameFactory factory,
         RecordingGameEventBus bus) =>
         new(
-            factory.Games,
+            factory.GamesFactory,
             factory.Codec,
             new BriscolaEngine(),
             bus,

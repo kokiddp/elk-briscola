@@ -25,20 +25,6 @@ using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Service-provider options. We disable scope validation because the
-// Phase 2 GameOrchestrator (and OpenLobbyJanitor) take IGameRepository
-// directly even though the EF-backed implementation is Scoped. The
-// architectural fix — switching them to IServiceScopeFactory — is the
-// open Phase 2 follow-up "hydrate orphan task / scope handling"; until
-// that lands, the validator would block boot. Runtime use creates a
-// scope per command via the controller pipeline, so this does not
-// mask a real bug, just defers a refactor.
-builder.Host.UseDefaultServiceProvider(o =>
-{
-    o.ValidateScopes = false;
-    o.ValidateOnBuild = false;
-});
-
 // 1) Options binding (read straight from configuration; sources are env vars,
 //    appsettings.{Environment}.json, and command-line — built into the host).
 builder.Services.Configure<GameOptions>(builder.Configuration.GetSection(GameOptions.SectionName));
@@ -150,8 +136,10 @@ builder.Services
 
 builder.Services.AddValidatorsFromAssembly(Assembly.GetExecutingAssembly());
 
-// 9) SignalR (hubs themselves land in Phase 5).
+// 9) SignalR + the hosted GameEventDispatcher that bridges
+//    IGameEventBus → IHubContext<GameHub, IGameClient>.
 builder.Services.AddSignalR();
+builder.Services.AddHostedService<Briscola.Api.Hubs.GameEventDispatcher>();
 
 // 10) Card-set catalog (loaded from wwwroot/card-sets at startup; empty until Phase 9).
 builder.Services.AddSingleton(sp =>

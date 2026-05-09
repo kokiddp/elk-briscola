@@ -9,7 +9,7 @@ using Microsoft.Extensions.Options;
 namespace Briscola.Application.Background;
 
 public sealed class OpenLobbyJanitor(
-    IGameRepository games,
+    IGameRepositoryFactory gamesFactory,
     IClock clock,
     IOptions<GameOptions> options) : BackgroundService
 {
@@ -25,6 +25,8 @@ public sealed class OpenLobbyJanitor(
 
     public async Task RunOnceAsync(CancellationToken ct)
     {
+        await using IGameRepositoryScope scope = gamesFactory.Create();
+        IGameRepository games = scope.Repository;
         IReadOnlyList<GameRecord> records =
             await games.ListByStatusAsync(GameStatus.Open, take: int.MaxValue, ct).ConfigureAwait(false);
         DateTimeOffset now = clock.UtcNow;

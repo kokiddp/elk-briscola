@@ -286,7 +286,7 @@ public sealed class LobbyServiceTests
             CancellationToken.None);
         fixture.Clock.Advance(TimeSpan.FromMinutes(61));
         OpenLobbyJanitor janitor = new(
-            fixture.Games,
+            fixture.GamesFactory,
             fixture.Clock,
             Options.Create(new GameOptions { OpenLobbyTtlMinutes = 60 }));
 
@@ -301,16 +301,18 @@ public sealed class LobbyServiceTests
         public FakeClock Clock { get; } =
             new(new DateTimeOffset(2026, 5, 9, 12, 0, 0, TimeSpan.Zero));
         public InMemoryGameRepository Games { get; } = new();
+        public InMemoryGameRepositoryFactory GamesFactory { get; }
         public InMemoryGameStateCodec Codec { get; } = new();
         public LobbyService Service { get; }
 
         public TestFixture()
         {
+            GamesFactory = new InMemoryGameRepositoryFactory(Games);
             IBriscolaEngine engine = new BriscolaEngine();
             RecordingGameEventBus bus = new();
             FakeTimerService timers = new(Clock);
             GameOrchestrator orchestrator = new(
-                Games,
+                GamesFactory,
                 Codec,
                 engine,
                 bus,

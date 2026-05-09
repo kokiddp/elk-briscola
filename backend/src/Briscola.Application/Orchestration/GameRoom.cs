@@ -14,9 +14,9 @@ using Microsoft.Extensions.Options;
 
 namespace Briscola.Application.Orchestration;
 
-public sealed class GameRoom
+public sealed class GameRoom : IAsyncDisposable
 {
-    private readonly IGameRepository _games;
+    private readonly IGameRepositoryFactory _gamesFactory;
     private readonly IGameStateCodec _stateCodec;
     private readonly IBriscolaEngine _engine;
     private readonly IGameEventBus _eventBus;
@@ -31,17 +31,19 @@ public sealed class GameRoom
     private readonly Dictionary<int, ConnectionStatus> _seatStatuses = [];
     private readonly Dictionary<int, IDisposable> _reconnectTimers = [];
     private readonly List<IDisposable> _idleTimers = [];
+    private readonly Task _processLoop;
 
     private GameRecord _record;
     private GameState _state;
     private int _moveIndex;
     private DateTimeOffset _lastMoveCompletedAt;
     private int? _idleWarnedForSeat;
+    private bool _disposed;
 
     private GameRoom(
         GameRecord record,
         GameState state,
-        IGameRepository games,
+        IGameRepositoryFactory gamesFactory,
         IGameStateCodec stateCodec,
         IBriscolaEngine engine,
         IGameEventBus eventBus,
@@ -51,7 +53,7 @@ public sealed class GameRoom
     {
         _record = record;
         _state = state;
-        _games = games;
+        _gamesFactory = gamesFactory;
         _stateCodec = stateCodec;
         _engine = engine;
         _eventBus = eventBus;
@@ -74,14 +76,14 @@ public sealed class GameRoom
         }
 
         ScheduleIdleChecks();
-        _ = Task.Run(ProcessLoopAsync);
+        _processLoop = Task.Run(ProcessLoopAsync);
     }
 
     public GameState CurrentState => _state;
 
     public static GameRoom FromRecord(
         GameRecord record,
-        IGameRepository games,
+        IGameRepositoryFactory gamesFactory,
         IGameStateCodec stateCodec,
         IBriscolaEngine engine,
         IGameEventBus eventBus,
@@ -96,7 +98,36 @@ public sealed class GameRoom
         }
 
         GameState state = stateCodec.Deserialize(record.StateSnapshotJson);
-        return new GameRoom(record, state, games, stateCodec, engine, eventBus, clock, timers, options);
+        return new GameRoom(record, state, gamesFactory, stateCodec, engine, eventBus, clock, timers, options);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
+        _commands.Writer.TryComplete();
+        CancelIdleTimers();
+        foreach (IDisposable timer in _reconnectTimers.Values)
+        {
+            timer.Dispose();
+        }
+
+        _reconnectTimers.Clear();
+
+        try
+        {
+            await _processLoop.ConfigureAwait(false);
+        }
+        catch
+        {
+            // The loop swallows individual command exceptions into the
+            // queued completion sources; reaching here means the channel
+            // closed cleanly. Any straggler exception is harmless.
+        }
     }
 
     public async Task EnqueueAsync(GameCommand cmd, CancellationToken ct = default)
@@ -114,7 +145,8 @@ public sealed class GameRoom
         // are applied. Without this, restarting the process and rehydrating an
         // in-flight game would cause MoveIndex to restart at 0 and collide with
         // the unique (GameId, MoveIndex) index documented in the README schema.
-        _moveIndex = await _games
+        await using IGameRepositoryScope hydrateScope = _gamesFactory.Create();
+        _moveIndex = await hydrateScope.Repository
             .GetNextMoveIndexAsync(_state.GameId, CancellationToken.None)
             .ConfigureAwait(false);
 
@@ -180,8 +212,7 @@ public sealed class GameRoom
 
         DateTimeOffset now = _clock.UtcNow;
         await PersistStateAsync(now, ct).ConfigureAwait(false);
-        await _games.AppendMoveAsync(
-            _state.GameId,
+        await AppendMoveAsync(
             NewMove(seat, MoveType.PlayCard, CardPayload(command.Card), now),
             ct).ConfigureAwait(false);
 
@@ -276,8 +307,7 @@ public sealed class GameRoom
                         token).ConfigureAwait(false);
                 }));
 
-        await _games.AppendMoveAsync(
-            _state.GameId,
+        await AppendMoveAsync(
             NewMove(seat, MoveType.Disconnect, "{}", now),
             ct).ConfigureAwait(false);
         await _eventBus.PublishAsync(
@@ -297,8 +327,7 @@ public sealed class GameRoom
         _seatStatuses[seat] = ConnectionStatus.Connected;
         CancelReconnectTimer(seat);
 
-        await _games.AppendMoveAsync(
-            _state.GameId,
+        await AppendMoveAsync(
             NewMove(seat, MoveType.Reconnect, "{}", now),
             ct).ConfigureAwait(false);
 
@@ -377,8 +406,7 @@ public sealed class GameRoom
         };
 
         await PersistStateAsync(now, ct).ConfigureAwait(false);
-        await _games.AppendMoveAsync(
-            _state.GameId,
+        await AppendMoveAsync(
             NewMove(forfeitingSeat, moveType, "{}", now),
             ct).ConfigureAwait(false);
         await SaveFinishedAsync(reason, now, ct).ConfigureAwait(false);
@@ -392,7 +420,11 @@ public sealed class GameRoom
             return;
         }
 
-        await _games.SaveResultAsync(ToResultRecord(_state, reason), ct).ConfigureAwait(false);
+        await using (IGameRepositoryScope scope = _gamesFactory.Create())
+        {
+            await scope.Repository.SaveResultAsync(ToResultRecord(_state, reason), ct).ConfigureAwait(false);
+        }
+
         await _eventBus.PublishAsync(
             new GameFinishedEvent(_state.GameId, now, _state.Outcome, _state.SeatScores, reason),
             ct).ConfigureAwait(false);
@@ -409,13 +441,24 @@ public sealed class GameRoom
             ShuffleSeed = _state.ShuffleSeed,
         };
 
-        bool updated = await _games.UpdateAsync(desired, ct).ConfigureAwait(false);
+        bool updated;
+        await using (IGameRepositoryScope scope = _gamesFactory.Create())
+        {
+            updated = await scope.Repository.UpdateAsync(desired, ct).ConfigureAwait(false);
+        }
+
         if (!updated)
         {
             throw new GameCommandException($"Game {desired.Id} could not be updated due to concurrency.");
         }
 
         _record = desired with { Version = desired.Version + 1 };
+    }
+
+    private async Task AppendMoveAsync(MoveRecord move, CancellationToken ct)
+    {
+        await using IGameRepositoryScope scope = _gamesFactory.Create();
+        await scope.Repository.AppendMoveAsync(_state.GameId, move, ct).ConfigureAwait(false);
     }
 
     private async Task PublishSnapshotsAsync(DateTimeOffset now, CancellationToken ct)

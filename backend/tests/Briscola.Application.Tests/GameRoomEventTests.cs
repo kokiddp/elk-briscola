@@ -110,7 +110,7 @@ public sealed class GameRoomEventTests
 
         Action act = () => GameRoom.FromRecord(
             record,
-            factory.Games,
+            factory.GamesFactory,
             factory.Codec,
             factory.Engine,
             factory.Bus,
@@ -153,7 +153,7 @@ public sealed class GameRoomEventTests
         };
         GameRoom room = GameRoom.FromRecord(
             lastHandRecord,
-            factory.Games,
+            factory.GamesFactory,
             factory.Codec,
             factory.Engine,
             factory.Bus,
@@ -237,7 +237,7 @@ public sealed class GameRoomEventTests
         await factory.Games.CreateAsync(record, CancellationToken.None);
         GameRoom room = GameRoom.FromRecord(
             record,
-            factory.Games,
+            factory.GamesFactory,
             factory.Codec,
             factory.Engine,
             factory.Bus,

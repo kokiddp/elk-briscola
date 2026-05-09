@@ -293,11 +293,13 @@ Don't suppress analyzer warnings elsewhere without justification; new suppressio
 
 ### Dependency injection
 
-- Singletons: `GameOrchestrator`, `IBriscolaEngine`, `IGameEventBus`, `ITimerService`, `IRandomSourceFactory`, `IClock`, hosted services.
-- Scoped: `LobbyService`, `RankingService`, `MatchHistoryService`, anything per-request that touches `IUserContext`.
+- Singletons: `GameOrchestrator`, `IBriscolaEngine`, `IGameEventBus`, `ITimerService`, `IRandomSourceFactory`, `IClock`, `IGameRepositoryFactory`, hosted services (`OpenLobbyJanitor`, `GameEventDispatcher`).
+- Scoped: `IGameRepository`, `IChatRepository`, `IRankingRepository`, `BriscolaDbContext`, `LobbyService`, `RankingService`, `MatchHistoryService`, `IUserContext`.
 - Tests construct services manually — no DI container in the test suite. The `TestGameFactory` helper is the canonical setup pattern.
 
-> **Phase 4 carry-over:** `Briscola.Api/Program.cs` currently disables the DI scope-validator (`ValidateScopes = false`) because Phase 2's `GameOrchestrator` and `OpenLobbyJanitor` inject `IGameRepository` directly even though the EF-backed implementation is Scoped. The right fix is `IServiceScopeFactory` in both classes (open as a Phase 5 follow-up — see [TODO Phase 4 follow-ups](TODO.md#phase-4-follow-up-items-deferred-for-later-phases)). Don't remove the scope-validator opt-out without doing that refactor first, or the host won't boot.
+#### Singletons that need a Scoped repository: use `IGameRepositoryFactory`
+
+`GameOrchestrator`, `GameRoom`, and `OpenLobbyJanitor` are all singletons (or live across many request scopes). They never inject `IGameRepository` directly — that would capture a Scoped lifetime forever. Instead they take `IGameRepositoryFactory` and call `factory.Create()` to get an `IGameRepositoryScope` for each unit of work; `await using` disposes the scope (and the underlying EF `DbContext`) when the call returns. The production wiring is `ScopedGameRepositoryFactory` in `Briscola.Infrastructure/Persistence/Repositories/`. Tests use `InMemoryGameRepositoryFactory` (a no-op pass-through). DI scope validation runs in every environment now — if you add a singleton that needs a Scoped service, route it through this same pattern.
 
 ### Configuring authentication options against `WebApplicationFactory<T>`
 
