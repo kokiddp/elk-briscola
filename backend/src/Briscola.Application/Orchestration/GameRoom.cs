@@ -110,6 +110,14 @@ public sealed class GameRoom
 
     private async Task ProcessLoopAsync()
     {
+        // Hydrate the move-log counter from the repository before any commands
+        // are applied. Without this, restarting the process and rehydrating an
+        // in-flight game would cause MoveIndex to restart at 0 and collide with
+        // the unique (GameId, MoveIndex) index documented in the README schema.
+        _moveIndex = await _games
+            .GetNextMoveIndexAsync(_state.GameId, CancellationToken.None)
+            .ConfigureAwait(false);
+
         await foreach (QueuedCommand queued in _commands.Reader.ReadAllAsync().ConfigureAwait(false))
         {
             try
@@ -502,18 +510,33 @@ public sealed class GameRoom
 
     private int WinnerKeyAgainst(int forfeitingSeat)
     {
+        // 2p: the surviving seat (0 or 1) is the winner.
         if (_state.Mode == GameMode.TwoPlayer)
         {
             return forfeitingSeat == 0 ? 1 : 0;
         }
 
+        // 4p teams: team 0 = seats {0, 2}; team 1 = seats {1, 3}. The
+        // forfeiting seat's team loses, so the winner key is the opposite team.
         return forfeitingSeat % 2 == 0 ? 1 : 0;
     }
 
+    // _moveIndex is mutated only on the room's single ProcessLoopAsync task
+    // (see EnqueueAsync), so non-atomic increment is safe.
     private MoveRecord NewMove(int seat, MoveType type, string payload, DateTimeOffset now) =>
         new(Guid.NewGuid(), _state.GameId, _moveIndex++, seat, type, payload, now);
 
-    private static string CardPayload(Card card) => $$"""{"suit":"{{card.Suit}}","rank":"{{card.Rank}}"}""";
+    private static readonly System.Text.Json.JsonSerializerOptions PayloadJsonOptions =
+        new()
+        {
+            Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() },
+            WriteIndented = false,
+        };
+
+    private static string CardPayload(Card card) =>
+        System.Text.Json.JsonSerializer.Serialize(
+            new { suit = card.Suit, rank = card.Rank },
+            PayloadJsonOptions);
 
     private static Card? FirstNewCard(ImmutableArray<Card> before, ImmutableArray<Card> after)
     {

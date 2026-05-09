@@ -1,4 +1,5 @@
 using Briscola.Application.Ports;
+using Briscola.Domain.Primitives;
 
 namespace Briscola.Application.Tests.TestDoubles;
 

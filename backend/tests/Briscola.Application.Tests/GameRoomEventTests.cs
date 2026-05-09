@@ -71,16 +71,21 @@ public sealed class GameRoomEventTests
     }
 
     [Fact]
-    public async Task Unsupported_lobby_command_sent_to_running_room_fails()
+    public async Task Unsupported_command_sent_to_room_fails()
     {
         TestGameFactory factory = new();
-        (GameRoom room, _, Guid[] users) = await factory.CreateRunningRoomAsync();
+        (GameRoom room, _, _) = await factory.CreateRunningRoomAsync();
 
-        Func<Task> act = () => room.EnqueueAsync(
-            new JoinGameCommand(room.CurrentState.GameId, users[0], PreferredSeat: null));
+        // Use an ad-hoc subclass of GameCommand to exercise the room's
+        // default branch. The base record is publicly extensible so a future
+        // command type that's missing from the dispatch table fails loudly
+        // rather than being silently dropped.
+        Func<Task> act = () => room.EnqueueAsync(new UnknownCommand(room.CurrentState.GameId));
 
         await act.Should().ThrowAsync<GameCommandException>();
     }
+
+    private sealed record UnknownCommand(Guid GameId) : GameCommand(GameId);
 
     [Fact]
     public void From_record_requires_snapshot()

@@ -162,9 +162,15 @@ public sealed class LobbyService(
     private GameRecord StartRecord(GameRecord record, ImmutableArray<Guid?> seats)
     {
         ImmutableArray<Guid> players = seats.Select(id => id!.Value).ToImmutableArray();
-        Ports.IRandomSource randomSource = randomSourceFactory.Create();
+        Briscola.Domain.Primitives.IRandomSource randomSource = randomSourceFactory.Create();
+
+        // Pick a dealer at random (per the canonical Briscola rules in README).
+        // The pick comes from the same seeded source that drives the shuffle so
+        // games stay deterministically replayable from ShuffleSeed.
+        int dealerSeat = randomSource.Next(players.Length);
+
         GameState state = engine.StartGame(
-            new GameSetup(record.Id, record.Mode, DealerSeat: 0, players),
+            new GameSetup(record.Id, record.Mode, dealerSeat, players),
             randomSource);
         DateTimeOffset now = clock.UtcNow;
         return record with

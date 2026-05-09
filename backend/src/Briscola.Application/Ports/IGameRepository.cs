@@ -11,4 +11,13 @@ public interface IGameRepository
     Task<bool> UpdateAsync(GameRecord record, CancellationToken ct);
     Task AppendMoveAsync(Guid gameId, MoveRecord move, CancellationToken ct);
     Task SaveResultAsync(GameResultRecord result, CancellationToken ct);
+
+    /// <summary>
+    /// Returns the next free <c>MoveIndex</c> for this game (i.e. one more than
+    /// the highest existing index, or 0 if no moves have been recorded yet).
+    /// Used by <see cref="Orchestration.GameRoom"/> when rehydrating from a
+    /// snapshot so the move log doesn't restart at 0 and collide with existing
+    /// rows on the unique <c>(GameId, MoveIndex)</c> index.
+    /// </summary>
+    Task<int> GetNextMoveIndexAsync(Guid gameId, CancellationToken ct);
 }

@@ -85,4 +85,16 @@ internal sealed class InMemoryGameRepository : IGameRepository
             return Task.CompletedTask;
         }
     }
+
+    public Task<int> GetNextMoveIndexAsync(Guid gameId, CancellationToken ct)
+    {
+        lock (_gate)
+        {
+            int max = _moves
+                .Where(m => m.GameId == gameId)
+                .Select(static m => (int?)m.MoveIndex)
+                .Max() ?? -1;
+            return Task.FromResult(max + 1);
+        }
+    }
 }

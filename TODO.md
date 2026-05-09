@@ -730,12 +730,10 @@ Bound from the config section `Game` in `Briscola.Api`'s `Program.cs`. **Always 
 - `backend/src/Briscola.Application/Orchestration/Commands/*.cs`
 - `backend/src/Briscola.Application/Orchestration/Events/*.cs`
 
-**Commands** (records):
+**Commands** (records). Note: there is no `JoinGameCommand` or `LeaveGameCommand` in the room — pre-game lobby flow lives entirely on `LobbyService`. The room handles only commands relevant to a `Running` game:
 
 ```csharp
 public abstract record GameCommand(Guid GameId);
-public sealed record JoinGameCommand(Guid GameId, Guid UserId, int? PreferredSeat) : GameCommand(GameId);
-public sealed record LeaveGameCommand(Guid GameId, Guid UserId) : GameCommand(GameId);
 public sealed record PlayCardCommand(Guid GameId, Guid UserId, Card Card) : GameCommand(GameId);
 public sealed record ViewOwnPileCommand(Guid GameId, Guid UserId) : GameCommand(GameId);
 public sealed record DisconnectCommand(Guid GameId, Guid UserId) : GameCommand(GameId);
@@ -792,12 +790,13 @@ public sealed record RedactedStateForUser(
 
 **Process loop semantics:**
 
+A room exists only for `Running` (or `Finished`) games. Lobby-phase records live in the repository alone; `LobbyService` mutates them directly without a room.
+
 For each command popped from the channel:
-1. If room has no `GameState` yet (lobby phase) and the command is `JoinGameCommand`/`LeaveGameCommand`, handle via `LobbyService` collaborator.
-2. Else apply via the engine (`PlayCard`) or via internal handlers (`Disconnect`, `Reconnect`, `IdleTick`).
-3. After successful state mutation:
-   - Persist `GameRecord.StateSnapshotJson` (single UPSERT on `Games`).
-   - Persist a `MoveRecord` (only for `PlayCard`, `Forfeit`, `Disconnect`, `Reconnect`, `IdleTimeout`).
+1. Apply via the engine (`PlayCard`) or via internal handlers (`Disconnect`, `Reconnect`, `IdleTick`, `ForfeitOnDisconnect`, `ViewOwnPile`). Unknown command types throw `GameCommandException`.
+2. After successful state mutation:
+   - Persist `GameRecord.StateSnapshotJson` (single UPSERT on `Games` with optimistic concurrency on `Version`).
+   - Persist a `MoveRecord` (for `PlayCard`, `Forfeit`, `Disconnect`, `Reconnect`, `IdleTimeout`). The room hydrates `_moveIndex` from the repository on first run so the log keeps a strictly-increasing sequence across process restarts.
    - Publish `IGameEvent`s to `IGameEventBus`.
 
 **Why a single channel per game and not per process:** keeps the concurrency model trivially correct (per-game serial), avoids global lock contention, scales to many concurrent games on one box.
@@ -950,9 +949,18 @@ Trivial wrapper that, on game end, persists a `GameResultRecord`. `GameMoves` is
 - `MatchHistoryServiceTests`:
   - Saves a `GameResultRecord` through `IGameRepository`.
 
-**Acceptance:** all tests green; line coverage on `Briscola.Application` ≥ 85% (verified at 98.58%).
+**Acceptance:** all tests green; line coverage on `Briscola.Application` ≥ 85% (verified at 98.6%).
 
 **Phase 2 exit:** application layer fully exercised in tests against in-memory fakes; no API/persistence code yet.
+
+### Phase 2 follow-up items (deferred for later phases)
+
+These came out of the post-implementation review; none block Phase 3, but they should be addressed before v1 ships:
+
+- **Stale-record recovery.** `GameRoom.PersistStateAsync` throws `GameCommandException` when `IGameRepository.UpdateAsync` returns false (Version mismatch). The room state and `_record.Version` are NOT refreshed on failure, so subsequent commands on the same room keep failing — the room is effectively poisoned. Fix in Phase 3 or 5: on concurrency conflict, refetch the record, evict the room from `GameOrchestrator._rooms`, and surface a structured error to the caller so the API layer can ask the client to retry.
+- **Hydrate orphan task.** `GameOrchestrator.HydrateAsync` calls `_rooms.TryAdd(record.Id, GameRoom.FromRecord(...))`. If `TryAdd` returns false (room already exists), the freshly-constructed `GameRoom` leaks: its `ProcessLoopAsync` task spins idle forever and its idle-check timer fires reconnect/idle commands into a dead channel. Memory leak, not crash. Fix: check `TryAdd` return value and `Dispose` the orphan (will require `GameRoom` to be `IDisposable`).
+- **4p team Elo magnitude.** `RankingService.ApplyFourPlayerAsync` adds `+delta` to each of two teammates and `-delta` to each of two opponents. Net team rating change is `2*delta`. For K=24 this is plausible for a 4-player game (more variance than 1v1) but is worth re-examining when Phase 10 wires up real ranked matches: consider halving the delta for teams to keep per-team K constant, or document the choice as intentional.
+- **Snapshot codec coverage.** `InMemoryGameStateCodec` is a dictionary-backed pass-through; it doesn't verify real JSON round-tripping. Phase 3 must add an EF-side codec implementation AND an integration test that round-trips a full `GameState` through it.
 
 ---
 

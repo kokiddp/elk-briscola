@@ -3,14 +3,12 @@ using Briscola.Domain.Primitives;
 
 namespace Briscola.Application.Orchestration.Commands;
 
+// Commands that flow through the per-game GameRoom channel.
+// Lobby-level operations (Create / Join / Leave a game record) live on
+// LobbyService, not here — those are pre-game and don't need a room.
+
 [ExcludeFromCodeCoverage]
 public abstract record GameCommand(Guid GameId);
-
-[ExcludeFromCodeCoverage]
-public sealed record JoinGameCommand(Guid GameId, Guid UserId, int? PreferredSeat) : GameCommand(GameId);
-
-[ExcludeFromCodeCoverage]
-public sealed record LeaveGameCommand(Guid GameId, Guid UserId) : GameCommand(GameId);
 
 [ExcludeFromCodeCoverage]
 public sealed record PlayCardCommand(Guid GameId, Guid UserId, Card Card) : GameCommand(GameId);
