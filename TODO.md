@@ -1365,7 +1365,7 @@ public interface ILobbyClient
 
 ---
 
-### Step 5.2 — `GameHub` [M]
+### Step 5.2 — `GameHub` [M] [x]
 
 ```csharp
 [Authorize]

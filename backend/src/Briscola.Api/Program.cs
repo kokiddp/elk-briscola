@@ -220,6 +220,7 @@ app.MapControllers();
 //     ?access_token= from /hubs/* paths so browsers can attach the
 //     access token to the WebSocket handshake.
 app.MapHub<Briscola.Api.Hubs.LobbyHub>("/hubs/lobby");
+app.MapHub<Briscola.Api.Hubs.GameHub>("/hubs/game");
 
 // 15) Liveness ping at root (covered by HealthController too).
 app.MapGet("/", () => Results.Ok("elk-briscola api"));
