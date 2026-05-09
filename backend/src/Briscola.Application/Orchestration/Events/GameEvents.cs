@@ -25,7 +25,7 @@ public sealed record StateUpdatedEvent(
     Guid GameId,
     DateTimeOffset At,
     RedactedStateForUser Snapshot,
-    Guid TargetUserId) : IGameEvent;
+    Guid? TargetUserId) : IGameEvent;
 
 [ExcludeFromCodeCoverage]
 public sealed record CardPlayedEvent(

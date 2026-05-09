@@ -74,6 +74,15 @@ public sealed class GameOrchestrator(
         await room.EnqueueAsync(command, ct).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// Returns the active room for <paramref name="gameId"/> if one is
+    /// in memory, otherwise <c>null</c>. Callers must not retain the
+    /// reference past the current request — the orchestrator may dispose
+    /// the room on shutdown.
+    /// </summary>
+    public bool TryGetRoom(Guid gameId, out GameRoom? room) =>
+        _rooms.TryGetValue(gameId, out room);
+
     public async ValueTask DisposeAsync()
     {
         foreach (GameRoom room in _rooms.Values)

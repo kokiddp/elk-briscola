@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using Briscola.Api.Dtos;
+using Briscola.Api.Hubs.Limits;
 using Briscola.Application.Errors;
 using Briscola.Application.Lobby;
 using Briscola.Application.Orchestration;
@@ -30,8 +31,19 @@ namespace Briscola.Api.Hubs;
 public sealed class GameHub : Hub<IGameClient>
 {
     public const string GameGroupPrefix = "game:";
+    public const string SpectatorGroupSuffix = ":spectators";
     private const string JoinedGamesItemKey = "JoinedGames";
+    private const string SpectatedGamesItemKey = "SpectatedGames";
+    private const string RateLimiterItemKey = "HubRateLimiter";
     private const int MaxChatTextLength = 500;
+
+    // Rate-limit policies. Spec values from TODO Phase 5.6:
+    // - PlayCard: 1 per second (excess → InvalidMove("RateLimited"))
+    // - SendChat: 5 per 10 seconds (excess → same)
+    private static readonly TimeSpan PlayCardWindow = TimeSpan.FromSeconds(1);
+    private const int PlayCardPermits = 1;
+    private static readonly TimeSpan SendChatWindow = TimeSpan.FromSeconds(10);
+    private const int SendChatPermits = 5;
 
     private readonly GameOrchestrator _orchestrator;
     private readonly LobbyService _lobby;
@@ -54,6 +66,9 @@ public sealed class GameHub : Hub<IGameClient>
     }
 
     public static string GameGroup(Guid gameId) => $"{GameGroupPrefix}{gameId}";
+
+    public static string SpectatorGroup(Guid gameId) =>
+        $"{GameGroupPrefix}{gameId}{SpectatorGroupSuffix}";
 
     /// <summary>
     /// Joins the <c>game:{gameId}</c> group and enqueues a
@@ -78,6 +93,13 @@ public sealed class GameHub : Hub<IGameClient>
     {
         ArgumentNullException.ThrowIfNull(card);
         Guid userId = ResolveUserId();
+
+        if (!GetRateLimiter().TryAcquire(nameof(PlayCard), PlayCardPermits, PlayCardWindow))
+        {
+            await Clients.Caller.InvalidMove("RateLimited").ConfigureAwait(false);
+            return;
+        }
+
         await _orchestrator
             .EnqueueAsync(
                 new PlayCardCommand(gameId, userId, new Card(card.Suit, card.Rank)),
@@ -91,6 +113,50 @@ public sealed class GameHub : Hub<IGameClient>
         await _orchestrator
             .EnqueueAsync(new ViewOwnPileCommand(gameId, userId), Context.ConnectionAborted)
             .ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Joins the <c>game:{gameId}:spectators</c> group and sends a
+    /// spectator-redacted snapshot back to the caller. Participants
+    /// should call <see cref="JoinGame"/> instead — they get the
+    /// per-recipient snapshot with their hand baked in.
+    /// </summary>
+    public async Task SpectateGame(Guid gameId)
+    {
+        Guid userId = ResolveUserId();
+        GameRecord? record = await _games.GetAsync(gameId, Context.ConnectionAborted).ConfigureAwait(false)
+            ?? throw new HubException($"Game {gameId} not found.");
+        if (record.Status != GameStatus.Running)
+        {
+            throw new HubException("Only running games can be spectated.");
+        }
+
+        if (record.SeatUserIds.Contains(userId))
+        {
+            throw new HubException("Participants must call JoinGame, not SpectateGame.");
+        }
+
+        if (!_orchestrator.TryGetRoom(gameId, out GameRoom? room) || room is null)
+        {
+            throw new HubException($"Game {gameId} is not active in memory.");
+        }
+
+        await Groups
+            .AddToGroupAsync(Context.ConnectionId, SpectatorGroup(gameId), Context.ConnectionAborted)
+            .ConfigureAwait(false);
+        TrackSpectatedGame(gameId);
+
+        Briscola.Application.Orchestration.Events.RedactedStateForUser snapshot = room.SpectatorSnapshot();
+        await Clients.Caller.StateUpdated(GameEventDispatcher.ToWireDto(snapshot)).ConfigureAwait(false);
+    }
+
+    public async Task UnspectateGame(Guid gameId)
+    {
+        await Groups
+            .RemoveFromGroupAsync(Context.ConnectionId, SpectatorGroup(gameId), Context.ConnectionAborted)
+            .ConfigureAwait(false);
+        UntrackSpectatedGame(gameId);
+        await Task.CompletedTask.ConfigureAwait(false);
     }
 
     /// <summary>
@@ -133,9 +199,24 @@ public sealed class GameHub : Hub<IGameClient>
         }
 
         Guid userId = ResolveUserId();
-        // Persist + broadcast even for spectators here; the spectator
-        // policy from Phase 5.5 (reject and emit InvalidMove) lands on
-        // top of this when spectator-group membership is wired in 5.2b.
+
+        // Phase 5.5 spectator policy: connections that joined the
+        // spectator group but never the players' group cannot chat.
+        // Reject with a targeted InvalidMove ("SpectatorsCannotChat")
+        // rather than throwing — the spec is explicit about the no-op
+        // + targeted error shape.
+        if (IsSpectatorOnly(gameId))
+        {
+            await Clients.Caller.InvalidMove("SpectatorsCannotChat").ConfigureAwait(false);
+            return;
+        }
+
+        if (!GetRateLimiter().TryAcquire(nameof(SendChat), SendChatPermits, SendChatWindow))
+        {
+            await Clients.Caller.InvalidMove("RateLimited").ConfigureAwait(false);
+            return;
+        }
+
         await EnsureUserIsParticipantAsync(gameId, userId).ConfigureAwait(false);
 
         string trimmed = text.Length > MaxChatTextLength
@@ -220,31 +301,58 @@ public sealed class GameHub : Hub<IGameClient>
         return sub is not null && Guid.TryParse(sub, out Guid id) ? id : Guid.Empty;
     }
 
-    private void TrackJoinedGame(Guid gameId)
+    private HubMethodRateLimiter GetRateLimiter()
     {
-        ConcurrentDictionary<Guid, byte> joined = GetOrCreateJoinedSet();
-        joined.TryAdd(gameId, 0);
-    }
-
-    private void UntrackJoinedGame(Guid gameId)
-    {
-        if (Context.Items.TryGetValue(JoinedGamesItemKey, out object? raw)
-            && raw is ConcurrentDictionary<Guid, byte> joined)
+        if (Context.Items.TryGetValue(RateLimiterItemKey, out object? raw)
+            && raw is HubMethodRateLimiter limiter)
         {
-            joined.TryRemove(gameId, out _);
+            return limiter;
         }
+
+        HubMethodRateLimiter created = new(_clock);
+        Context.Items[RateLimiterItemKey] = created;
+        return created;
     }
 
-    private ConcurrentDictionary<Guid, byte> GetOrCreateJoinedSet()
+    private void TrackJoinedGame(Guid gameId) =>
+        GetOrCreateSet(JoinedGamesItemKey).TryAdd(gameId, 0);
+
+    private void UntrackJoinedGame(Guid gameId) =>
+        TryGetSet(JoinedGamesItemKey)?.TryRemove(gameId, out _);
+
+    private void TrackSpectatedGame(Guid gameId) =>
+        GetOrCreateSet(SpectatedGamesItemKey).TryAdd(gameId, 0);
+
+    private void UntrackSpectatedGame(Guid gameId) =>
+        TryGetSet(SpectatedGamesItemKey)?.TryRemove(gameId, out _);
+
+    /// <summary>
+    /// True when the connection is in the spectator group for
+    /// <paramref name="gameId"/> but not the players' group. Drives
+    /// the Phase 5.5 spectator-chat policy.
+    /// </summary>
+    private bool IsSpectatorOnly(Guid gameId)
     {
-        if (Context.Items.TryGetValue(JoinedGamesItemKey, out object? raw)
-            && raw is ConcurrentDictionary<Guid, byte> existing)
+        bool joined = TryGetSet(JoinedGamesItemKey)?.ContainsKey(gameId) ?? false;
+        bool spectating = TryGetSet(SpectatedGamesItemKey)?.ContainsKey(gameId) ?? false;
+        return spectating && !joined;
+    }
+
+    private ConcurrentDictionary<Guid, byte>? TryGetSet(string key) =>
+        Context.Items.TryGetValue(key, out object? raw)
+            && raw is ConcurrentDictionary<Guid, byte> set
+            ? set
+            : null;
+
+    private ConcurrentDictionary<Guid, byte> GetOrCreateSet(string key)
+    {
+        if (TryGetSet(key) is { } existing)
         {
             return existing;
         }
 
-        ConcurrentDictionary<Guid, byte> set = new();
-        Context.Items[JoinedGamesItemKey] = set;
-        return set;
+        ConcurrentDictionary<Guid, byte> created = new();
+        Context.Items[key] = created;
+        return created;
     }
 }

@@ -1466,37 +1466,40 @@ public sealed class GameEventDispatcher(
 
 ---
 
-### Step 5.3 — Per-recipient redaction [S]
+### Step 5.3 — Per-recipient redaction [S] [x]
 
-The dispatcher knows each event's `TargetUserId` (or null for broadcast). For broadcast events that contain hand information, the dispatcher loops over the room's seats and constructs **per-seat redacted snapshots** (using the orchestrator's `BuildSnapshotForUser(state, userId)` helper).
-
-**Spectators** join the group `game:{id}:spectators` and receive only spectator-redacted snapshots (counts only for everyone).
+> Implementation notes (Phase 5.3):
+> - Per-recipient redaction was already in place: `GameRoom.PublishSnapshotsAsync` emits one `StateUpdatedEvent` per user with their own hand baked in, and the dispatcher routes each by `TargetUserId` to `Clients.User(userId)`.
+> - **Spectator group** wired in `GameHub.SpectateGame` (joins `game:{gameId}:spectators`, replies with the room's spectator-redacted snapshot via `Clients.Caller.StateUpdated`). `SpectateGame` rejects participants (they should `JoinGame`) and rejects non-Running games.
+> - `StateUpdatedEvent.TargetUserId` was loosened to `Guid?`; `null` means "spectator variant," and the room emits one extra such event per state change. The dispatcher fans the spectator variant onto `game:{gameId}:spectators`.
+> - Other broadcast events (`CardPlayed`, `TrickResolved`, `PhaseChanged`, `GameFinished`, `PlayerDisconnected`, `PlayerReconnected`, `IdleWarning`) are now sent to **both** groups via `Clients.Groups(playerGroup, spectatorGroup)`.
+> - `CardsDrawnEvent` stays per-recipient only — spectators see the count change via the next `StateUpdated`.
 
 ---
 
-### Step 5.4 — `viewOwnPile` semantics [S]
+### Step 5.4 — `viewOwnPile` semantics [S] [x]
 
 - Hub method enqueues a `ViewOwnPileCommand`.
 - The room validates `Phase == LastHand`. If not, emits `InvalidMoveRejectedEvent(code: PileViewNotAllowed)` targeted at the caller.
-- If allowed, the room emits a `PileSnapshotEvent(userId, cards)` consumed by the dispatcher and sent only to that user.
+- ~~If allowed, the room emits a `PileSnapshotEvent(userId, cards)` consumed by the dispatcher and sent only to that user.~~ **Deviation from spec:** the room emits a per-user `StateUpdatedEvent` with `MyPozzo` populated for that user instead of a dedicated `PileSnapshotEvent`. The wire shape is identical to what a regular state update carries, the dispatcher is a single switch arm, and the client reads `MyPozzo` off the snapshot. The unused `IGameClient.PileSnapshot` interface method was dropped to keep the contract clean.
 
 ---
 
-### Step 5.5 — Spectator chat policy [S]
+### Step 5.5 — Spectator chat policy [S] [x]
 
 `GameHub.SendChat`:
 - If caller is in `game:{id}:spectators` group **only** (not a player), reject with an `InvalidMove("SpectatorsCannotChat")` to that connection. Do not throw — just no-op + targeted error.
 
 ---
 
-### Step 5.6 — Hub-method rate limits [S]
+### Step 5.6 — Hub-method rate limits [S] [x]
 
 Use a per-connection sliding window kept in `ConnectionItems`:
 
 - `playCard`: 1 per second; excess → `InvalidMove("RateLimited")` to the caller.
 - `sendChat`: 5 per 10 seconds; excess → same.
 
-(Note: ASP.NET's `RateLimiter` middleware is HTTP-only; for hub methods we implement a small in-memory limiter ourselves. Keep it within `Briscola.Api/Hubs/Limits/`.)
+ASP.NET's `RateLimiter` middleware is HTTP-only; hub methods use a small in-memory limiter (`Briscola.Api/Hubs/Limits/HubMethodRateLimiter.cs`). Per-connection state lives in `Context.Items[RateLimiterItemKey]`; SignalR cleans it up on disconnect. The limiter takes `IClock` so test harnesses can reason about windows without sleeping.
 
 ---
 

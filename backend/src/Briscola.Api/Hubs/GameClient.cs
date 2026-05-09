@@ -1,4 +1,3 @@
-using System.Collections.Immutable;
 using Briscola.Api.Dtos;
 
 namespace Briscola.Api.Hubs;
@@ -35,6 +34,4 @@ public interface IGameClient
     Task ChatMessage(GameChatMessageDto message);
 
     Task InvalidMove(string code);
-
-    Task PileSnapshot(int seatIndex, ImmutableArray<CardDto> cards);
 }

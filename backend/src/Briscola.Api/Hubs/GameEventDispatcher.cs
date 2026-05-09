@@ -71,38 +71,42 @@ public sealed partial class GameEventDispatcher : BackgroundService
     {
         JoinedEvent j =>
             _hub.Clients.User(j.TargetUserId.ToString()).Joined(ToDto(j.Snapshot)),
+        StateUpdatedEvent { TargetUserId: null } s =>
+            _hub.Clients.Group(GameHub.SpectatorGroup(s.GameId)).StateUpdated(ToDto(s.Snapshot)),
         StateUpdatedEvent s =>
-            _hub.Clients.User(s.TargetUserId.ToString()).StateUpdated(ToDto(s.Snapshot)),
+            _hub.Clients.User(s.TargetUserId!.Value.ToString()).StateUpdated(ToDto(s.Snapshot)),
         CardPlayedEvent c =>
-            _hub.Clients.Group(GameHub.GameGroup(c.GameId))
-                .CardPlayed(new CardPlayedDto(c.SeatIndex, ToDto(c.Card))),
+            BroadcastGroups(c.GameId).CardPlayed(new CardPlayedDto(c.SeatIndex, ToDto(c.Card))),
         TrickResolvedEvent t =>
-            _hub.Clients.Group(GameHub.GameGroup(t.GameId))
-                .TrickResolved(new TrickResolvedDto(t.WinnerSeat, t.NewSeatScores)),
+            BroadcastGroups(t.GameId).TrickResolved(new TrickResolvedDto(t.WinnerSeat, t.NewSeatScores)),
         CardsDrawnEvent d => DispatchCardsDrawnAsync(d),
         PhaseChangedEvent p =>
-            _hub.Clients.Group(GameHub.GameGroup(p.GameId))
-                .PhaseChanged(p.NewPhase.ToString()),
+            BroadcastGroups(p.GameId).PhaseChanged(p.NewPhase.ToString()),
         GameFinishedEvent f =>
-            _hub.Clients.Group(GameHub.GameGroup(f.GameId))
-                .GameFinished(new GameFinishedDto(
-                    ToDto(f.Outcome),
-                    f.SeatScores,
-                    f.Reason.ToString())),
+            BroadcastGroups(f.GameId).GameFinished(new GameFinishedDto(
+                ToDto(f.Outcome),
+                f.SeatScores,
+                f.Reason.ToString())),
         PlayerDisconnectedEvent pd =>
-            _hub.Clients.Group(GameHub.GameGroup(pd.GameId))
-                .PlayerDisconnected(pd.SeatIndex, pd.GraceDeadlineUtc),
+            BroadcastGroups(pd.GameId).PlayerDisconnected(pd.SeatIndex, pd.GraceDeadlineUtc),
         PlayerReconnectedEvent pr =>
-            _hub.Clients.Group(GameHub.GameGroup(pr.GameId))
-                .PlayerReconnected(pr.SeatIndex),
+            BroadcastGroups(pr.GameId).PlayerReconnected(pr.SeatIndex),
         IdleWarningEvent iw =>
-            _hub.Clients.Group(GameHub.GameGroup(iw.GameId))
-                .IdleWarning(iw.SeatIndex, iw.ForfeitDeadlineUtc),
+            BroadcastGroups(iw.GameId).IdleWarning(iw.SeatIndex, iw.ForfeitDeadlineUtc),
         InvalidMoveRejectedEvent im =>
             _hub.Clients.User(im.TargetUserId.ToString()).InvalidMove(im.Code.ToString()),
         ChatMessageEvent => Task.CompletedTask, // chat is broadcast directly by GameHub.SendChat
         _ => Task.CompletedTask,
     };
+
+    /// <summary>
+    /// Returns a client proxy that fans broadcasts to both the players'
+    /// group <c>game:{id}</c> and the spectators' group
+    /// <c>game:{id}:spectators</c>. SignalR happily accepts an absent
+    /// group name, so spectator-less games still work.
+    /// </summary>
+    private IGameClient BroadcastGroups(Guid gameId) =>
+        _hub.Clients.Groups(GameHub.GameGroup(gameId), GameHub.SpectatorGroup(gameId));
 
     private Task DispatchCardsDrawnAsync(CardsDrawnEvent evt)
     {
@@ -128,6 +132,14 @@ public sealed partial class GameEventDispatcher : BackgroundService
         GameOutcome.Draw => new GameOutcomeDto("Draw", null),
         _ => throw new InvalidOperationException("Unknown GameOutcome shape."),
     };
+
+    /// <summary>
+    /// Wire-DTO conversion for an application-layer redacted snapshot.
+    /// Exposed so <see cref="GameHub.SpectateGame"/> can produce the
+    /// initial-state DTO without duplicating the mapping. Kept internal
+    /// — only the hub bridge consumes it.
+    /// </summary>
+    internal static RedactedStateForUserDto ToWireDto(RedactedStateForUser snapshot) => ToDto(snapshot);
 
     private static RedactedStateForUserDto ToDto(RedactedStateForUser snapshot) =>
         new(

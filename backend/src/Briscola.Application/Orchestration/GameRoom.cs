@@ -469,7 +469,22 @@ public sealed class GameRoom : IAsyncDisposable
                 new StateUpdatedEvent(_state.GameId, now, SnapshotForUser(userId), userId),
                 ct).ConfigureAwait(false);
         }
+
+        // Spectator variant: same snapshot shape, no per-user hand info.
+        // The dispatcher fans this onto the game:{id}:spectators group.
+        await _eventBus.PublishAsync(
+            new StateUpdatedEvent(_state.GameId, now, SpectatorSnapshot(), TargetUserId: null),
+            ct).ConfigureAwait(false);
     }
+
+    /// <summary>
+    /// Spectator-redacted snapshot of the current state: counts only,
+    /// no <c>MyHand</c> / <c>MyPozzo</c>. Safe to call from any thread;
+    /// reads <c>_state</c> which is mutated only on the room's command
+    /// loop (concurrent reads see a consistent <c>GameState</c> record
+    /// thanks to its immutability).
+    /// </summary>
+    public RedactedStateForUser SpectatorSnapshot() => SnapshotForUser(Guid.Empty);
 
     private RedactedStateForUser SnapshotForUser(Guid userId, ImmutableArray<Card>? myPozzo = null)
     {
