@@ -268,7 +268,7 @@ frontend/src/app/
 ### How to write tests
 
 - **Backend:** xUnit + FluentAssertions. `[Theory]` + `[InlineData]` for table-driven cases. **Never** make tests dependent on test order.
-- **Frontend:** Jest + `@testing-library/angular`. Use `screen.getByRole(...)` over `getByTestId` when possible.
+- **Frontend:** Vitest + `@testing-library/angular`. Use `screen.getByRole(...)` over `getByTestId` when possible. (Vitest is the Angular CLI default since v20+; APIs are Jest-compatible for the surface we use.)
 - **Integration:** Testcontainers Postgres in a class fixture; never mock the DB at the integration level.
 
 ### What NOT to test

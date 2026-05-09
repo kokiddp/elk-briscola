@@ -108,7 +108,7 @@ If you are about to write code in this repository, **read [AGENTS.md](AGENTS.md)
 | Frontend state | Angular signals + small service stores | No NgRx — keeps the bundle and mental model small |
 | Frontend HTTP | Angular `HttpClient` | Standard |
 | Frontend WS | `@microsoft/signalr` | First-party SignalR client |
-| Frontend tests | Jest + Angular Testing Library | Faster than Karma, plays well with signals |
+| Frontend tests | Vitest + Angular Testing Library | Default test runner shipped by `ng new` since Angular 20; signal-friendly, Jest-compatible APIs |
 | E2E tests | Playwright | Drives two browser contexts for the multiplayer golden path |
 | Containerization | Docker + docker-compose | API, frontend (nginx), Postgres |
 | CI | GitHub Actions | Build + test + lint on every PR |
@@ -766,7 +766,7 @@ Indexes on hot lookups: `Games(Status)`, `GameSeats(UserId)`, `GameSeats(GameId,
 
 ### Frontend
 
-- **Unit/component (Jest + Testing Library)** — auth forms, lobby list, card rendering with a fake CardSet, hand component disables illegal plays.
+- **Unit/component (Vitest + Testing Library)** — auth forms, lobby list, card rendering with a fake CardSet, hand component disables illegal plays.
 - **Service tests** — `GameService` against a mock SignalR connection.
 
 ### E2E (Playwright)

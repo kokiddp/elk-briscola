@@ -86,7 +86,7 @@ How to read this file:
 
 ---
 
-### Step 0.3 — Frontend skeleton (Angular workspace) [M]
+### Step 0.3 — Frontend skeleton (Angular workspace) [M] [x]
 
 **What:** initialize an Angular 21 standalone workspace with strict TS, SCSS, Jest, ESLint, and Prettier. Split into three sequential sub-steps.
 
@@ -96,57 +96,53 @@ How to read this file:
 
 - Run from repo root: `npx -p @angular/cli@21 ng new elk-briscola-frontend --directory=frontend --style=scss --strict --routing --skip-git --skip-install --ssr=false --package-manager=npm`.
 - `cd frontend && npm install`.
-- Strip `app.component.html` to a single `<router-outlet />`.
-- Strip `app.component.ts` to a minimal standalone component importing `RouterOutlet`.
+- Replace the (giant) generated `app.html` with a single `<router-outlet />`.
+- Trim `app.scss` to empty (kept for future global app styles).
+- Trim `app.ts` to a minimal standalone component importing only `RouterOutlet` (drop the `signal('elk-briscola-frontend')` boilerplate).
+- Drop unused image assets / favicon noise from `index.html` body if any.
 - Verify: `npm run build` succeeds; `npm start` serves on `:4200`.
 
-> Note: as of Angular 17, standalone is the default and the legacy `--standalone` flag is a no-op. Don't pass it.
+> Notes on Angular 21 generation defaults:
+> - Standalone is the default; the legacy `--standalone` flag is a no-op (don't pass it).
+> - The default class names are bare: `App` (not `AppComponent`), in `app.ts` / `app.html` / `app.scss` / `app.spec.ts`. Treat these names as canonical going forward and adjust later TODO steps that mention `AppComponent`.
+> - Default test runner is **Vitest** (Karma + Jasmine retired). Step 0.3b reflects this.
+> - `prettier` is included by default; we customize its config in Step 0.3c.
 
-#### Step 0.3b — Karma → Jest migration [S]
+#### Step 0.3b — Vitest setup [S]
 
-- Add devDeps (pin to versions matching Angular 21; if `jest-preset-angular` for Angular 21 is not yet on npm at implementation time, use the latest published and pin in `package.json`. Document the version chosen in `frontend/README.md`):
-  - `jest`, `jest-preset-angular`, `jest-junit`, `@types/jest`, `@testing-library/angular`, `@testing-library/jest-dom`.
-- Remove Karma deps from `package.json`: `karma`, `karma-chrome-launcher`, `karma-coverage`, `karma-jasmine`, `karma-jasmine-html-reporter`, `jasmine-core`, `@types/jasmine`.
-- Delete `karma.conf.js` and the `test` block from `angular.json`.
-- Create `frontend/jest.config.cjs`:
-  ```js
-  module.exports = {
-    preset: 'jest-preset-angular',
-    setupFilesAfterEach: ['<rootDir>/setup-jest.ts'],
-    moduleNameMapper: { '^@app/(.*)$': '<rootDir>/src/app/$1' },
-    testEnvironment: 'jsdom',
-  };
-  ```
-- Create `frontend/setup-jest.ts`:
+> **Plan revision (recorded here, not in a separate ADR — too small to warrant one):** the original plan called for a Karma → Jest migration. Angular 21's `ng new` no longer ships Karma; it ships Vitest. Vitest has API parity with Jest for the surface we use (`describe`, `it`/`test`, `expect`, mocks), works with `@testing-library/angular`, and is what the Angular CLI is now optimized for. We use Vitest. Anywhere later TODO steps reference Jest, treat them as Vitest.
+
+- Add devDeps: `@testing-library/angular`, `@testing-library/jest-dom`. (Vitest, jsdom, and Prettier are already installed by `ng new`.)
+- Verify `angular.json` already configures the `@angular/build:unit-test` builder with Vitest as the runner.
+- Create `frontend/setup-vitest.ts`:
   ```ts
-  import 'jest-preset-angular/setup-jest';
-  import '@testing-library/jest-dom';
+  import '@testing-library/jest-dom/vitest';
   ```
-- Rewrite `app.component.spec.ts` to a trivial Jest test:
+  Wire it via `angular.json` → `architect.test.options.setupFiles` (relative path).
+- Replace the generated `src/app/app.spec.ts` with a trivial render test using `@testing-library/angular`:
   ```ts
   import { render } from '@testing-library/angular';
-  import { AppComponent } from './app.component';
+  import { App } from './app';
   test('renders without crashing', async () => {
-    await render(AppComponent);
+    await render(App);
   });
   ```
-- Update `package.json` scripts: `"test": "jest"`, `"test:ci": "jest --ci --reporters=default --reporters=jest-junit"`.
-- Verify: `npm test` runs 1 passing test.
-
-> **Fallback if jest-preset-angular for Angular 21 is unavailable:** keep Karma+Jasmine for v1; revisit at Phase 14. Document the decision as an ADR (`docs/adr/0006-test-runner-choice.md`). The frontend test surface in v1 is small enough that either runner works.
+- Update `package.json` scripts: keep `"test": "ng test"` (defers to Vitest via Angular CLI); add `"test:ci": "ng test --reporter=junit --reporter=default --output-file=test-results/junit.xml"`.
+- Verify: `npm test -- --run` runs 1 passing test.
 
 #### Step 0.3c — ESLint + Prettier [S]
 
-- `npx ng add @angular-eslint/schematics --skip-confirmation`.
-- Add `prettier` and `prettier-plugin-organize-imports` as devDeps.
-- Create `.prettierrc.json`: `{ "printWidth": 100, "singleQuote": true, "trailingComma": "all", "plugins": ["prettier-plugin-organize-imports"] }`.
-- Create `.prettierignore`: `dist/`, `node_modules/`, `coverage/`.
-- Add `package.json` scripts: `"lint": "ng lint"`, `"format": "prettier --write ."`, `"format:check": "prettier --check ."`.
+- `npx ng add @angular-eslint/schematics@21 --skip-confirmation` (this also wires `npm run lint`).
+- Add `prettier-plugin-organize-imports` as a devDep (prettier itself is already present).
+- Create/replace `.prettierrc.json`: `{ "printWidth": 100, "singleQuote": true, "trailingComma": "all", "plugins": ["prettier-plugin-organize-imports"] }`. (`ng new` produced a `.prettierrc` with different settings — overwrite cleanly.)
+- Create `.prettierignore`: `dist/`, `node_modules/`, `coverage/`, `.angular/`, `package-lock.json`.
+- Add `package.json` scripts: `"format": "prettier --write ."`, `"format:check": "prettier --check ."`. (`lint` is already added by the schematic.)
+- Run `npm run format` once to normalize generated files to our config; commit the result.
 - Verify: `npm run lint` clean; `npm run format:check` clean.
 
-**Tests:** the rewritten `app.component.spec.ts` (one test) passes under Jest.
+**Tests:** the rewritten `app.spec.ts` (one test) passes under Vitest.
 
-**Acceptance:** from `frontend/`, all of these succeed: `npm install`, `npm run build`, `npm test`, `npm run lint`, `npm run format:check`.
+**Acceptance:** from `frontend/`, all of these succeed: `npm install`, `npm run build`, `npm test -- --run`, `npm run lint`, `npm run format:check`.
 
 ---
 
