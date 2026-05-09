@@ -216,7 +216,12 @@ if (app.Environment.IsDevelopment())
 
 app.MapControllers();
 
-// 14) Liveness ping at root (covered by HealthController too).
+// 14) SignalR hubs. JWT bearer is configured upstream to read
+//     ?access_token= from /hubs/* paths so browsers can attach the
+//     access token to the WebSocket handshake.
+app.MapHub<Briscola.Api.Hubs.LobbyHub>("/hubs/lobby");
+
+// 15) Liveness ping at root (covered by HealthController too).
 app.MapGet("/", () => Results.Ok("elk-briscola api"));
 
 await app.RunAsync().ConfigureAwait(false);

@@ -1338,7 +1338,7 @@ Wire in `angular.json` under `serve.options.proxyConfig`.
 
 **Goal:** real-time multiplayer fully working server-side.
 
-### Step 5.1 — `LobbyHub` [S]
+### Step 5.1 — `LobbyHub` [S] [x]
 
 **Where:** `backend/src/Briscola.Api/Hubs/LobbyHub.cs`
 
