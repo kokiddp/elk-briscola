@@ -256,6 +256,7 @@ public sealed class GameRoom
         _seatStatuses[seat] = ConnectionStatus.Disconnected;
         DateTimeOffset now = _clock.UtcNow;
         DateTimeOffset deadline = now.AddSeconds(_options.ReconnectGraceSeconds);
+        CancelIdleTimers();
         ReplaceReconnectTimer(
             seat,
             _timers.ScheduleAt(
@@ -298,6 +299,7 @@ public sealed class GameRoom
             await _eventBus.PublishAsync(
                 new PlayerReconnectedEvent(_state.GameId, now, seat),
                 ct).ConfigureAwait(false);
+            ScheduleIdleChecks();
         }
 
         await _eventBus.PublishAsync(
@@ -454,12 +456,7 @@ public sealed class GameRoom
 
     private void ScheduleIdleChecks()
     {
-        foreach (IDisposable timer in _idleTimers)
-        {
-            timer.Dispose();
-        }
-
-        _idleTimers.Clear();
+        CancelIdleTimers();
         if (_state.Phase == GamePhase.Finished)
         {
             return;
@@ -469,6 +466,16 @@ public sealed class GameRoom
         DateTimeOffset forfeitAt = _lastMoveCompletedAt.AddSeconds(_options.IdleForfeitSeconds);
         _idleTimers.Add(ScheduleIdleCommand(warnAt));
         _idleTimers.Add(ScheduleIdleCommand(forfeitAt));
+    }
+
+    private void CancelIdleTimers()
+    {
+        foreach (IDisposable timer in _idleTimers)
+        {
+            timer.Dispose();
+        }
+
+        _idleTimers.Clear();
     }
 
     private IDisposable ScheduleIdleCommand(DateTimeOffset at) =>
