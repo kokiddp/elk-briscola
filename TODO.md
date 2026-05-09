@@ -146,7 +146,9 @@ How to read this file:
 
 ---
 
-### Step 0.4 — GitHub Actions CI [S]
+### Step 0.4 — GitHub Actions CI [S] [~] [!]
+
+> **[!] partial**: workflow files written and YAML-validated locally; full acceptance ("workflows run and pass on a no-op PR") deferred until a GitHub remote exists. Same commands run cleanly on the local machine in steps 0.2 / 0.3.
 
 **What:** wire CI so every PR is gated on build + test + lint.
 

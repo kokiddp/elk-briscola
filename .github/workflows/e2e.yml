@@ -1,0 +1,31 @@
+name: e2e
+
+# Skeleton workflow. Populated in Phase 13 (Playwright golden path).
+# Until then, runs a single placeholder job so the workflow is visible
+# in the Actions tab and required-status-check setup is straightforward.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'frontend/e2e/**'
+      - '.github/workflows/e2e.yml'
+  pull_request:
+    paths:
+      - 'frontend/e2e/**'
+      - '.github/workflows/e2e.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: e2e-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  placeholder:
+    name: e2e (skipped — populated in Phase 13)
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "e2e suite is implemented in Phase 13. This job is a placeholder."
