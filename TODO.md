@@ -169,7 +169,7 @@ How to read this file:
 
 ---
 
-### Step 0.5 — Repo conventions doc cross-link [S]
+### Step 0.5 — Repo conventions doc cross-link [S] [x]
 
 **What:** ensure `AGENTS.md` exists at repo root (created separately from this plan) and is referenced from `README.md`.
 
