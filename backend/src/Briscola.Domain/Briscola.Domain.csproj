@@ -3,6 +3,11 @@
   <PropertyGroup>
     <RootNamespace>Briscola.Domain</RootNamespace>
     <AssemblyName>Briscola.Domain</AssemblyName>
+    <!--
+      CA1716: "Next" matches a VB.NET reserved word. We follow the BCL precedent
+      (System.Random.Next has the same name) and suppress for this project.
+    -->
+    <NoWarn>$(NoWarn);CA1716</NoWarn>
   </PropertyGroup>
 
 </Project>

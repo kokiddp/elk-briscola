@@ -1,0 +1,14 @@
+<Project>
+
+  <!--
+    Conventional xUnit test names use underscores to read like sentences
+    (e.g. Points_summed_over_full_deck_equals_120). CA1707 forbids
+    underscores in identifiers; we suppress it for test projects only.
+  -->
+  <PropertyGroup>
+    <NoWarn>$(NoWarn);CA1707</NoWarn>
+  </PropertyGroup>
+
+  <Import Project="..\Directory.Build.props" Condition="Exists('..\Directory.Build.props')" />
+
+</Project>

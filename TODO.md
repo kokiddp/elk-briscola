@@ -189,7 +189,7 @@ How to read this file:
 
 > The domain layer must be implementable from this section alone. If you find yourself reading the README to know what to build here, file a TODO update.
 
-### Step 1.1 — Value types & enums [S]
+### Step 1.1 — Value types & enums [S] [x]
 
 **What:** the primitive vocabulary of the engine.
 
@@ -224,7 +224,7 @@ public readonly record struct Seat(int Index, Guid? PlayerId);
 
 ---
 
-### Step 1.2 — `CardTables` (strength + points) [S]
+### Step 1.2 — `CardTables` (strength + points) [S] [x]
 
 **What:** pure static lookup tables.
 
@@ -268,7 +268,7 @@ public static class CardTables
 
 ---
 
-### Step 1.3 — `IRandomSource` and `SeededRandomSource` [S]
+### Step 1.3 — `IRandomSource` and `SeededRandomSource` [S] [x]
 
 **What:** seedable RNG abstraction; the engine uses it for shuffles.
 
@@ -302,7 +302,7 @@ public sealed class SeededRandomSource : IRandomSource
 
 ---
 
-### Step 1.4 — `Deck` shuffler [S]
+### Step 1.4 — `Deck` shuffler [S] [x]
 
 **What:** Fisher-Yates shuffle of `CardTables.FullDeck` using `IRandomSource`.
 
