@@ -13,8 +13,14 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Briscola.Api.Controllers;
 
+/// <summary>
+/// Account lifecycle and JWT issuance. All <c>/auth/*</c> endpoints are
+/// rate-limited (see <c>Briscola.Api.RateLimiting.RateLimitingPolicies</c>);
+/// register and login are anonymous, the rest require a valid bearer token.
+/// </summary>
 [ApiController]
 [Route("api/v1/auth")]
+[Tags("Auth")]
 [Produces("application/json")]
 public sealed class AuthController : ControllerBase
 {
@@ -41,6 +47,15 @@ public sealed class AuthController : ControllerBase
         _db = db;
     }
 
+    /// <summary>Register a new account.</summary>
+    /// <remarks>
+    /// Returns <c>201 Created</c> on success with a Location header pointing
+    /// to <c>/api/v1/me</c>. Conflicts on duplicate username/email surface as
+    /// <c>409</c> with a <c>code: "RegistrationFailed"</c> body and an
+    /// <c>errors</c> array straight from ASP.NET Identity.
+    /// </remarks>
+    /// <response code="201">Account created; client should now call /auth/login.</response>
+    /// <response code="409">Username or email already taken, or password policy failed.</response>
     [HttpPost("register")]
     [AllowAnonymous]
     [EnableRateLimiting(RateLimiting.RateLimitingPolicies.AuthRegister)]
@@ -79,6 +94,15 @@ public sealed class AuthController : ControllerBase
             value: new { id = user.Id, username = user.UserName });
     }
 
+    /// <summary>Exchange username/email + password for an access/refresh token pair.</summary>
+    /// <remarks>
+    /// The access token is short-lived (default 15 min) and goes in the
+    /// <c>Authorization: Bearer …</c> header for subsequent calls. The
+    /// refresh token (default 14 d) is stored client-side and used against
+    /// <c>/auth/refresh</c> to rotate the pair.
+    /// </remarks>
+    /// <response code="200">Tokens issued.</response>
+    /// <response code="401">Unknown user or wrong password (no information leak about which).</response>
     [HttpPost("login")]
     [AllowAnonymous]
     [EnableRateLimiting(RateLimiting.RateLimitingPolicies.AuthLogin)]
@@ -103,6 +127,14 @@ public sealed class AuthController : ControllerBase
             refresh.Token, refresh.ExpiresAt));
     }
 
+    /// <summary>Rotate the refresh token, returning a fresh access/refresh pair.</summary>
+    /// <remarks>
+    /// Implements rotation chains: the supplied refresh token is invalidated
+    /// and a new one is issued. Re-using a previously rotated token is
+    /// rejected (chain-replay defense).
+    /// </remarks>
+    /// <response code="200">New access + refresh tokens.</response>
+    /// <response code="401">Refresh token unknown, expired, revoked, or already rotated.</response>
     [HttpPost("refresh")]
     [AllowAnonymous]
     [EnableRateLimiting(RateLimiting.RateLimitingPolicies.AuthRefresh)]
@@ -126,6 +158,8 @@ public sealed class AuthController : ControllerBase
         };
     }
 
+    /// <summary>Revoke a refresh token (best-effort — succeeds silently if the token is unknown).</summary>
+    /// <response code="204">Token revoked or already absent.</response>
     [HttpPost("logout")]
     [Authorize]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
@@ -137,6 +171,15 @@ public sealed class AuthController : ControllerBase
         return NoContent();
     }
 
+    /// <summary>Change the authenticated user's password.</summary>
+    /// <remarks>
+    /// Identity bumps the user's <c>SecurityStamp</c> on success, which
+    /// invalidates every still-valid access token issued before this call
+    /// (validated on the next request via <c>SecurityStampValidator</c>).
+    /// Existing refresh tokens stay valid until they're rotated or revoked.
+    /// </remarks>
+    /// <response code="204">Password changed; outstanding access tokens are now invalidated.</response>
+    /// <response code="400">Current password wrong, or new password violates policy.</response>
     [HttpPost("change-password")]
     [Authorize]
     [ProducesResponseType(StatusCodes.Status204NoContent)]

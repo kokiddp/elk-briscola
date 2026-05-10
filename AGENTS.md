@@ -89,6 +89,8 @@ node --version      # v22.22.2
 | `xunit.runner.visualstudio` | 3.1.4 | Same. |
 | `coverlet.collector` | 6.0.4 | Same. |
 | `FluentAssertions` | 7.2.2 | Last Apache-2.0 release; v8+ is commercial. |
+| `Swashbuckle.AspNetCore` | 10.0.0 | OpenAPI v3 generator + Swagger UI. Note: `Microsoft.OpenApi` v2 dropped the `.Models` sub-namespace. |
+| `Scalar.AspNetCore` | 2.11.0 | Modern alt UI for the same OpenAPI doc; mounted at `/scalar`. |
 | `@angular/cli` | 21.2.x | And every `@angular/*` peer at the matching major. |
 | `@testing-library/angular` | 19.x | Compatible with Angular 21 + Vitest. |
 
@@ -324,6 +326,15 @@ The fix: register `IConfigureNamedOptions<JwtBearerOptions>` and resolve `IOptio
 
 Don't bring back the archived auto-validation package; it doesn't target ASP.NET Core 10.
 
+### Auto-docs surface (REST + SignalR)
+
+The dev-only block in `Program.cs` mounts five doc routes; production has none of them. New endpoints / DTOs propagate automatically via Swashbuckle and the XML doc pipeline — but read the rules below before adding code.
+
+- **REST:** Swashbuckle 10 + Scalar 2.x. The csproj has `<GenerateDocumentationFile>true` and suppresses `CS1591` so undocumented members don't break the build. **Do** put `<summary>` / `<remarks>` / `<response code="…">` on new controller actions — both UIs surface them. **Don't** rely on `Microsoft.OpenApi.Models.*`; v2 collapsed the `.Models` sub-namespace, types live directly under `Microsoft.OpenApi`. Security requirements use `OpenApiSecuritySchemeReference` rather than embedding the scheme. `AddSecurityRequirement` takes a `Func<OpenApiDocument, OpenApiSecurityRequirement>` in Swashbuckle 10, not a bare requirement.
+- **SignalR:** `backend/src/Briscola.Api/docs/asyncapi.json` is hand-authored (no codegen for SignalR). When you add a hub method or change a payload shape, update the spec in the same PR — there's no compile-time check that they agree. The viewer at `/docs/asyncapi` pulls `@asyncapi/react-component` from a CDN at runtime; no build step.
+- **Static assets:** the JSON spec is a real file copied via `<Content Update>`; viewer + landing HTML live as embedded string constants in `DocsLanding.cs` to avoid the Web SDK's static-web-asset routing rules.
+- **Tests:** `AutoDocsTests.cs` asserts every route is 200 in `Development` and 404 in `Production`. The test fixture exposes `Factory.Environment` to flip envs per-test.
+
 ---
 
 ## Coding conventions — frontend (Angular 21)
@@ -412,7 +423,7 @@ The "no individual test > 500 ms; suite < 30 s" guideline from Phase 1 turned ou
 
 - Domain suite: 2199 tests (incl. 2000 random-game property tests) in ~600 ms.
 - Application suite: 48 tests in ~120 ms.
-- Integration suite (Phase 5 close-out): 91 tests in ~24 s. The Phase 5.7 deep hub tests (full 20-trick game, real-time grace + idle forfeits) account for most of the increase — `Game:Reconnect/Idle*Seconds` are dialed down to 1–2 s per test, and `HubRateLimits:PlayCardWindowSeconds=0` lets the auto-play loop drive a complete game without artificial pacing. Container start-up stays amortized via `PostgresContainerPool` (one Postgres 17 container per `dotnet test` run, ~3 s; per-fixture `CREATE DATABASE` ≈50 ms). If the suite drifts past ~60 s the first lever is reducing host start-ups (one factory per class via `IClassFixture<T>`); the second is moving real-time forfeit waits behind a virtual `ITimerService`.
+- Integration suite (post-5.7 + auto-docs): 98 tests in ~24 s. The Phase 5.7 deep hub tests (full 20-trick game, real-time grace + idle forfeits) account for most of the increase — `Game:Reconnect/Idle*Seconds` are dialed down to 1–2 s per test, and `HubRateLimits:PlayCardWindowSeconds=0` lets the auto-play loop drive a complete game without artificial pacing. Container start-up stays amortized via `PostgresContainerPool` (one Postgres 17 container per `dotnet test` run, ~3 s; per-fixture `CREATE DATABASE` ≈50 ms). If the suite drifts past ~60 s the first lever is reducing host start-ups (one factory per class via `IClassFixture<T>`); the second is moving real-time forfeit waits behind a virtual `ITimerService`.
 
 If a test takes more than ~50 ms in isolation, ask whether it should — most application tests should be far below that. Property tests can take longer; that's fine.
 

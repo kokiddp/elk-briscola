@@ -1,0 +1,519 @@
+{
+  "asyncapi": "3.0.0",
+  "info": {
+    "title": "Briscola SignalR Hubs",
+    "version": "1.0.0",
+    "description": "Real-time companion to the Briscola REST API. Two SignalR hubs: `/hubs/lobby` for open-game discovery and lobby chat, `/hubs/game` for in-game state, moves, and per-game chat. Authentication is JWT bearer — same access token issued by `POST /api/v1/auth/login` for REST. SignalR's transport (WebSocket / Server-Sent Events / long polling) accepts the token via the `access_token` query string for the WebSocket handshake; the JS client uses `accessTokenFactory`.\n\nMessage payload shapes mirror the application-layer event records in `Briscola.Application.Orchestration.Events.*`. The wire DTOs (suffix `Dto`) live in `Briscola.Api.Dtos.*`. Both surfaces are kept in sync; changing one without the other is a contract break.",
+    "contact": {
+      "name": "Briscola repo",
+      "url": "https://github.com/anthropics/elk-briscola"
+    },
+    "license": {
+      "name": "MIT"
+    }
+  },
+  "defaultContentType": "application/json",
+  "servers": {
+    "development": {
+      "host": "localhost:5080",
+      "protocol": "signalr",
+      "description": "Local dev (HTTP, no TLS). Browser clients connect via http://localhost:4200 with the Angular dev proxy forwarding /hubs/* to this host."
+    }
+  },
+  "channels": {
+    "lobby": {
+      "address": "/hubs/lobby",
+      "title": "Lobby hub",
+      "description": "Open-game discovery + lobby chat. Authenticated connections call `SubscribeOpen` to join the `lobby:open` group; the hub fans out `gameCreated/gameUpdated/gameStarted/gameEnded` to that group as games come and go.",
+      "messages": {
+        "subscribeOpen": { "$ref": "#/components/messages/Empty" },
+        "unsubscribeOpen": { "$ref": "#/components/messages/Empty" },
+        "lobbySendChat": { "$ref": "#/components/messages/LobbySendChat" },
+        "lobbyChatMessage": { "$ref": "#/components/messages/LobbyChatMessage" },
+        "gameCreated": { "$ref": "#/components/messages/GameSummary" },
+        "gameUpdated": { "$ref": "#/components/messages/GameSummary" },
+        "gameStarted": { "$ref": "#/components/messages/GameId" },
+        "gameEnded": { "$ref": "#/components/messages/GameId" }
+      }
+    },
+    "game": {
+      "address": "/hubs/game",
+      "title": "Game hub",
+      "description": "Per-game real-time channel. Connections that have joined a game are members of the `game:{gameId}` SignalR group; per-recipient events go to `Clients.User(userId)`; spectators join `game:{gameId}:spectators`. Hub-method handlers translate authenticated client invocations into `GameCommand`s on the orchestrator's per-game channel — they never compute game state.",
+      "messages": {
+        "joinGame": { "$ref": "#/components/messages/JoinGame" },
+        "playCard": { "$ref": "#/components/messages/PlayCard" },
+        "viewOwnPile": { "$ref": "#/components/messages/GameId" },
+        "spectateGame": { "$ref": "#/components/messages/GameId" },
+        "unspectateGame": { "$ref": "#/components/messages/GameId" },
+        "leaveGame": { "$ref": "#/components/messages/GameId" },
+        "gameSendChat": { "$ref": "#/components/messages/GameSendChat" },
+        "joined": { "$ref": "#/components/messages/RedactedState" },
+        "stateUpdated": { "$ref": "#/components/messages/RedactedState" },
+        "cardPlayed": { "$ref": "#/components/messages/CardPlayed" },
+        "trickResolved": { "$ref": "#/components/messages/TrickResolved" },
+        "cardsDrawn": { "$ref": "#/components/messages/CardsDrawn" },
+        "phaseChanged": { "$ref": "#/components/messages/PhaseChanged" },
+        "gameFinished": { "$ref": "#/components/messages/GameFinished" },
+        "playerDisconnected": { "$ref": "#/components/messages/PlayerDisconnected" },
+        "playerReconnected": { "$ref": "#/components/messages/PlayerReconnected" },
+        "idleWarning": { "$ref": "#/components/messages/IdleWarning" },
+        "gameChatMessage": { "$ref": "#/components/messages/GameChatMessage" },
+        "invalidMove": { "$ref": "#/components/messages/InvalidMove" }
+      }
+    }
+  },
+  "operations": {
+    "lobby.SubscribeOpen": {
+      "action": "send",
+      "channel": { "$ref": "#/channels/lobby" },
+      "summary": "Join the lobby:open group to start receiving open-game and lobby-chat events.",
+      "messages": [{ "$ref": "#/channels/lobby/messages/subscribeOpen" }]
+    },
+    "lobby.UnsubscribeOpen": {
+      "action": "send",
+      "channel": { "$ref": "#/channels/lobby" },
+      "summary": "Leave the lobby:open group. Connection-close also leaves implicitly.",
+      "messages": [{ "$ref": "#/channels/lobby/messages/unsubscribeOpen" }]
+    },
+    "lobby.SendChat": {
+      "action": "send",
+      "channel": { "$ref": "#/channels/lobby" },
+      "summary": "Broadcast a chat line to the lobby:open group. Whitespace-only messages are dropped server-side; payloads over 500 chars are truncated.",
+      "messages": [{ "$ref": "#/channels/lobby/messages/lobbySendChat" }]
+    },
+    "lobby.ChatMessage": {
+      "action": "receive",
+      "channel": { "$ref": "#/channels/lobby" },
+      "summary": "Server-fanned chat line. One per accepted SendChat across all subscribers.",
+      "messages": [{ "$ref": "#/channels/lobby/messages/lobbyChatMessage" }]
+    },
+    "lobby.GameCreated": {
+      "action": "receive",
+      "channel": { "$ref": "#/channels/lobby" },
+      "summary": "Broadcast when a player creates a new Open game.",
+      "messages": [{ "$ref": "#/channels/lobby/messages/gameCreated" }]
+    },
+    "lobby.GameUpdated": {
+      "action": "receive",
+      "channel": { "$ref": "#/channels/lobby" },
+      "summary": "Broadcast when an Open game's seat count or metadata changes.",
+      "messages": [{ "$ref": "#/channels/lobby/messages/gameUpdated" }]
+    },
+    "lobby.GameStarted": {
+      "action": "receive",
+      "channel": { "$ref": "#/channels/lobby" },
+      "summary": "Broadcast when a game transitions Open → Running. Lobby clients drop it from the open list.",
+      "messages": [{ "$ref": "#/channels/lobby/messages/gameStarted" }]
+    },
+    "lobby.GameEnded": {
+      "action": "receive",
+      "channel": { "$ref": "#/channels/lobby" },
+      "summary": "Broadcast when a game transitions Running → Finished.",
+      "messages": [{ "$ref": "#/channels/lobby/messages/gameEnded" }]
+    },
+    "game.JoinGame": {
+      "action": "send",
+      "channel": { "$ref": "#/channels/game" },
+      "summary": "Join the game:{gameId} group and trigger a Reconnect command. The room replies with a `joined` event tailored to the caller's seat (own hand visible).",
+      "messages": [{ "$ref": "#/channels/game/messages/joinGame" }]
+    },
+    "game.PlayCard": {
+      "action": "send",
+      "channel": { "$ref": "#/channels/game" },
+      "summary": "Play a card from the caller's hand. Rate-limited per connection (default 1/s, configurable via Game:HubRateLimits). Engine-side rejections (NotYourTurn / CardNotInHand / GameFinished / WrongPhase) come back as `invalidMove`.",
+      "messages": [{ "$ref": "#/channels/game/messages/playCard" }]
+    },
+    "game.ViewOwnPile": {
+      "action": "send",
+      "channel": { "$ref": "#/channels/game" },
+      "summary": "Request a snapshot of the caller's own captured pile. Allowed only during Phase=LastHand; off-phase calls reject with InvalidMove(\"PileViewNotAllowed\"). The reply is a per-user `stateUpdated` with `myPozzo` populated.",
+      "messages": [{ "$ref": "#/channels/game/messages/viewOwnPile" }]
+    },
+    "game.SpectateGame": {
+      "action": "send",
+      "channel": { "$ref": "#/channels/game" },
+      "summary": "Join the game:{gameId}:spectators group and receive a redacted snapshot. Participants must call JoinGame instead. Only Running games are spectatable.",
+      "messages": [{ "$ref": "#/channels/game/messages/spectateGame" }]
+    },
+    "game.UnspectateGame": {
+      "action": "send",
+      "channel": { "$ref": "#/channels/game" },
+      "summary": "Leave the spectator group.",
+      "messages": [{ "$ref": "#/channels/game/messages/unspectateGame" }]
+    },
+    "game.LeaveGame": {
+      "action": "send",
+      "channel": { "$ref": "#/channels/game" },
+      "summary": "On Open games this removes the caller's seat (delegates to LobbyService.LeaveAsync). On Running games it enqueues a DisconnectCommand and starts the reconnect grace timer; the seat is preserved.",
+      "messages": [{ "$ref": "#/channels/game/messages/leaveGame" }]
+    },
+    "game.SendChat": {
+      "action": "send",
+      "channel": { "$ref": "#/channels/game" },
+      "summary": "Broadcast a chat line to the game:{gameId} group. Spectator-only connections receive InvalidMove(\"SpectatorsCannotChat\") instead. Rate-limited per connection (default 5/10s).",
+      "messages": [{ "$ref": "#/channels/game/messages/gameSendChat" }]
+    },
+    "game.Joined": {
+      "action": "receive",
+      "channel": { "$ref": "#/channels/game" },
+      "summary": "Per-recipient initial snapshot; emitted on every JoinGame call so reconnect is idempotent. Caller's hand is visible; other seats only carry counts.",
+      "messages": [{ "$ref": "#/channels/game/messages/joined" }]
+    },
+    "game.StateUpdated": {
+      "action": "receive",
+      "channel": { "$ref": "#/channels/game" },
+      "summary": "Per-recipient redacted snapshot after each command applied (or, for spectators, the spectator-redacted variant).",
+      "messages": [{ "$ref": "#/channels/game/messages/stateUpdated" }]
+    },
+    "game.CardPlayed": {
+      "action": "receive",
+      "channel": { "$ref": "#/channels/game" },
+      "summary": "Broadcast: a seat played a card.",
+      "messages": [{ "$ref": "#/channels/game/messages/cardPlayed" }]
+    },
+    "game.TrickResolved": {
+      "action": "receive",
+      "channel": { "$ref": "#/channels/game" },
+      "summary": "Broadcast: trick complete; winner seat captures and updated seat scores are published.",
+      "messages": [{ "$ref": "#/channels/game/messages/trickResolved" }]
+    },
+    "game.CardsDrawn": {
+      "action": "receive",
+      "channel": { "$ref": "#/channels/game" },
+      "summary": "Per-user: emitted N times per resolution (one per player in draw order). `drawnCard` is non-null only on the variant routed to that user.",
+      "messages": [{ "$ref": "#/channels/game/messages/cardsDrawn" }]
+    },
+    "game.PhaseChanged": {
+      "action": "receive",
+      "channel": { "$ref": "#/channels/game" },
+      "summary": "Broadcast on phase transitions (Playing → LastHand → Finished).",
+      "messages": [{ "$ref": "#/channels/game/messages/phaseChanged" }]
+    },
+    "game.GameFinished": {
+      "action": "receive",
+      "channel": { "$ref": "#/channels/game" },
+      "summary": "Broadcast when the game ends (Normal / ForfeitDisconnect / ForfeitIdle). Final scores are 0..120 (their sum is exactly 120 by invariant).",
+      "messages": [{ "$ref": "#/channels/game/messages/gameFinished" }]
+    },
+    "game.PlayerDisconnected": {
+      "action": "receive",
+      "channel": { "$ref": "#/channels/game" },
+      "summary": "Broadcast when a seat goes Connected → Disconnected. Includes the grace deadline; if the player doesn't return before then, the room emits ForfeitDisconnect.",
+      "messages": [{ "$ref": "#/channels/game/messages/playerDisconnected" }]
+    },
+    "game.PlayerReconnected": {
+      "action": "receive",
+      "channel": { "$ref": "#/channels/game" },
+      "summary": "Broadcast when a seat returns within the grace window.",
+      "messages": [{ "$ref": "#/channels/game/messages/playerReconnected" }]
+    },
+    "game.IdleWarning": {
+      "action": "receive",
+      "channel": { "$ref": "#/channels/game" },
+      "summary": "Soft warning when the active seat has been idle past Game:IdleWarnSeconds; ForfeitIdle fires at Game:IdleForfeitSeconds if no move arrives.",
+      "messages": [{ "$ref": "#/channels/game/messages/idleWarning" }]
+    },
+    "game.ChatMessage": {
+      "action": "receive",
+      "channel": { "$ref": "#/channels/game" },
+      "summary": "Broadcast game-scope chat line.",
+      "messages": [{ "$ref": "#/channels/game/messages/gameChatMessage" }]
+    },
+    "game.InvalidMove": {
+      "action": "receive",
+      "channel": { "$ref": "#/channels/game" },
+      "summary": "Targeted to the caller. Stable string code from one of: NotYourTurn, CardNotInHand, GameFinished, WrongPhase, PileViewNotAllowed (engine-side); SpectatorsCannotChat, RateLimited (hub-side).",
+      "messages": [{ "$ref": "#/channels/game/messages/invalidMove" }]
+    }
+  },
+  "components": {
+    "messages": {
+      "Empty": {
+        "name": "Empty",
+        "summary": "No payload.",
+        "payload": { "type": "object", "additionalProperties": false, "maxProperties": 0 }
+      },
+      "GameId": {
+        "name": "GameId",
+        "summary": "A bare game identifier.",
+        "payload": { "$ref": "#/components/schemas/GameId" }
+      },
+      "LobbySendChat": {
+        "name": "LobbySendChat",
+        "summary": "Lobby chat line.",
+        "payload": {
+          "type": "object",
+          "required": ["text"],
+          "properties": {
+            "text": { "type": "string", "maxLength": 500 }
+          }
+        }
+      },
+      "LobbyChatMessage": {
+        "name": "LobbyChatMessage",
+        "payload": { "$ref": "#/components/schemas/LobbyChatMessageDto" }
+      },
+      "GameSummary": {
+        "name": "GameSummary",
+        "payload": { "$ref": "#/components/schemas/GameSummaryDto" }
+      },
+      "JoinGame": {
+        "name": "JoinGame",
+        "payload": { "$ref": "#/components/schemas/GameId" }
+      },
+      "PlayCard": {
+        "name": "PlayCard",
+        "payload": {
+          "type": "object",
+          "required": ["gameId", "card"],
+          "properties": {
+            "gameId": { "type": "string", "format": "uuid" },
+            "card": { "$ref": "#/components/schemas/Card" }
+          }
+        }
+      },
+      "GameSendChat": {
+        "name": "GameSendChat",
+        "payload": {
+          "type": "object",
+          "required": ["gameId", "text"],
+          "properties": {
+            "gameId": { "type": "string", "format": "uuid" },
+            "text": { "type": "string", "maxLength": 500 }
+          }
+        }
+      },
+      "RedactedState": {
+        "name": "RedactedStateForUser",
+        "payload": { "$ref": "#/components/schemas/RedactedStateForUser" }
+      },
+      "CardPlayed": {
+        "name": "CardPlayed",
+        "payload": {
+          "type": "object",
+          "required": ["seatIndex", "card"],
+          "properties": {
+            "seatIndex": { "type": "integer", "minimum": 0, "maximum": 3 },
+            "card": { "$ref": "#/components/schemas/Card" }
+          }
+        }
+      },
+      "TrickResolved": {
+        "name": "TrickResolved",
+        "payload": {
+          "type": "object",
+          "required": ["winnerSeat", "newSeatScores"],
+          "properties": {
+            "winnerSeat": { "type": "integer", "minimum": 0, "maximum": 3 },
+            "newSeatScores": { "type": "array", "items": { "type": "integer" }, "minItems": 2, "maxItems": 4 }
+          }
+        }
+      },
+      "CardsDrawn": {
+        "name": "CardsDrawn",
+        "payload": {
+          "type": "object",
+          "required": ["countsBySeat"],
+          "properties": {
+            "countsBySeat": { "type": "array", "items": { "type": "integer", "minimum": 0 } },
+            "drawnCard": { "oneOf": [{ "$ref": "#/components/schemas/Card" }, { "type": "null" }] }
+          }
+        }
+      },
+      "PhaseChanged": {
+        "name": "PhaseChanged",
+        "payload": {
+          "type": "object",
+          "required": ["newPhase"],
+          "properties": {
+            "newPhase": { "type": "string", "enum": ["Playing", "LastHand", "Finished"] }
+          }
+        }
+      },
+      "GameFinished": {
+        "name": "GameFinished",
+        "payload": {
+          "type": "object",
+          "required": ["outcome", "seatScores", "reason"],
+          "properties": {
+            "outcome": { "$ref": "#/components/schemas/GameOutcome" },
+            "seatScores": { "type": "array", "items": { "type": "integer" } },
+            "reason": { "type": "string", "enum": ["Normal", "ForfeitDisconnect", "ForfeitIdle"] }
+          }
+        }
+      },
+      "PlayerDisconnected": {
+        "name": "PlayerDisconnected",
+        "payload": {
+          "type": "object",
+          "required": ["seatIndex", "graceDeadlineUtc"],
+          "properties": {
+            "seatIndex": { "type": "integer" },
+            "graceDeadlineUtc": { "type": "string", "format": "date-time" }
+          }
+        }
+      },
+      "PlayerReconnected": {
+        "name": "PlayerReconnected",
+        "payload": {
+          "type": "object",
+          "required": ["seatIndex"],
+          "properties": { "seatIndex": { "type": "integer" } }
+        }
+      },
+      "IdleWarning": {
+        "name": "IdleWarning",
+        "payload": {
+          "type": "object",
+          "required": ["seatIndex", "forfeitDeadlineUtc"],
+          "properties": {
+            "seatIndex": { "type": "integer" },
+            "forfeitDeadlineUtc": { "type": "string", "format": "date-time" }
+          }
+        }
+      },
+      "GameChatMessage": {
+        "name": "GameChatMessage",
+        "payload": { "$ref": "#/components/schemas/GameChatMessageDto" }
+      },
+      "InvalidMove": {
+        "name": "InvalidMove",
+        "payload": {
+          "type": "object",
+          "required": ["code"],
+          "properties": {
+            "code": {
+              "type": "string",
+              "enum": [
+                "NotYourTurn",
+                "CardNotInHand",
+                "GameFinished",
+                "WrongPhase",
+                "PileViewNotAllowed",
+                "SpectatorsCannotChat",
+                "RateLimited"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "GameId": {
+        "type": "object",
+        "required": ["gameId"],
+        "properties": {
+          "gameId": { "type": "string", "format": "uuid" }
+        }
+      },
+      "Suit": { "type": "string", "enum": ["Bastoni", "Coppe", "Denari", "Spade"] },
+      "Rank": {
+        "type": "string",
+        "enum": ["Asso", "Tre", "Re", "Cavallo", "Fante", "Sette", "Sei", "Cinque", "Quattro", "Due"]
+      },
+      "GamePhase": { "type": "string", "enum": ["Playing", "LastHand", "Finished"] },
+      "GameMode": { "type": "string", "enum": ["TwoPlayer", "FourPlayerTeams"] },
+      "GameStatus": { "type": "string", "enum": ["Open", "Running", "Finished"] },
+      "Card": {
+        "type": "object",
+        "required": ["suit", "rank"],
+        "properties": {
+          "suit": { "$ref": "#/components/schemas/Suit" },
+          "rank": { "$ref": "#/components/schemas/Rank" }
+        }
+      },
+      "PlayedCard": {
+        "type": "object",
+        "required": ["seatIndex", "card"],
+        "properties": {
+          "seatIndex": { "type": "integer" },
+          "card": { "$ref": "#/components/schemas/Card" }
+        }
+      },
+      "GameOutcome": {
+        "type": "object",
+        "required": ["kind"],
+        "description": "Discriminated by `kind`. `Winner` carries `winnerKey` (seat for 2p, team for 4p); `Draw` omits it.",
+        "properties": {
+          "kind": { "type": "string", "enum": ["Winner", "Draw"] },
+          "winnerKey": { "type": "integer", "nullable": true }
+        }
+      },
+      "RedactedStateForUser": {
+        "type": "object",
+        "required": [
+          "gameId", "mode", "phase", "dealerSeat", "leaderSeat", "nextToPlaySeat",
+          "trickNumber", "briscolaCard", "briscolaSuit", "stockCount",
+          "handCountsBySeat", "currentTrick", "seatScores"
+        ],
+        "properties": {
+          "gameId": { "type": "string", "format": "uuid" },
+          "mode": { "$ref": "#/components/schemas/GameMode" },
+          "phase": { "$ref": "#/components/schemas/GamePhase" },
+          "dealerSeat": { "type": "integer" },
+          "leaderSeat": { "type": "integer" },
+          "nextToPlaySeat": { "type": "integer" },
+          "trickNumber": { "type": "integer", "minimum": 0 },
+          "briscolaCard": { "$ref": "#/components/schemas/Card" },
+          "briscolaSuit": { "$ref": "#/components/schemas/Suit" },
+          "stockCount": { "type": "integer", "minimum": 0 },
+          "handCountsBySeat": { "type": "array", "items": { "type": "integer", "minimum": 0 } },
+          "myHand": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/Card" },
+            "nullable": true,
+            "description": "Caller's hand. Null for spectators and for broadcast variants."
+          },
+          "myPozzo": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/Card" },
+            "nullable": true,
+            "description": "Caller's captured pile. Populated only on the StateUpdated produced by ViewOwnPile (Phase=LastHand)."
+          },
+          "currentTrick": { "type": "array", "items": { "$ref": "#/components/schemas/PlayedCard" } },
+          "seatScores": { "type": "array", "items": { "type": "integer" } },
+          "outcome": { "anyOf": [{ "$ref": "#/components/schemas/GameOutcome" }, { "type": "null" }] }
+        }
+      },
+      "GameSummaryDto": {
+        "type": "object",
+        "required": ["id", "mode", "name", "status", "occupiedSeats", "totalSeats", "isPrivate", "createdAt"],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "mode": { "$ref": "#/components/schemas/GameMode" },
+          "name": { "type": "string" },
+          "status": { "$ref": "#/components/schemas/GameStatus" },
+          "occupiedSeats": { "type": "integer" },
+          "totalSeats": { "type": "integer" },
+          "isPrivate": { "type": "boolean" },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "startedAt": { "type": "string", "format": "date-time", "nullable": true }
+        }
+      },
+      "LobbyChatMessageDto": {
+        "type": "object",
+        "required": ["id", "fromUserId", "fromUserName", "text", "createdAt"],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "fromUserId": { "type": "string", "format": "uuid" },
+          "fromUserName": { "type": "string" },
+          "text": { "type": "string" },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "GameChatMessageDto": {
+        "type": "object",
+        "required": ["id", "gameId", "fromUserId", "fromUserName", "text", "createdAt"],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "gameId": { "type": "string", "format": "uuid" },
+          "fromUserId": { "type": "string", "format": "uuid" },
+          "fromUserName": { "type": "string" },
+          "text": { "type": "string" },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      }
+    }
+  }
+}

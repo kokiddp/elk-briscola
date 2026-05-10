@@ -3,8 +3,8 @@ namespace Briscola.Api.Middleware;
 /// <summary>
 /// Writes a fixed set of security headers on every response. Hosted as
 /// pipeline middleware (registered in <c>Program.cs</c> before routing).
-/// HSTS is gated by <see cref="IHostEnvironment.IsProduction"/> because
-/// dev runs over plain HTTP.
+/// HSTS is gated by <c>IHostEnvironment.IsProduction()</c> because dev
+/// runs over plain HTTP.
 /// </summary>
 public sealed class SecurityHeadersMiddleware
 {

@@ -29,6 +29,15 @@ public sealed class BriscolaApiFactory : WebApplicationFactory<Program>, IAsyncL
     /// </summary>
     public Dictionary<string, string?> ExtraSettings { get; } = new();
 
+    /// <summary>
+    /// Which ASP.NET Core environment to boot the host in. Defaults to
+    /// <c>Production</c> (matches normal integration tests — keeps the
+    /// dev-only Swagger / Scalar / AsyncAPI surfaces off). Tests that
+    /// exercise the auto-docs surface flip this to <c>Development</c>
+    /// before the first <c>CreateClient()</c>.
+    /// </summary>
+    public string Environment { get; set; } = Environments.Production;
+
     private string? _connectionString;
 
     public async Task InitializeAsync()
@@ -47,10 +56,11 @@ public sealed class BriscolaApiFactory : WebApplicationFactory<Program>, IAsyncL
     {
         ArgumentNullException.ThrowIfNull(builder);
 
-        // Stay in Production env (so dev-only Swagger + file logger don't
-        // run) but disable the HTTPS redirect that would 308 POSTs to
-        // https:// and break the in-memory test client.
-        builder.UseEnvironment(Environments.Production);
+        // Default env is Production so dev-only Swagger + file logger
+        // don't run; the auto-docs smoke tests opt back into Development.
+        // The HTTPS redirect would 308 POSTs to https:// and break the
+        // in-memory test client.
+        builder.UseEnvironment(Environment);
         builder.UseSetting("DISABLE_HTTPS_REDIRECTION", "true");
 
         builder.ConfigureAppConfiguration((_, cfg) =>

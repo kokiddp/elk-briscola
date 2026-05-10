@@ -3,6 +3,12 @@
   <PropertyGroup>
     <RootNamespace>Briscola.Api</RootNamespace>
     <AssemblyName>Briscola.Api</AssemblyName>
+    <!-- Emit XML doc comments so Swashbuckle/Scalar can pick them up.
+         CS1591 = "missing XML comment on public type/member". We document
+         the controller actions + the DTOs that show up in the docs UI;
+         everything else is fine to leave undocumented. -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
@@ -14,7 +20,20 @@
   <ItemGroup>
     <PackageReference Include="FluentValidation" Version="12.0.0" />
     <PackageReference Include="FluentValidation.DependencyInjectionExtensions" Version="12.0.0" />
+    <!-- Auto-docs surface (dev-only mounting in Program.cs):
+         - Swashbuckle generates the OpenAPI v3 doc and serves Swagger UI.
+         - Scalar renders the same doc in a modern UI with built-in code
+           samples (curl, JS fetch, Python requests, C#, Go, …). -->
     <PackageReference Include="Swashbuckle.AspNetCore" Version="10.0.0" />
+    <PackageReference Include="Scalar.AspNetCore" Version="2.11.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Bundle the AsyncAPI spec into the published output (and into the
+         output of any referencing test project, via CopyToOutputDirectory).
+         The viewer HTML lives as an embedded string in DocsLanding.cs to
+         avoid Web-SDK static-asset routing surprises. -->
+    <Content Update="docs/asyncapi.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

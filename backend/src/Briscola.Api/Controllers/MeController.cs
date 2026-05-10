@@ -8,8 +8,13 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Briscola.Api.Controllers;
 
+/// <summary>
+/// The authenticated user's own profile and ranking. All endpoints
+/// require a valid bearer token — there's no public profile lookup.
+/// </summary>
 [ApiController]
 [Route("api/v1/me")]
+[Tags("Me")]
 [Produces("application/json")]
 [Authorize]
 public sealed class MeController : ControllerBase
@@ -23,6 +28,9 @@ public sealed class MeController : ControllerBase
         _rankings = rankings;
     }
 
+    /// <summary>Get the authenticated user's profile + current ranking.</summary>
+    /// <response code="200">Profile + ranking snapshot.</response>
+    /// <response code="401">Bearer token missing or invalid.</response>
     [HttpGet("")]
     [ProducesResponseType(typeof(MeResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -38,8 +46,17 @@ public sealed class MeController : ControllerBase
         return Ok(ToResponse(user, ranking));
     }
 
+    /// <summary>Update mutable profile fields (display name, active card set).</summary>
+    /// <remarks>
+    /// Only the fields present in the body are updated. Unknown
+    /// <c>activeCardSetId</c> values are accepted on the server but the
+    /// frontend should validate against <c>GET /api/v1/card-sets</c>.
+    /// </remarks>
+    /// <response code="200">Profile after the patch.</response>
+    /// <response code="400">Validation failed (e.g. display name too long).</response>
     [HttpPatch("")]
     [ProducesResponseType(typeof(MeResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> Patch([FromBody] MePatchRequest request, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(request);
@@ -80,6 +97,12 @@ public sealed class MeController : ControllerBase
         return Ok(ToResponse(user, ranking));
     }
 
+    /// <summary>Get just the ranking (Elo + W/L/D counters) for the authenticated user.</summary>
+    /// <remarks>
+    /// Lighter than <c>GET /me</c> when only ranking changes after a game.
+    /// New accounts start at Elo 1500 (canonical seed).
+    /// </remarks>
+    /// <response code="200">Current ranking snapshot.</response>
     [HttpGet("ranking")]
     [ProducesResponseType(typeof(RankingDto), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetRanking(CancellationToken ct)

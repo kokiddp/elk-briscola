@@ -1,6 +1,7 @@
 using System.Reflection;
 using System.Text;
 using System.Text.Json.Serialization;
+using Briscola.Api;
 using Briscola.Api.Authentication;
 using Briscola.Api.Configuration;
 using Briscola.Api.Errors;
@@ -21,6 +22,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
+using Scalar.AspNetCore;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -146,13 +148,59 @@ builder.Services.AddHostedService<Briscola.Api.Hubs.GameEventDispatcher>();
 builder.Services.AddSingleton(sp =>
     CardSetCatalog.LoadFromWebRoot(sp.GetRequiredService<IWebHostEnvironment>()));
 
-// 11) Swagger (dev-only).
+// 11) Auto-docs (dev-only). Swashbuckle generates the OpenAPI v3 doc;
+//     two UIs render it: classic Swagger UI at /swagger, Scalar at
+//     /scalar/v1 (modern, dark-mode, language code samples).
 if (builder.Environment.IsDevelopment())
 {
     builder.Services.AddEndpointsApiExplorer();
     builder.Services.AddSwaggerGen(opts =>
     {
-        opts.SwaggerDoc("v1", new OpenApiInfo { Title = "Briscola API", Version = "v1" });
+        opts.SwaggerDoc("v1", new OpenApiInfo
+        {
+            Title = "Briscola API",
+            Version = "v1",
+            Description =
+                "REST surface for the Briscola card game. The companion " +
+                "real-time hubs (`/hubs/lobby`, `/hubs/game`) are documented " +
+                "in `docs/asyncapi.json` (rendered at /docs/asyncapi in dev). " +
+                "Auth flow: POST /auth/register → POST /auth/login → use the " +
+                "returned access token in the `Authorization: Bearer …` header.",
+        });
+
+        // JWT bearer "Authorize" button for both UIs. Microsoft.OpenApi
+        // collapsed the .Models sub-namespace in v2; types live directly
+        // under Microsoft.OpenApi (Swashbuckle 10 follows suit). Security
+        // requirements reference the registered scheme by its
+        // OpenApiSecuritySchemeReference id rather than embedding the
+        // scheme instance directly.
+        const string bearerSchemeId = "Bearer";
+        opts.AddSecurityDefinition(bearerSchemeId, new OpenApiSecurityScheme
+        {
+            Name = "Authorization",
+            Description = "Paste the access token returned by /auth/login. The 'Bearer ' prefix is added automatically.",
+            In = ParameterLocation.Header,
+            Type = SecuritySchemeType.Http,
+            Scheme = "bearer",
+            BearerFormat = "JWT",
+        });
+        opts.AddSecurityRequirement(_ => new OpenApiSecurityRequirement
+        {
+            [new OpenApiSecuritySchemeReference(bearerSchemeId)] = new List<string>(),
+        });
+
+        // Pull XML doc comments off the API assembly (controller actions,
+        // remarks, response codes). The csproj emits Briscola.Api.xml next
+        // to the assembly; suppress IO errors so a missing file in CI
+        // doesn't break startup.
+        string xmlPath = Path.Combine(AppContext.BaseDirectory, "Briscola.Api.xml");
+        if (File.Exists(xmlPath))
+        {
+            opts.IncludeXmlComments(xmlPath, includeControllerXmlComments: true);
+        }
+
+        opts.SupportNonNullableReferenceTypes();
+        opts.UseAllOfToExtendReferenceSchemas();
     });
 }
 
@@ -199,8 +247,42 @@ app.UseAuthorization();
 
 if (app.Environment.IsDevelopment())
 {
+    // OpenAPI document at /swagger/v1/swagger.json (Swashbuckle convention).
     app.UseSwagger();
-    app.UseSwaggerUI();
+    // Classic Swagger UI at /swagger.
+    app.UseSwaggerUI(opts =>
+    {
+        opts.DocumentTitle = "Briscola API — Swagger UI";
+        opts.DefaultModelsExpandDepth(-1);
+    });
+    // Scalar at /scalar — modern UI, language code samples, dark-mode.
+    app.MapScalarApiReference("/scalar", opts =>
+    {
+        opts.WithTitle("Briscola API — Scalar")
+            .EnableDarkMode();
+    });
+
+    // AsyncAPI sidecar for the SignalR hubs. The spec is a static JSON
+    // bundled next to the assembly (Content + CopyToOutputDirectory).
+    // The viewer HTML and the /docs landing page live as embedded
+    // strings in DocsLanding so static-web-asset routing rules don't
+    // get in the way.
+    string asyncApiJson = Path.Combine(AppContext.BaseDirectory, "docs", "asyncapi.json");
+    if (File.Exists(asyncApiJson))
+    {
+        app.MapGet("/docs/asyncapi.json", () =>
+            Results.File(asyncApiJson, contentType: "application/json"))
+           .ExcludeFromDescription()
+           .AllowAnonymous();
+    }
+    app.MapGet("/docs/asyncapi",
+        () => Results.Content(DocsLanding.AsyncApiViewerHtml, "text/html"))
+       .ExcludeFromDescription()
+       .AllowAnonymous();
+    // Tiny landing page so /docs lists the surfaces (REST + AsyncAPI).
+    app.MapGet("/docs", () => Results.Content(DocsLanding.Html, "text/html"))
+       .ExcludeFromDescription()
+       .AllowAnonymous();
 }
 
 app.MapControllers();
