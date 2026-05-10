@@ -489,17 +489,17 @@ Client → server:
 
 ### `InvalidMove` error codes (public contract)
 
-The hub's `invalidMove` push delivers a stable string code (the name of an `InvalidMoveCode` enum member in `Briscola.Domain.Errors`). Clients are expected to handle these by name; do not parse messages.
+The hub's `invalidMove` push delivers a stable string code. Clients are expected to handle these by name; do not parse messages. The first five come from the engine-side `InvalidMoveCode` enum in `Briscola.Domain.Errors` (raised by `BriscolaEngine` and surfaced via `InvalidMoveRejectedEvent`); the last two are hub-only string literals emitted directly from `Briscola.Api.Hubs.GameHub` for transport-layer policies that the engine doesn't know about.
 
-| Code | Meaning |
-|---|---|
-| `NotYourTurn` | The caller is not the current `NextToPlaySeat`. |
-| `CardNotInHand` | The requested card is not in the caller's hand (anti-cheat / desync). |
-| `GameFinished` | The game is already over. |
-| `WrongPhase` | The action requires a different `GamePhase` than the current one. |
-| `PileViewNotAllowed` | `viewOwnPile()` was called outside `LastHand`. |
-| `SpectatorsCannotChat` | A spectator attempted `sendChat`. |
-| `RateLimited` | The caller exceeded a hub-method rate limit. |
+| Code | Source | Meaning |
+|---|---|---|
+| `NotYourTurn` | engine | The caller is not the current `NextToPlaySeat`. |
+| `CardNotInHand` | engine | The requested card is not in the caller's hand (anti-cheat / desync). |
+| `GameFinished` | engine | The game is already over. |
+| `WrongPhase` | engine | The action requires a different `GamePhase` than the current one. |
+| `PileViewNotAllowed` | engine | `viewOwnPile()` was called outside `LastHand`. |
+| `SpectatorsCannotChat` | hub | A spectator attempted `sendChat`. |
+| `RateLimited` | hub | The caller exceeded a hub-method rate limit (`playCard` or `sendChat`). |
 
 ---
 
