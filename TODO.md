@@ -1534,6 +1534,13 @@ The `Spectator_redacted_state` and `Spectator_cannot_chat` cases live in `Specta
 
 **Phase 5 exit:** automated multiplayer tests green; orchestrator survives concurrent commands across hub connections. ✓
 
+### Phase 5 follow-up items (deferred for later phases)
+
+- **Virtual `ITimerService` for forfeit / idle tests.** Phase 5.7's disconnect-grace + idle-forfeit tests run against the real wall clock with the threshold options dialed down to 1–2 s. That keeps the suite under 25 s but couples test runtime to real wall time — a busy CI host occasionally drops a few hundred ms. The principled fix is a virtual `ITimerService` impl that the test fixture can advance manually (the `IClock` half is already abstracted; the timer service still uses `System.Threading.Timer`). Defer to Phase 11 (test/CI hardening) unless a flake actually surfaces.
+- **`InvalidMoveException` → 400 mapping (carry-over from Phase 4).** Phase 5 made the `InvalidMove*` codes hub-side (caller-targeted `InvalidMove(code)` over SignalR), not REST-side. The Phase 4 follow-up entry can be retired in spirit: REST never raises these. Leaving the entry as-is in case we later add a REST-only `POST /games/{id}/play-card` (we won't, but it's the standing decision).
+- **Stale-record recovery (still open from Phase 2 → Phase 4).** Unchanged. Still unreachable under single-process operation; the fix lands in Phase 12 alongside horizontal-scale concerns.
+- **Match-history endpoint `GET /me/history` (carry-over from Phase 4 → Phase 10).** Unchanged.
+
 ---
 
 ## Phase 6 — Angular foundation
