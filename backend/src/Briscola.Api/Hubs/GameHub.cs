@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using Briscola.Api.Configuration;
 using Briscola.Api.Dtos;
 using Briscola.Api.Hubs.Limits;
 using Briscola.Application.Errors;
@@ -10,6 +11,7 @@ using Briscola.Application.Ports;
 using Briscola.Domain.Primitives;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.Extensions.Options;
 
 namespace Briscola.Api.Hubs;
 
@@ -37,13 +39,13 @@ public sealed class GameHub : Hub<IGameClient>
     private const string RateLimiterItemKey = "HubRateLimiter";
     private const int MaxChatTextLength = 500;
 
-    // Rate-limit policies. Spec values from TODO Phase 5.6:
+    // Rate-limit policies. Defaults from TODO Phase 5.6:
     // - PlayCard: 1 per second (excess → InvalidMove("RateLimited"))
     // - SendChat: 5 per 10 seconds (excess → same)
-    private static readonly TimeSpan PlayCardWindow = TimeSpan.FromSeconds(1);
-    private const int PlayCardPermits = 1;
-    private static readonly TimeSpan SendChatWindow = TimeSpan.FromSeconds(10);
-    private const int SendChatPermits = 5;
+    // Bound to HubRateLimitOptions so deployments and the integration
+    // suite can dial them up or down. Setting either Window to 0
+    // disables the limit (any call admits).
+    private readonly HubRateLimitOptions _rateLimits;
 
     private readonly GameOrchestrator _orchestrator;
     private readonly LobbyService _lobby;
@@ -56,13 +58,16 @@ public sealed class GameHub : Hub<IGameClient>
         LobbyService lobby,
         IGameRepository games,
         IChatRepository chat,
-        IClock clock)
+        IClock clock,
+        IOptions<HubRateLimitOptions> rateLimits)
     {
+        ArgumentNullException.ThrowIfNull(rateLimits);
         _orchestrator = orchestrator;
         _lobby = lobby;
         _games = games;
         _chat = chat;
         _clock = clock;
+        _rateLimits = rateLimits.Value;
     }
 
     public static string GameGroup(Guid gameId) => $"{GameGroupPrefix}{gameId}";
@@ -94,7 +99,8 @@ public sealed class GameHub : Hub<IGameClient>
         ArgumentNullException.ThrowIfNull(card);
         Guid userId = ResolveUserId();
 
-        if (!GetRateLimiter().TryAcquire(nameof(PlayCard), PlayCardPermits, PlayCardWindow))
+        if (!TryAcquireRateLimit(
+            nameof(PlayCard), _rateLimits.PlayCardPermits, _rateLimits.PlayCardWindowSeconds))
         {
             await Clients.Caller.InvalidMove("RateLimited").ConfigureAwait(false);
             return;
@@ -211,7 +217,8 @@ public sealed class GameHub : Hub<IGameClient>
             return;
         }
 
-        if (!GetRateLimiter().TryAcquire(nameof(SendChat), SendChatPermits, SendChatWindow))
+        if (!TryAcquireRateLimit(
+            nameof(SendChat), _rateLimits.SendChatPermits, _rateLimits.SendChatWindowSeconds))
         {
             await Clients.Caller.InvalidMove("RateLimited").ConfigureAwait(false);
             return;
@@ -299,6 +306,22 @@ public sealed class GameHub : Hub<IGameClient>
     {
         string? sub = Context.UserIdentifier;
         return sub is not null && Guid.TryParse(sub, out Guid id) ? id : Guid.Empty;
+    }
+
+    /// <summary>
+    /// Wraps the per-connection limiter with a "0 means disabled"
+    /// shortcut so test hosts can bypass the policy without touching the
+    /// limiter implementation. <paramref name="windowSeconds"/> ≤ 0
+    /// admits unconditionally.
+    /// </summary>
+    private bool TryAcquireRateLimit(string method, int permits, double windowSeconds)
+    {
+        if (windowSeconds <= 0 || permits <= 0)
+        {
+            return true;
+        }
+
+        return GetRateLimiter().TryAcquire(method, permits, TimeSpan.FromSeconds(windowSeconds));
     }
 
     private HubMethodRateLimiter GetRateLimiter()

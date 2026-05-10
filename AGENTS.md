@@ -412,7 +412,7 @@ The "no individual test > 500 ms; suite < 30 s" guideline from Phase 1 turned ou
 
 - Domain suite: 2199 tests (incl. 2000 random-game property tests) in ~600 ms.
 - Application suite: 48 tests in ~120 ms.
-- Integration suite (Phase 5.1, post-Postgres switch): 69 tests in ~9 s. Breakdown: 28 SQLite-fixture repository/auth tests (~1 s), 5 SignalR LobbyHub tests (~3 s), 36 REST/WebApplicationFactory tests against per-fixture Postgres databases (~5 s). Container start-up is amortized: `PostgresContainerPool` boots one Postgres 17 container once per `dotnet test` run (~3 s) and hands out fresh databases via `CREATE DATABASE` (≈50 ms each). If the suite drifts past ~30 s, the first lever is reducing host start-ups (one factory per class via `IClassFixture<T>`).
+- Integration suite (Phase 5 close-out): 91 tests in ~24 s. The Phase 5.7 deep hub tests (full 20-trick game, real-time grace + idle forfeits) account for most of the increase — `Game:Reconnect/Idle*Seconds` are dialed down to 1–2 s per test, and `HubRateLimits:PlayCardWindowSeconds=0` lets the auto-play loop drive a complete game without artificial pacing. Container start-up stays amortized via `PostgresContainerPool` (one Postgres 17 container per `dotnet test` run, ~3 s; per-fixture `CREATE DATABASE` ≈50 ms). If the suite drifts past ~60 s the first lever is reducing host start-ups (one factory per class via `IClassFixture<T>`); the second is moving real-time forfeit waits behind a virtual `ITimerService`.
 
 If a test takes more than ~50 ms in isolation, ask whether it should — most application tests should be far below that. Property tests can take longer; that's fine.
 

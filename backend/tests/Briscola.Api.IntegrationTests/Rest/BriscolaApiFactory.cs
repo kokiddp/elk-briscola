@@ -20,6 +20,15 @@ public sealed class BriscolaApiFactory : WebApplicationFactory<Program>, IAsyncL
     public string Base64SigningKey { get; } =
         Convert.ToBase64String(System.Security.Cryptography.RandomNumberGenerator.GetBytes(32));
 
+    /// <summary>
+    /// Extra in-memory configuration values merged into the host
+    /// configuration after the defaults. Tests that need to shorten
+    /// timeouts (e.g. <c>Game:ReconnectGraceSeconds</c>) populate this
+    /// before <see cref="InitializeAsync"/> runs. Keys here override the
+    /// defaults set in <see cref="ConfigureWebHost"/>.
+    /// </summary>
+    public Dictionary<string, string?> ExtraSettings { get; } = new();
+
     private string? _connectionString;
 
     public async Task InitializeAsync()
@@ -57,6 +66,10 @@ public sealed class BriscolaApiFactory : WebApplicationFactory<Program>, IAsyncL
                 ["Migrations:RunOnStartup"] = "true",
                 ["Cors:AllowedOrigins:0"] = "http://localhost",
             });
+            if (ExtraSettings.Count > 0)
+            {
+                cfg.AddInMemoryCollection(ExtraSettings);
+            }
         });
     }
 }

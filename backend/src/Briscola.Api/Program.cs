@@ -31,6 +31,7 @@ builder.Services.Configure<GameOptions>(builder.Configuration.GetSection(GameOpt
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection(JwtOptions.SectionName));
 builder.Services.Configure<CorsOptions>(builder.Configuration.GetSection(CorsOptions.SectionName));
 builder.Services.Configure<MigrationOptions>(builder.Configuration.GetSection(MigrationOptions.SectionName));
+builder.Services.Configure<HubRateLimitOptions>(builder.Configuration.GetSection(HubRateLimitOptions.SectionName));
 
 // 2) Serilog. Replaces the default ILogger* providers with Serilog's pipeline;
 //    SerilogSetup encodes the dev-vs-prod sinks.

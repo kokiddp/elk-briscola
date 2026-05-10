@@ -1501,29 +1501,38 @@ Use a per-connection sliding window kept in `ConnectionItems`:
 
 ASP.NET's `RateLimiter` middleware is HTTP-only; hub methods use a small in-memory limiter (`Briscola.Api/Hubs/Limits/HubMethodRateLimiter.cs`). Per-connection state lives in `Context.Items[RateLimiterItemKey]`; SignalR cleans it up on disconnect. The limiter takes `IClock` so test harnesses can reason about windows without sleeping.
 
+**Phase 5.7 follow-up:** the windows + permits are now bound to `HubRateLimitOptions` (section `HubRateLimits`), defaults match the spec values above. Setting either window to `0` disables the policy — used by the deep hub tests (`TwoPlayerGame_RunsToCompletion`, `ViewOwnPile_inside_LastHand_*`) so a 20-trick auto-play loop doesn't spend a real second between each play.
+
 ---
 
-### Step 5.7 — Hub integration tests [M]
+### Step 5.7 — Hub integration tests [M] [x]
 
-**Where:** `backend/tests/Briscola.Api.IntegrationTests/Hubs/`
+**Where:** `backend/tests/Briscola.Api.IntegrationTests/Hubs/DeepHubTests.cs` (new), plus the earlier per-step test files (`LobbyHubTests`, `GameHubTests`, `GameEventDispatcherTests`, `SpectatorAndLimitsTests`).
 
-**Setup helper:** `HubTestHarness` boots `WebApplicationFactory<Program>`, registers two test users, returns two `HubConnection`s authenticated as those users.
+**Setup helper:** `HubTestHarness` (already from Phase 5.1) boots `WebApplicationFactory<Program>`, registers test users, returns authenticated `HubConnection`s. Phase 5.7 added `BriscolaApiFactory.ExtraSettings` so individual tests can shorten `Game:ReconnectGraceSeconds` / `Game:IdleForfeitSeconds` / `HubRateLimits:PlayCardWindowSeconds` for real-time scenarios.
 
-**Tests:**
+**Tests landed:**
 
-- `TwoPlayerGame_RunsToCompletion`: drive a deterministic game by feeding both clients a fixed move list (precomputed against a fixed seed). Assert the final `GameFinishedDto`.
-- `Disconnect_within_grace_resumes`: client A disconnects, reconnects within 5 s; assert state restored.
-- `Disconnect_past_deadline_forfeits`: advance the test clock; assert `GameFinishedDto.Reason == ForfeitDisconnect` and B wins.
-- `Idle_timeout_forfeits_idle_seat`: same idea via clock advancement.
-- `Spectator_redacted_state`: spectator client receives no `MyHand`, `HandCountsBySeat` only.
-- `Spectator_cannot_chat`: `SendChat` from a spectator → `InvalidMove("SpectatorsCannotChat")`.
-- `Cheating_attempt_rejected`: A asks to play a card that's in B's hand → `InvalidMove("CardNotInHand")`.
-- `ViewOwnPile_outside_LastHand_rejected`.
-- `ViewOwnPile_inside_LastHand_returns_pile`.
+- `TwoPlayerGame_RunsToCompletion` — auto-play loop drives 20 tricks across two `HubConnection`s; asserts `GameFinishedDto.Reason == "Normal"` and seat scores sum to 120. Rate limit disabled in this test.
+- `Disconnect_within_grace_resumes_without_forfeit` — alice `LeaveGame`s a running game, then `JoinGame`s again; bob sees `PlayerDisconnected` then `PlayerReconnected`, no `GameFinished`.
+- `Disconnect_past_deadline_forfeits_disconnected_seat` — `Game:ReconnectGraceSeconds=1`; bob receives `GameFinished` with `Reason="ForfeitDisconnect"` and `Outcome.WinnerKey=1`.
+- `Idle_timeout_forfeits_idle_seat` — `Game:IdleForfeitSeconds=2`; with no plays from either side, the idle timer fires and bob receives `GameFinished` with `Reason="ForfeitIdle"`.
+- `Cheating_attempt_rejected_with_CardNotInHand` — active seat tries to play a card from the *other* hand; receives `InvalidMove("CardNotInHand")` on the caller's connection only.
+- `ViewOwnPile_outside_LastHand_rejected` — calling `ViewOwnPile` while `Phase == Playing` returns `InvalidMove("PileViewNotAllowed")`.
+- `ViewOwnPile_inside_LastHand_returns_pile_via_state_updated` — auto-play loop runs the game until `Phase == LastHand`, then `ViewOwnPile` produces a `StateUpdated` with `MyPozzo` populated. Confirms the deviation documented in 5.4 (no dedicated `PileSnapshot` event).
 
-**Acceptance:** all green; total hub-test runtime < 90 s.
+The `Spectator_redacted_state` and `Spectator_cannot_chat` cases live in `SpectatorAndLimitsTests` already (Phase 5.5/5.6).
 
-**Phase 5 exit:** automated multiplayer tests green; orchestrator survives concurrent commands across hub connections.
+**Implementation notes:**
+
+- Driving deterministic moves by precomputing against a fixed seed proved unnecessary. The auto-play loop just calls `PlayCard(MyHand[0])` whenever `s.NextToPlaySeat == mySeat`, yielding a complete (but non-deterministic) game inside ~20 s without rate limits. The end state assertions are robust to either outcome (Winner/Draw) and use the 120-point invariant.
+- Disconnect-grace and idle-forfeit tests run in real wall time. `SystemTimerService` uses `Timer` against the system clock, so the only reliable knob is the timeout itself. `BriscolaApiFactory.ExtraSettings` lets individual tests dial `Game:Reconnect/Idle*Seconds` down to ~1–2 s, keeping the suite under 25 s.
+- SignalR client handlers run on the connection's invocation pump. Awaiting `InvokeAsync` from inside a handler can deadlock the pump (the response can't be drained until the handler returns). The auto-play helper detaches with `Task.Run` so the await happens off the pump.
+- Hub rate limits became configurable (`HubRateLimitOptions`, see Phase 5.6) so the long-running auto-play tests can disable `PlayCard` rate-limiting; the dedicated `SendChat_rate_limit_kicks_in_after_five_messages_in_window` test still exercises the live limiter under defaults.
+
+**Acceptance:** all green; total hub-test runtime ≈ 24 s (well under the 90 s budget).
+
+**Phase 5 exit:** automated multiplayer tests green; orchestrator survives concurrent commands across hub connections. ✓
 
 ---
 
