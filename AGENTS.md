@@ -465,6 +465,14 @@ CI must run on every PR:
 - **Never `--amend` or `--force`** on a published branch unless the user explicitly asks.
 - **Never** skip hooks (`--no-verify`).
 
+### Push protocol
+
+- The remote `origin` is `https://github.com/kokiddp/elk-briscola.git` as of post-5.7. Pushes there trigger the GitHub Actions workflows under `.github/workflows/` (path-filtered: backend / frontend / e2e).
+- The canonical per-step workflow is unchanged: work on a per-step branch, commit there, fast-forward merge to local `main`, delete the branch. **What's new** is the post-merge push: **after the fast-forward merge to local `main`, immediately `git push origin main`.** Don't batch pushes across multiple commits — each merged step goes up on its own so CI runs are crisp.
+- This relaxation applies *only* to that scenario: push of `main` after a clean fast-forward from an approved per-step branch. It does **not** authorize: committing directly on `main`, force-pushing, pushing other branches to the remote, or pushing without first running the relevant local test suite.
+- After pushing, the CI workflow status for the just-pushed commit is observable at https://github.com/kokiddp/elk-briscola/actions or via `gh run list --limit 5` (once authenticated). For unauthenticated read-only checks, the public REST API works: `curl -s https://api.github.com/repos/kokiddp/elk-briscola/actions/runs?per_page=5 | grep -E '"name"\|"conclusion"\|"head_sha"'`.
+- Path-filtered workflows: a backend-only push will trigger `backend.yml` and skip `frontend.yml`. Don't read "no frontend run" as "frontend is broken" — it's just inert.
+
 ### Pull requests
 
 - PR title: concise, imperative, ≤ 70 chars.
@@ -538,7 +546,7 @@ When asking, **offer 2–4 concrete options** with the recommendation labeled. D
 
 These are non-negotiable. Violating them is a bug:
 
-1. **Never** push to `main` directly without an explicit user instruction. PRs always.
+1. **Never commit directly to `main`.** Per-step branches (`feat/<step>`, `fix/<step>`, `docs/<step>`, `chore/<step>`) are required, always. The user granted *one* relaxation as of post-5.7 + auto-docs: after the canonical fast-forward merge from a per-step branch to local `main`, you may **push `main`** to `origin` without asking again. Everything else stays gated: never commit directly on `main`, never bypass the per-step branch, never force-push, never push someone else's branch, never push experimental work straight to `main`.
 2. **Never** force-push, amend published commits, or `git reset --hard` published branches without explicit user consent.
 3. **Never** commit secrets. If a secret was committed accidentally, stop, tell the user, and rotate.
 4. **Never** disable a failing test to make CI green. Fix the test or the code.
@@ -560,7 +568,7 @@ Before announcing "Phase N is done":
 
 - [ ] Every step in the phase is `[x]`.
 - [ ] The phase's "Exit" line at the end of the section is satisfied.
-- [ ] CI is green on the latest pushed branch (skip this check until a remote is configured; instead run the same commands locally and confirm green).
+- [ ] CI is green on the latest pushed branch. The remote (`https://github.com/kokiddp/elk-briscola.git`) and GitHub Actions are live as of post-5.7. Check via the **Actions** tab on GitHub, or unauthenticated REST: `curl -s https://api.github.com/repos/kokiddp/elk-briscola/actions/runs?per_page=5 | grep -E '"name"\|"conclusion"\|"head_sha"'`. With `gh` authenticated, `gh run list --limit 5` works too. Only the workflow whose `paths:` filter matches the commit's changes will fire — a backend-only push won't trigger `frontend.yml`.
 - [ ] Coverage thresholds (Phase 1 ≥ 95% domain; Phase 2 ≥ 85% application) are met.
 - [ ] No `[!]` blockers carried over.
 - [ ] Coherence checklist passes against README.md.

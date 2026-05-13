@@ -1,6 +1,11 @@
 # elk-briscola
 
+[![backend](https://github.com/kokiddp/elk-briscola/actions/workflows/backend.yml/badge.svg?branch=main)](https://github.com/kokiddp/elk-briscola/actions/workflows/backend.yml)
+[![frontend](https://github.com/kokiddp/elk-briscola/actions/workflows/frontend.yml/badge.svg?branch=main)](https://github.com/kokiddp/elk-briscola/actions/workflows/frontend.yml)
+
 A production-ready implementation of the traditional Italian card game **Briscola**, with a C# (.NET 10) backend and an Angular 21 frontend. Supports 2-player and 4-player (fixed-pairs) modes with real-time multiplayer over SignalR.
+
+Source: https://github.com/kokiddp/elk-briscola
 
 > Briscola rules reference: https://it.wikipedia.org/wiki/Briscola
 

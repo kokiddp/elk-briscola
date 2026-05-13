@@ -148,9 +148,13 @@ How to read this file:
 
 ---
 
-### Step 0.4 — GitHub Actions CI [S] [~] [!]
+### Step 0.4 — GitHub Actions CI [S] [~]
 
-> **[!] partial**: workflow files written and YAML-validated locally; full acceptance ("workflows run and pass on a no-op PR") deferred until a GitHub remote exists. As of post-Phase-2: the same underlying commands all pass locally (`dotnet build/test -c Release`, `npm run lint/build/test:ci/format:check`) — 2247 tests, 0 warnings, 0 lint errors. When a remote is wired up, push to a branch, open a no-op PR, and flip this to `[x]` if the workflows go green.
+> **[~] backend green; frontend + e2e unproven.** The remote is now live at `https://github.com/kokiddp/elk-briscola.git`. The `backend.yml` workflow went green end-to-end on the first push to main against commit `43a4308` (run #1, ~1m24s — every step including `Test (Release)` with Testcontainers + Postgres 17 succeeded on a clean `ubuntu-latest` runner). The original concern about Docker on the runner was unfounded: it's preinstalled.
+>
+> The `frontend.yml` and `e2e.yml` workflows haven't been observed because nothing under `frontend/**` has changed since the remote was wired — the path-based triggers haven't fired yet. They'll get their first real run when Phase 6 (Angular foundation) lands. Flip this to `[x]` once both workflows have been observed green.
+>
+> The `actions/setup-dotnet@v4` step is pinned to `'10.x'` rather than the specific patch from [§ Pinned versions](AGENTS.md#pinned-versions-dont-drift-without-a-reason). The runner currently caches a 10.x SDK that's compatible; if a future minor breaks something, the lever is adding a `global.json` (or pinning to a specific patch in the workflow).
 
 **What:** wire CI so every PR is gated on build + test + lint.
 
