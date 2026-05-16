@@ -468,17 +468,43 @@ CI must run on every PR:
 ### Push protocol
 
 - The remote `origin` is `https://github.com/kokiddp/elk-briscola.git` as of post-5.7. Pushes there trigger the GitHub Actions workflows under `.github/workflows/` (path-filtered: backend / frontend / e2e).
-- The canonical per-step workflow is unchanged: work on a per-step branch, commit there, fast-forward merge to local `main`, delete the branch. **What's new** is the post-merge push: **after the fast-forward merge to local `main`, immediately `git push origin main`.** Don't batch pushes across multiple commits — each merged step goes up on its own so CI runs are crisp.
-- This relaxation applies *only* to that scenario: push of `main` after a clean fast-forward from an approved per-step branch. It does **not** authorize: committing directly on `main`, force-pushing, pushing other branches to the remote, or pushing without first running the relevant local test suite.
-- After pushing, the CI workflow status for the just-pushed commit is observable at https://github.com/kokiddp/elk-briscola/actions or via `gh run list --limit 5` (once authenticated). For unauthenticated read-only checks, the public REST API works: `curl -s https://api.github.com/repos/kokiddp/elk-briscola/actions/runs?per_page=5 | grep -E '"name"\|"conclusion"\|"head_sha"'`.
 - Path-filtered workflows: a backend-only push will trigger `backend.yml` and skip `frontend.yml`. Don't read "no frontend run" as "frontend is broken" — it's just inert.
+- After pushing, the CI workflow status for the just-pushed commit is observable at https://github.com/kokiddp/elk-briscola/actions or via `gh run list --limit 5` (once authenticated). For unauthenticated read-only checks, the public REST API works: `curl -s https://api.github.com/repos/kokiddp/elk-briscola/actions/runs?per_page=5 | grep -E '"name"\|"conclusion"\|"head_sha"'`.
+
+### Per-step PR workflow (autonomous, as of Phase 6)
+
+**Every TODO step gets its own branch and its own PR.** This is now the agent's autonomous default — do not ask for permission each time, just do it. The previous "fast-forward to local `main` then push `main` directly" relaxation is **superseded by this PR workflow** and only retained as a fallback if PRs are explicitly unavailable.
+
+Concrete protocol the agent must follow for each step:
+
+1. **Branch from `origin/main`.** Name: `feat/<step-id>-<short-slug>` (e.g. `feat/6.1-workspace-polish`, `feat/6.2-core-module`). Bugfix/docs use `fix/...` or `docs/...` with the same `<step-id>-<slug>` shape.
+2. **One step, one branch, one commit (ideally).** If a single step legitimately needs multiple commits (e.g. a follow-up after review), keep them on that step's branch — never spread one step across multiple branches.
+3. **Commit:** imperative subject ≤ 72 chars, `feat:` / `fix:` / `docs:` / `chore:` / `test:` / `refactor:` prefix, body explains the *why*, trailer `Co-Authored-By: Claude <noreply@anthropic.com>`.
+4. **Local gates before push:** run the relevant lint/build/test suite for the touched layer. **Do not push a red branch.**
+5. **Push the branch:** `git push -u origin <branch>`. GitHub's push response prints a "Create a pull request" URL — capture it for the next step.
+6. **Open the PR** via `gh pr create` (preferred) or, if `gh` is unauthenticated, surface the "Create a pull request" URL from step 5 to the user. PR title mirrors the commit subject; body has **Summary** (1–3 bullets), **Test plan** (checklist), and a `Closes …` / `Refs TODO step …` line.
+7. **Fast-forward into local `main`** once the PR is approved & merged on the remote (or, when operating autonomously without a human merge gate, immediately after pushing the branch). `git fetch origin && git merge --ff-only origin/main` is the safe shape. Push `main` is only needed if the local merge happened before the remote merge — usually the remote merge already moved `origin/main`.
+8. **Delete the branch** both locally (`git branch -d`) and on the remote (`git push origin --delete` or via the PR-merge "delete branch" option).
+
+Inter-step ordering when steps have dependencies:
+
+- The canonical case is **sequential**: step N+1's branch is created from `main` only **after** step N has been merged into `main`. This keeps each PR diff small and reviewable on its own.
+- If two steps in flight don't depend on each other, opening them in parallel is fine.
+- If step N+1 depends on step N that is **not yet merged**, base N+1 on N's branch (a stacked PR). Call this out explicitly in N+1's PR body (`Based on #<N>`). Rebase N+1 onto `main` after N merges, then mark its base back to `main` on GitHub.
+
+Hard rules that still hold:
+
+- **Never commit directly to `main`.** Branch first, always. This is reiterated in Forbidden behaviors §1.
+- **Never force-push** to a published branch, **never `--amend`** a pushed commit, **never skip hooks** (`--no-verify`) — all unchanged from earlier conventions.
+- **Never bundle phase-N and phase-M work in one PR.** One PR per logical step.
+- If `gh` is unauthenticated and the user can't be reached for `! gh auth login`, push the branch anyway, surface the "Create a pull request" URL, and proceed with the next step — the absence of `gh` is not a reason to halt the per-step branching protocol.
 
 ### Pull requests
 
-- PR title: concise, imperative, ≤ 70 chars.
-- Body sections: Summary (1–3 bullets), Test plan (checklist), Notes (optional).
-- Link the TODO.md step(s) the PR completes.
+- PR title: concise, imperative, ≤ 70 chars; usually identical to the lone commit subject.
+- Body sections: **Summary** (1–3 bullets), **Test plan** (checklist), **Notes** (optional). Link the TODO.md step(s) the PR completes with `Refs TODO §N.M` or `Closes #<issue>`.
 - Don't open a PR with `[~]` items still in progress in the same area; either finish them or move them out of scope.
+- Mark the TODO step `[x]` in the **same** PR that delivers it — TODO and code stay in sync per commit.
 
 ---
 
