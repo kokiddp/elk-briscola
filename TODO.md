@@ -1605,7 +1605,7 @@ The `Spectator_redacted_state` and `Spectator_cannot_chat` cases live in `Specta
 
 ## Phase 7 — Lobby UI
 
-### Step 7.1 — `LobbyService` [S]
+### Step 7.1 — `LobbyService` [S] [x]
 
 **Where:** `frontend/src/app/features/lobby/lobby.service.ts`
 
