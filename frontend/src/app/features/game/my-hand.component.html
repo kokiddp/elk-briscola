@@ -1,0 +1,15 @@
+<div class="my-hand" [class.disabled]="disabled()" data-testid="my-hand">
+  @for (card of cards(); track trackByCard($index, card)) {
+    <button
+      type="button"
+      class="hand-slot"
+      [class.playable]="isPlayable(card)"
+      [disabled]="!isPlayable(card)"
+      (click)="onCardClick(card)"
+      [attr.aria-label]="card.rank + ' di ' + card.suit"
+      data-testid="hand-card"
+    >
+      <bri-card [card]="card" [highlighted]="isPlayable(card)" />
+    </button>
+  }
+</div>

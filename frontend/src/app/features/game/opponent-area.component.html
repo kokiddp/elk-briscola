@@ -1,0 +1,21 @@
+<div
+  class="opponent-area"
+  [class.active]="isActive()"
+  [class.disconnected]="isDisconnected()"
+  data-testid="opponent-area"
+>
+  <header class="opponent-meta">
+    <span class="seat-label" data-testid="opponent-name">{{
+      displayName() || ('game.opponent' | t: { seat: seatIndex() })
+    }}</span>
+    @if (isPartner()) {
+      <span class="partner-chip" data-testid="partner-chip" aria-label="partner">🤝</span>
+    }
+    <span class="count-badge" data-testid="card-count">{{ cardCount() }}</span>
+  </header>
+  <div class="stack" data-testid="opponent-stack">
+    @for (i of stack(); track i) {
+      <bri-card [card]="null" />
+    }
+  </div>
+</div>
