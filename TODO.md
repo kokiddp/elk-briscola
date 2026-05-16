@@ -1561,7 +1561,7 @@ The `Spectator_redacted_state` and `Spectator_cannot_chat` cases live in `Specta
 
 ---
 
-### Step 6.2 — Core module: HTTP, auth, SignalR [S]
+### Step 6.2 — Core module: HTTP, auth, SignalR [S] [x]
 
 **Where:** `frontend/src/app/core/`
 
