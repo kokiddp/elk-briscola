@@ -1,5 +1,6 @@
 <section class="home">
   <h1>{{ welcomeMessage() }}</h1>
   <p>{{ placeholder() }}</p>
+  <a routerLink="/lobby" data-testid="go-to-lobby">{{ lobbyLinkLabel() }}</a>
   <button type="button" (click)="logout()" data-testid="logout">{{ logoutLabel() }}</button>
 </section>

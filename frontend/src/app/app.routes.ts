@@ -19,5 +19,16 @@ export const routes: Routes = [
     canActivate: [authGuard],
     loadComponent: () => import('./features/home/home.component').then((m) => m.HomeComponent),
   },
+  {
+    path: 'lobby',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/lobby/lobby.component').then((m) => m.LobbyComponent),
+  },
+  {
+    path: 'game/:id',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./features/game/game-placeholder.component').then((m) => m.GamePlaceholderComponent),
+  },
   { path: '**', redirectTo: 'home' },
 ];

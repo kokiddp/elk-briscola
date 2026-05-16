@@ -1613,7 +1613,7 @@ The `Spectator_redacted_state` and `Spectator_cannot_chat` cases live in `Specta
 - On bootstrap: fetch via REST, then connect to `LobbyHub` and call `subscribeOpen()`. Apply server pushes to the signals.
 - Methods: `createGame`, `joinGame`, `leaveGame`.
 
-### Step 7.2 — `LobbyPage` [S]
+### Step 7.2 — `LobbyPage` [S] [x]
 
 - Shows two lists (Open / Running). Each row: mode chip, name, players, created-by, created-at (relative).
 - "Create" button opens a dialog (`CreateGameDialog`) — fields: mode, name, isPrivate (toggle), password (visible only when private).

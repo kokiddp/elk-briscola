@@ -1,0 +1,86 @@
+<div class="dialog-backdrop">
+  <button
+    type="button"
+    class="dialog-backdrop-button"
+    (click)="onCancel()"
+    [attr.aria-label]="'lobby.create.cancel' | t"
+    data-testid="create-backdrop"
+  ></button>
+  <form
+    class="dialog"
+    role="dialog"
+    aria-modal="true"
+    [formGroup]="form"
+    (ngSubmit)="onSubmit()"
+    novalidate
+  >
+    <h2>{{ 'lobby.create.title' | t }}</h2>
+
+    <label>
+      <span>{{ 'lobby.create.mode' | t }}</span>
+      <select formControlName="mode" data-testid="create-mode">
+        <option value="TwoPlayer">{{ 'lobby.mode.twoPlayer' | t }}</option>
+        <option value="FourPlayerTeams">{{ 'lobby.mode.fourPlayerTeams' | t }}</option>
+      </select>
+    </label>
+
+    <label>
+      <span>{{ 'lobby.create.name' | t }}</span>
+      <input
+        type="text"
+        formControlName="name"
+        autocomplete="off"
+        maxlength="64"
+        data-testid="create-name"
+      />
+      @if (form.controls.name.touched && form.controls.name.errors?.['required']) {
+        <small class="error">{{ 'auth.validation.required' | t }}</small>
+      }
+      @if (form.controls.name.touched && form.controls.name.errors?.['maxlength']) {
+        <small class="error">{{ 'lobby.create.nameTooLong' | t }}</small>
+      }
+    </label>
+
+    <label class="checkbox">
+      <input type="checkbox" formControlName="isPrivate" data-testid="create-isPrivate" />
+      <span>{{ 'lobby.create.isPrivate' | t }}</span>
+    </label>
+
+    @if (form.controls.isPrivate.value) {
+      <label>
+        <span>{{ 'lobby.create.password' | t }}</span>
+        <input
+          type="password"
+          formControlName="password"
+          autocomplete="new-password"
+          data-testid="create-password"
+        />
+        @if (form.controls.password.touched && form.controls.password.errors?.['required']) {
+          <small class="error">{{ 'auth.validation.required' | t }}</small>
+        }
+        @if (form.controls.password.touched && form.controls.password.errors?.['minlength']) {
+          <small class="error">{{ 'lobby.create.passwordTooShort' | t }}</small>
+        }
+      </label>
+    }
+
+    <div class="actions">
+      <button
+        type="button"
+        class="ghost"
+        (click)="onCancel()"
+        [disabled]="submitting()"
+        data-testid="create-cancel"
+      >
+        {{ 'lobby.create.cancel' | t }}
+      </button>
+      <button type="submit" [disabled]="submitting() || form.invalid" data-testid="create-submit">
+        @if (submitting()) {
+          {{ 'lobby.create.submitting' | t }}
+        } @else {
+          {{ 'lobby.create.submit' | t }}
+        }
+      </button>
+    </div>
+  </form>
+</div>
