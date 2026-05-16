@@ -1,0 +1,97 @@
+import { fireEvent, render, screen } from '@testing-library/angular';
+import { describe, expect, it, vi } from 'vitest';
+import { CreateGameDialogComponent } from './create-game-dialog.component';
+import { CreateGameRequest } from './lobby.models';
+
+async function setup() {
+  const submitted = vi.fn<(req: CreateGameRequest) => void>();
+  const cancelled = vi.fn<() => void>();
+  const r = await render(CreateGameDialogComponent, {
+    inputs: {},
+    on: {
+      submitted: (req: CreateGameRequest) => submitted(req),
+      cancelled: () => cancelled(),
+    },
+  });
+  return { ...r, submitted, cancelled };
+}
+
+describe('CreateGameDialogComponent', () => {
+  it('disables submit when the name is empty', async () => {
+    await setup();
+    const submit = screen.getByTestId('create-submit') as HTMLButtonElement;
+    expect(submit.disabled).toBe(true);
+  });
+
+  it('enables submit once the name field is filled', async () => {
+    await setup();
+    fireEvent.input(screen.getByTestId('create-name'), { target: { value: 'my game' } });
+    const submit = screen.getByTestId('create-submit') as HTMLButtonElement;
+    expect(submit.disabled).toBe(false);
+  });
+
+  it('hides the password field when isPrivate is off and shows it when on', async () => {
+    await setup();
+    expect(screen.queryByTestId('create-password')).toBeNull();
+    fireEvent.click(screen.getByTestId('create-isPrivate'));
+    expect(screen.getByTestId('create-password')).toBeInTheDocument();
+  });
+
+  it('requires the password when isPrivate is toggled on', async () => {
+    await setup();
+    fireEvent.input(screen.getByTestId('create-name'), { target: { value: 'private game' } });
+    fireEvent.click(screen.getByTestId('create-isPrivate'));
+    const submit = screen.getByTestId('create-submit') as HTMLButtonElement;
+    expect(submit.disabled).toBe(true);
+    fireEvent.input(screen.getByTestId('create-password'), { target: { value: 'abc' } });
+    expect(submit.disabled).toBe(true);
+    fireEvent.input(screen.getByTestId('create-password'), { target: { value: 'abcd' } });
+    expect(submit.disabled).toBe(false);
+  });
+
+  it('emits submitted with the form payload', async () => {
+    const { submitted } = await setup();
+    fireEvent.input(screen.getByTestId('create-name'), { target: { value: 'casual' } });
+    fireEvent.click(screen.getByTestId('create-submit'));
+    expect(submitted).toHaveBeenCalledTimes(1);
+    expect(submitted).toHaveBeenCalledWith({
+      mode: 'TwoPlayer',
+      name: 'casual',
+      isPrivate: false,
+      password: null,
+    });
+  });
+
+  it('emits submitted with the password when private', async () => {
+    const { submitted } = await setup();
+    fireEvent.input(screen.getByTestId('create-name'), { target: { value: 'secret' } });
+    fireEvent.click(screen.getByTestId('create-isPrivate'));
+    fireEvent.input(screen.getByTestId('create-password'), { target: { value: 'hunter2' } });
+    fireEvent.click(screen.getByTestId('create-submit'));
+    expect(submitted).toHaveBeenCalledWith({
+      mode: 'TwoPlayer',
+      name: 'secret',
+      isPrivate: true,
+      password: 'hunter2',
+    });
+  });
+
+  it('emits cancelled when the backdrop is clicked', async () => {
+    const { cancelled } = await setup();
+    fireEvent.click(screen.getByTestId('create-backdrop'));
+    expect(cancelled).toHaveBeenCalledTimes(1);
+  });
+
+  it('emits cancelled when the Cancel button is clicked', async () => {
+    const { cancelled } = await setup();
+    fireEvent.click(screen.getByTestId('create-cancel'));
+    expect(cancelled).toHaveBeenCalledTimes(1);
+  });
+
+  it('trims surrounding whitespace from the game name', async () => {
+    const { submitted } = await setup();
+    fireEvent.input(screen.getByTestId('create-name'), { target: { value: '   spacey   ' } });
+    fireEvent.click(screen.getByTestId('create-submit'));
+    expect(submitted).toHaveBeenCalledWith(expect.objectContaining({ name: 'spacey' }));
+  });
+});

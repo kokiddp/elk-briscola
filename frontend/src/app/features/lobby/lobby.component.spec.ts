@@ -1,12 +1,12 @@
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { signal } from '@angular/core';
-import { provideRouter } from '@angular/router';
-import { render, screen } from '@testing-library/angular';
-import { describe, expect, it } from 'vitest';
+import { provideRouter, Router } from '@angular/router';
+import { fireEvent, render, screen } from '@testing-library/angular';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthService } from '../../core/auth.service';
 import { LobbyComponent } from './lobby.component';
-import { GameSummary } from './lobby.models';
+import { GameDetail, GameSummary } from './lobby.models';
 import { LobbyService } from './lobby.service';
 
 function makeAuth(): AuthService {
@@ -22,24 +22,57 @@ function makeAuth(): AuthService {
   } as unknown as AuthService;
 }
 
-function makeLobby(opts: { open?: GameSummary[]; running?: GameSummary[] }): LobbyService {
+interface MockLobby {
+  svc: LobbyService;
+  setOpen(games: GameSummary[]): void;
+  setRunning(games: GameSummary[]): void;
+  joinGame: ReturnType<typeof vi.fn>;
+  createGame: ReturnType<typeof vi.fn>;
+}
+
+function makeLobby(
+  opts: {
+    open?: GameSummary[];
+    running?: GameSummary[];
+    joinGame?: (id: string, password: string | null | undefined) => Promise<GameDetail>;
+    createGame?: () => Promise<GameDetail>;
+  } = {},
+): MockLobby {
   const openSig = signal<readonly GameSummary[]>(opts.open ?? []);
   const runningSig = signal<readonly GameSummary[]>(opts.running ?? []);
   const chatLogSig = signal<readonly never[]>([]);
-  return {
+  const joinGame = vi.fn(opts.joinGame ?? ((id: string) => Promise.resolve({ id } as GameDetail)));
+  const createGame = vi.fn(
+    opts.createGame ?? (() => Promise.resolve({ id: 'new-game' } as GameDetail)),
+  );
+  const svc = {
     openGames: () => openSig(),
     runningGames: () => runningSig(),
     chatLog: () => chatLogSig(),
     connect: () => Promise.resolve(),
     disconnect: () => Promise.resolve(),
-    createGame: () => Promise.resolve({} as never),
-    joinGame: () => Promise.resolve({} as never),
+    createGame,
+    joinGame,
     leaveGame: () => Promise.resolve(),
     sendChat: () => Promise.resolve(),
   } as unknown as LobbyService;
+  return {
+    svc,
+    setOpen: (games) => openSig.set(games),
+    setRunning: (games) => runningSig.set(games),
+    joinGame,
+    createGame,
+  };
 }
 
-async function setup(opts: { open?: GameSummary[]; running?: GameSummary[] }) {
+async function setup(
+  opts: {
+    open?: GameSummary[];
+    running?: GameSummary[];
+    joinGame?: (id: string, password: string | null | undefined) => Promise<GameDetail>;
+    createGame?: () => Promise<GameDetail>;
+  } = {},
+) {
   const lobby = makeLobby(opts);
   const r = await render(LobbyComponent, {
     providers: [
@@ -47,10 +80,11 @@ async function setup(opts: { open?: GameSummary[]; running?: GameSummary[] }) {
       provideHttpClientTesting(),
       provideRouter([{ path: '**', component: LobbyComponent }]),
       { provide: AuthService, useValue: makeAuth() },
-      { provide: LobbyService, useValue: lobby },
+      { provide: LobbyService, useValue: lobby.svc },
     ],
   });
-  return { ...r, lobby };
+  const router = r.fixture.debugElement.injector.get(Router);
+  return { ...r, ...lobby, router };
 }
 
 const OPEN_2P: GameSummary = {
@@ -65,15 +99,39 @@ const OPEN_2P: GameSummary = {
   startedAt: null,
 };
 
-describe('LobbyComponent', () => {
+const OPEN_PRIVATE: GameSummary = {
+  id: 'g-priv',
+  mode: 'TwoPlayer',
+  name: 'Private duel',
+  status: 'Open',
+  occupiedSeats: 1,
+  totalSeats: 2,
+  isPrivate: true,
+  createdAt: '2026-05-16T10:01:00Z',
+  startedAt: null,
+};
+
+const RUNNING_4P: GameSummary = {
+  id: 'g2',
+  mode: 'FourPlayerTeams',
+  name: 'Team rumble',
+  status: 'Running',
+  occupiedSeats: 4,
+  totalSeats: 4,
+  isPrivate: false,
+  createdAt: '2026-05-16T09:55:00Z',
+  startedAt: '2026-05-16T09:57:00Z',
+};
+
+describe('LobbyComponent rendering', () => {
   it('renders the title and create button', async () => {
-    await setup({});
+    await setup();
     expect(screen.getByRole('heading', { name: /lobby/i, level: 1 })).toBeInTheDocument();
     expect(screen.getByTestId('create-game')).toBeInTheDocument();
   });
 
   it('shows the empty state when there are no open games', async () => {
-    await setup({});
+    await setup();
     expect(screen.getByText(/no open games yet/i)).toBeInTheDocument();
   });
 
@@ -84,5 +142,74 @@ describe('LobbyComponent', () => {
     expect(screen.getByTestId('mode-chip')).toHaveTextContent(/2 players/i);
     expect(screen.getByTestId('seats')).toHaveTextContent('1 / 2');
     expect(screen.getByTestId('join-button')).toBeEnabled();
+  });
+});
+
+describe('LobbyComponent filter logic', () => {
+  it('renders Open and Running games into the two separate lists', async () => {
+    await setup({ open: [OPEN_2P], running: [RUNNING_4P] });
+    const openList = screen.getByTestId('open-list');
+    const runningList = screen.getByTestId('running-list');
+    expect(openList).toHaveTextContent('Casual match');
+    expect(openList).not.toHaveTextContent('Team rumble');
+    expect(runningList).toHaveTextContent('Team rumble');
+    expect(runningList).not.toHaveTextContent('Casual match');
+  });
+
+  it('updates the lists reactively when the service signals change', async () => {
+    const { setOpen, setRunning, fixture } = await setup();
+    expect(screen.queryByTestId('open-list')).toBeNull();
+
+    setOpen([OPEN_2P]);
+    fixture.detectChanges();
+    expect(screen.getByTestId('open-list')).toHaveTextContent('Casual match');
+
+    setRunning([RUNNING_4P]);
+    setOpen([]);
+    fixture.detectChanges();
+    expect(screen.queryByTestId('open-list')).toBeNull();
+    expect(screen.getByTestId('running-list')).toHaveTextContent('Team rumble');
+  });
+});
+
+describe('LobbyComponent join flow', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('navigates to /game/:id after a successful public join', async () => {
+    const { joinGame, router, fixture } = await setup({ open: [OPEN_2P] });
+    const nav = vi.spyOn(router, 'navigateByUrl').mockResolvedValue(true);
+
+    fireEvent.click(screen.getByTestId('join-button'));
+    await fixture.whenStable();
+
+    expect(joinGame).toHaveBeenCalledWith('g1', null);
+    expect(nav).toHaveBeenCalledWith('/game/g1');
+  });
+
+  it('prompts for password on a private game and joins with it', async () => {
+    const { joinGame, router, fixture } = await setup({ open: [OPEN_PRIVATE] });
+    const nav = vi.spyOn(router, 'navigateByUrl').mockResolvedValue(true);
+    const prompt = vi.spyOn(window, 'prompt').mockReturnValue('letmein');
+
+    fireEvent.click(screen.getByTestId('join-button'));
+    await fixture.whenStable();
+
+    expect(prompt).toHaveBeenCalledTimes(1);
+    expect(joinGame).toHaveBeenCalledWith('g-priv', 'letmein');
+    expect(nav).toHaveBeenCalledWith('/game/g-priv');
+  });
+
+  it('cancels the join if the password prompt is dismissed', async () => {
+    const { joinGame, router, fixture } = await setup({ open: [OPEN_PRIVATE] });
+    const nav = vi.spyOn(router, 'navigateByUrl').mockResolvedValue(true);
+    vi.spyOn(window, 'prompt').mockReturnValue(null);
+
+    fireEvent.click(screen.getByTestId('join-button'));
+    await fixture.whenStable();
+
+    expect(joinGame).not.toHaveBeenCalled();
+    expect(nav).not.toHaveBeenCalled();
   });
 });

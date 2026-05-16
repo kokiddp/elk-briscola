@@ -68,7 +68,7 @@ describe('LobbyChatPanelComponent', () => {
   });
 
   it('calls sendChat on submit and clears the input', async () => {
-    const sendChat = vi.fn((_text: string) => Promise.resolve());
+    const sendChat = vi.fn<(text: string) => Promise<void>>(() => Promise.resolve());
     const { fixture } = await setup({ sendChat });
 
     const input = screen.getByTestId('chat-input') as HTMLInputElement;

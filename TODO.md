@@ -1623,7 +1623,7 @@ The `Spectator_redacted_state` and `Spectator_cannot_chat` cases live in `Specta
 
 - Sidebar; reads `chatMessage` events from `LobbyHub`; sends via `SendChat`.
 
-### Step 7.4 — Component tests [S]
+### Step 7.4 — Component tests [S] [x]
 
 - Filter logic.
 - CreateGameDialog form validation.
