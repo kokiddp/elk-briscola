@@ -1,0 +1,11 @@
+<img
+  class="card"
+  [class.highlighted]="highlighted()"
+  [src]="src()"
+  [alt]="altText()"
+  loading="eager"
+  decoding="sync"
+  draggable="false"
+  (error)="onImageError($event)"
+  data-testid="card"
+/>
