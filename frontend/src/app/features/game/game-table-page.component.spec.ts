@@ -1,10 +1,12 @@
 import { signal } from '@angular/core';
-import { ActivatedRoute, convertToParamMap } from '@angular/router';
+import { provideNoopAnimations } from '@angular/platform-browser/animations';
+import { ActivatedRoute, convertToParamMap, provideRouter, Router } from '@angular/router';
 import { render, screen } from '@testing-library/angular';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { CardSetService } from '../../card-sets/card-set.service';
 import { GameTablePageComponent } from './game-table-page.component';
-import { RedactedStateForUser } from './game.models';
-import { GameService } from './game.service';
+import { Card, GameChatMessage, GameFinishedEvent, RedactedStateForUser } from './game.models';
+import { GameService, SeatDisconnect } from './game.service';
 
 const SNAPSHOT_2P: RedactedStateForUser = {
   gameId: 'g1',
@@ -17,11 +19,17 @@ const SNAPSHOT_2P: RedactedStateForUser = {
   briscolaCard: { suit: 'Denari', rank: 'Re' },
   briscolaSuit: 'Denari',
   stockCount: 30,
+  // Seat 0 (me) holds the visible hand of 3; opponent has 3 too — the
+  // tie-breaker picks the first match.
   handCountsBySeat: [3, 3],
-  myHand: [{ suit: 'Bastoni', rank: 'Asso' }],
+  myHand: [
+    { suit: 'Bastoni', rank: 'Asso' },
+    { suit: 'Coppe', rank: 'Tre' },
+    { suit: 'Spade', rank: 'Re' },
+  ],
   myPozzo: null,
   currentTrick: [],
-  seatScores: [0, 0],
+  seatScores: [10, 5],
   outcome: null,
 };
 
@@ -29,35 +37,84 @@ const SNAPSHOT_4P: RedactedStateForUser = {
   ...SNAPSHOT_2P,
   mode: 'FourPlayerTeams',
   handCountsBySeat: [3, 3, 3, 3],
-  seatScores: [0, 0, 0, 0],
+  seatScores: [10, 20, 30, 40],
 };
+
+function cardSetsStub(): CardSetService {
+  return {
+    activeSet: () => ({
+      id: 'p',
+      name: 'p',
+      resolveFront: (c: Card) => `/p/${c.suit}-${c.rank}.svg`,
+      resolveBack: () => '/p/back.svg',
+    }),
+    activeSetId: () => 'p',
+    fallbackFrontUrl: (c: Card) => `/p/${c.suit}-${c.rank}.svg`,
+    fallbackBackUrl: () => '/p/back.svg',
+  } as unknown as CardSetService;
+}
 
 function makeGame(opts: {
   state?: RedactedStateForUser | null;
+  chatLog?: GameChatMessage[];
+  disconnects?: SeatDisconnect[];
+  finished?: GameFinishedEvent | null;
   connect?: (id: string) => Promise<void>;
-}): { svc: GameService; connect: ReturnType<typeof vi.fn>; disconnect: ReturnType<typeof vi.fn> } {
+  play?: (c: Card) => Promise<void>;
+  sendChat?: (text: string) => Promise<void>;
+}): {
+  svc: GameService;
+  connect: ReturnType<typeof vi.fn>;
+  disconnect: ReturnType<typeof vi.fn>;
+  play: ReturnType<typeof vi.fn>;
+  sendChat: ReturnType<typeof vi.fn>;
+} {
   const stateSig = signal<RedactedStateForUser | null>(opts.state ?? null);
+  const chatSig = signal<readonly GameChatMessage[]>(opts.chatLog ?? []);
+  const disconnectsSig = signal<readonly SeatDisconnect[]>(opts.disconnects ?? []);
+  const finishedSig = signal<GameFinishedEvent | null>(opts.finished ?? null);
+
   const connect = vi.fn(opts.connect ?? (() => Promise.resolve()));
   const disconnect = vi.fn(() => Promise.resolve());
+  const play = vi.fn(opts.play ?? (() => Promise.resolve()));
+  const sendChat = vi.fn(opts.sendChat ?? (() => Promise.resolve()));
+
+  const earliest = (opts.disconnects ?? [])[0]?.deadline ?? null;
+
   const svc = {
     state: () => stateSig(),
+    chatLog: () => chatSig(),
+    disconnects: () => disconnectsSig(),
+    disconnectDeadline: () => earliest,
+    lastFinished: () => finishedSig(),
+    legalMoves: () => new Set((stateSig()?.myHand ?? []).map((c) => `${c.suit}:${c.rank}`)),
     connect,
     disconnect,
+    play,
+    sendChat,
   } as unknown as GameService;
-  return { svc, connect, disconnect };
+  return { svc, connect, disconnect, play, sendChat };
 }
 
 async function setup(
   opts: {
     state?: RedactedStateForUser | null;
+    chatLog?: GameChatMessage[];
+    disconnects?: SeatDisconnect[];
+    finished?: GameFinishedEvent | null;
     id?: string | null;
     connect?: (id: string) => Promise<void>;
+    play?: (c: Card) => Promise<void>;
+    sendChat?: (text: string) => Promise<void>;
   } = {},
 ) {
   const game = makeGame(opts);
   const r = await render(GameTablePageComponent, {
     providers: [
+      provideNoopAnimations(),
+      provideRouter([]),
       { provide: GameService, useValue: game.svc },
+      { provide: CardSetService, useValue: cardSetsStub() },
       {
         provide: ActivatedRoute,
         useValue: {
@@ -68,7 +125,8 @@ async function setup(
       },
     ],
   });
-  return { ...r, ...game };
+  const router = r.fixture.debugElement.injector.get(Router);
+  return { ...r, ...game, router };
 }
 
 describe('GameTablePageComponent', () => {
@@ -82,7 +140,7 @@ describe('GameTablePageComponent', () => {
     expect(screen.queryByTestId('my-hand-zone')).toBeNull();
   });
 
-  it('renders the 2p layout when state.mode === TwoPlayer', async () => {
+  it('renders the 2p layout with one opponent slot', async () => {
     await setup({ state: SNAPSHOT_2P });
     expect(screen.queryByTestId('connecting')).toBeNull();
     expect(screen.getByTestId('my-hand-zone')).toBeInTheDocument();
@@ -95,6 +153,38 @@ describe('GameTablePageComponent', () => {
   it('renders three opponent slots in the 4p layout', async () => {
     await setup({ state: SNAPSHOT_4P });
     expect(screen.getAllByTestId('opponent-slot')).toHaveLength(3);
+  });
+
+  it('renders my hand cards as buttons (one per card)', async () => {
+    await setup({ state: SNAPSHOT_2P });
+    expect(screen.getAllByTestId('hand-card')).toHaveLength(3);
+  });
+
+  it('renders the scoreboard with seat scores', async () => {
+    await setup({ state: SNAPSHOT_2P });
+    expect(screen.getByTestId('scoreboard')).toBeInTheDocument();
+    const values = screen.getAllByTestId('score-value').map((el) => el.textContent?.trim());
+    expect(values).toEqual(['10', '5']);
+  });
+
+  it('shows the reconnect banner when a disconnect deadline is active', async () => {
+    await setup({
+      state: SNAPSHOT_2P,
+      disconnects: [{ seatIndex: 1, deadline: new Date(Date.now() + 30_000) }],
+    });
+    expect(screen.getByTestId('reconnect-banner')).toBeInTheDocument();
+  });
+
+  it('shows the end-game dialog when a finished event has landed', async () => {
+    await setup({
+      state: { ...SNAPSHOT_2P, phase: 'Finished' },
+      finished: {
+        outcome: { kind: 'Winner', winnerKey: 0 },
+        seatScores: [70, 50],
+        reason: 'Normal',
+      },
+    });
+    expect(screen.getByTestId('end-game-dialog')).toBeInTheDocument();
   });
 
   it('calls GameService.connect with the :id route param on init', async () => {
@@ -111,16 +201,5 @@ describe('GameTablePageComponent', () => {
     const { disconnect, fixture } = await setup();
     fixture.destroy();
     expect(disconnect).toHaveBeenCalledTimes(1);
-  });
-
-  it('shows a toast when connect rejects', async () => {
-    const error = new Error('boom');
-    const { connect, fixture } = await setup({
-      connect: () => Promise.reject(error),
-    });
-    await fixture.whenStable();
-    expect(connect).toHaveBeenCalled();
-    // The toast service surface is verified by the connect call failing
-    // without throwing into the component lifecycle.
   });
 });

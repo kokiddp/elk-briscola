@@ -1706,7 +1706,7 @@ Each component is standalone and signal-driven.
 - `@angular/animations` for card fly-ins.
 - Reduced motion: `@media (prefers-reduced-motion)` disables transitions.
 
-### Step 8.5 — Component tests [S]
+### Step 8.5 — Component tests [S] [x]
 
 - `Card`: renders correct asset; falls back for missing.
 - `MyHand`: disables interactions when not my turn; click emits `play`.

@@ -91,8 +91,21 @@
 .opponent-right {
   grid-area: opp-right;
 }
-.mode-4p .opponent-top {
+
+/* 4p three-opponent ordering follows opponentSlots() iteration order. */
+.mode-4p .opponent-0 {
+  grid-area: opp-left;
+}
+.mode-4p .opponent-1 {
   grid-area: opp-top;
+}
+.mode-4p .opponent-2 {
+  grid-area: opp-right;
+}
+
+.banner-zone {
+  grid-column: 1 / -1;
+  grid-row: 1;
 }
 
 .briscola-zone {

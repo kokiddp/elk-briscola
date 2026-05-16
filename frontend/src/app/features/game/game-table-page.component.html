@@ -2,36 +2,84 @@
   @if (!isReady()) {
     <p class="connecting" data-testid="connecting">{{ 'game.connecting' | t }}</p>
   } @else {
-    @if (is4p()) {
-      <div class="seat opponent opponent-left" data-testid="opponent-slot">
-        {{ 'game.opponent' | t: { seat: '1' } }}
-      </div>
-      <div class="seat opponent opponent-top" data-testid="opponent-slot">
-        {{ 'game.partner' | t }}
-      </div>
-      <div class="seat opponent opponent-right" data-testid="opponent-slot">
-        {{ 'game.opponent' | t: { seat: '3' } }}
-      </div>
-    } @else {
-      <div class="seat opponent opponent-top" data-testid="opponent-slot">
-        {{ 'game.opponent' | t: { seat: '1' } }}
+    @if (disconnectDeadline()) {
+      <div class="banner-zone">
+        <bri-reconnect-banner
+          [deadline]="disconnectDeadline()"
+          [seatIndex]="disconnectSeatIndex()"
+        />
       </div>
     }
 
+    @if (is4p()) {
+      @for (slot of opponentSlots(); track slot.seatIndex; let idx = $index) {
+        <div class="seat opponent" [class]="'opponent-' + idx" data-testid="opponent-slot">
+          <bri-opponent-area
+            [seatIndex]="slot.seatIndex"
+            [cardCount]="opponentCountFor(slot.seatIndex)"
+            [isPartner]="slot.isPartner"
+            [isActive]="state()!.nextToPlaySeat === slot.seatIndex"
+            [isDisconnected]="disconnectedSeats().has(slot.seatIndex)"
+          />
+        </div>
+      }
+    } @else {
+      @for (slot of opponentSlots(); track slot.seatIndex) {
+        <div class="seat opponent opponent-top" data-testid="opponent-slot">
+          <bri-opponent-area
+            [seatIndex]="slot.seatIndex"
+            [cardCount]="opponentCountFor(slot.seatIndex)"
+            [isActive]="state()!.nextToPlaySeat === slot.seatIndex"
+            [isDisconnected]="disconnectedSeats().has(slot.seatIndex)"
+          />
+        </div>
+      }
+    }
+
     <div class="briscola-zone" data-testid="briscola-zone">
-      {{ 'game.briscola' | t }}
+      <bri-briscola-indicator
+        [briscolaCard]="state()!.briscolaCard"
+        [stockCount]="state()!.stockCount"
+      />
+      <bri-stock [count]="state()!.stockCount" />
     </div>
+
     <div class="trick-zone" data-testid="trick-zone">
-      {{ 'game.trick' | t }}
+      <bri-trick-area [plays]="state()!.currentTrick" />
     </div>
+
     <div class="scoreboard-zone" data-testid="scoreboard-zone">
-      {{ 'game.scoreboard' | t }}
+      <bri-scoreboard
+        [seatScores]="state()!.seatScores"
+        [mode]="state()!.mode"
+        [nextToPlaySeat]="state()!.nextToPlaySeat"
+      />
     </div>
+
     <div class="my-hand-zone" data-testid="my-hand-zone">
-      {{ 'game.myHand' | t }}
+      <bri-my-hand
+        [cards]="state()!.myHand ?? []"
+        [legalMoves]="legalMoves()"
+        [myTurn]="myTurn()"
+        (cardPlayed)="onCardPlayed($event)"
+      />
     </div>
+
     <aside class="chat-zone" data-testid="chat-zone">
-      {{ 'game.chat' | t }}
+      <bri-chat-panel
+        [messages]="chatLog()"
+        [tacticalBanner]="state()!.phase === 'LastHand' && is4p()"
+        (send)="onSendChat($event)"
+      />
     </aside>
+
+    @if (lastFinished(); as result) {
+      <bri-end-game-dialog
+        [result]="result"
+        [mode]="state()!.mode"
+        [mySeat]="mySeatIndex()"
+        (backToLobby)="onBackToLobby()"
+      />
+    }
   }
 </section>

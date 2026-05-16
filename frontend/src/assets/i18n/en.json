@@ -68,6 +68,7 @@
   "game.myHand": "Your hand",
   "game.chat": "Game chat",
   "game.errors.connectFailed": "Could not connect to the game.",
+  "game.errors.playFailed": "Could not play the card.",
   "game.chat.placeholder": "Type a message…",
   "game.chat.send": "Send",
   "game.chat.empty": "No messages yet.",
