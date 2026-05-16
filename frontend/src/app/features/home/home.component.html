@@ -1,5 +1,5 @@
 <section class="home">
-  <h1>Welcome, {{ displayName() || 'player' }}</h1>
-  <p>Lobby and tables coming in the next phase.</p>
-  <button type="button" (click)="logout()" data-testid="logout">Sign out</button>
+  <h1>{{ welcomeMessage() }}</h1>
+  <p>{{ placeholder() }}</p>
+  <button type="button" (click)="logout()" data-testid="logout">{{ logoutLabel() }}</button>
 </section>

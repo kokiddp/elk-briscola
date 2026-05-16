@@ -2,11 +2,13 @@ import { Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../core/auth.service';
+import { I18nService } from '../../core/i18n.service';
+import { I18nPipe } from '../../shared/i18n.pipe';
 
 @Component({
   selector: 'bri-login',
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [ReactiveFormsModule, RouterLink, I18nPipe],
   templateUrl: './login.component.html',
   styleUrl: './login.component.scss',
 })
@@ -14,6 +16,7 @@ export class LoginComponent {
   private readonly fb = inject(FormBuilder);
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
+  private readonly i18n = inject(I18nService);
 
   readonly submitting = signal(false);
   readonly errorMessage = signal<string | null>(null);
@@ -34,18 +37,20 @@ export class LoginComponent {
       await this.auth.login(this.form.getRawValue());
       await this.router.navigateByUrl('/home');
     } catch (err: unknown) {
-      this.errorMessage.set(extractErrorMessage(err) ?? 'Login failed.');
+      this.errorMessage.set(this.extractErrorMessage(err));
     } finally {
       this.submitting.set(false);
     }
   }
-}
 
-function extractErrorMessage(err: unknown): string | null {
-  if (typeof err === 'object' && err !== null) {
-    const e = err as { status?: number; error?: { code?: string } };
-    if (e.status === 401) return 'Invalid username/email or password.';
-    if (e.error?.code) return e.error.code;
+  private extractErrorMessage(err: unknown): string {
+    if (typeof err === 'object' && err !== null) {
+      const e = err as { status?: number; error?: { code?: string } };
+      if (e.status === 401) {
+        return this.i18n.t('auth.login.invalidCredentials');
+      }
+      if (e.error?.code) return e.error.code;
+    }
+    return this.i18n.t('auth.login.failed');
   }
-  return null;
 }

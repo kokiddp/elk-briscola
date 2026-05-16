@@ -1,9 +1,9 @@
 <section class="auth-page">
-  <h1>Sign in</h1>
+  <h1>{{ 'auth.login.title' | t }}</h1>
 
   <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
     <label>
-      <span>Username or email</span>
+      <span>{{ 'auth.login.usernameOrEmail' | t }}</span>
       <input
         type="text"
         formControlName="usernameOrEmail"
@@ -11,12 +11,12 @@
         data-testid="usernameOrEmail"
       />
       @if (form.controls.usernameOrEmail.touched && form.controls.usernameOrEmail.errors?.['required']) {
-        <small class="error">Required.</small>
+        <small class="error">{{ 'auth.validation.required' | t }}</small>
       }
     </label>
 
     <label>
-      <span>Password</span>
+      <span>{{ 'auth.login.password' | t }}</span>
       <input
         type="password"
         formControlName="password"
@@ -24,7 +24,7 @@
         data-testid="password"
       />
       @if (form.controls.password.touched && form.controls.password.errors?.['required']) {
-        <small class="error">Required.</small>
+        <small class="error">{{ 'auth.validation.required' | t }}</small>
       }
     </label>
 
@@ -33,11 +33,16 @@
     }
 
     <button type="submit" [disabled]="submitting() || form.invalid" data-testid="submit">
-      @if (submitting()) { Signing in… } @else { Sign in }
+      @if (submitting()) {
+        {{ 'auth.login.submitting' | t }}
+      } @else {
+        {{ 'auth.login.submit' | t }}
+      }
     </button>
   </form>
 
   <p>
-    Need an account? <a routerLink="/register">Register</a>
+    {{ 'auth.login.needAccount' | t }}
+    <a routerLink="/register">{{ 'auth.login.register' | t }}</a>
   </p>
 </section>

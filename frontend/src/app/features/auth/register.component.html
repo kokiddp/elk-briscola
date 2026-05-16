@@ -1,52 +1,52 @@
 <section class="auth-page">
-  <h1>Create an account</h1>
+  <h1>{{ 'auth.register.title' | t }}</h1>
 
   <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
     <label>
-      <span>Username</span>
+      <span>{{ 'auth.register.username' | t }}</span>
       <input type="text" formControlName="username" autocomplete="username" data-testid="username" />
       @if (form.controls.username.touched) {
         @if (form.controls.username.errors?.['required']) {
-          <small class="error">Required.</small>
+          <small class="error">{{ 'auth.validation.required' | t }}</small>
         } @else if (form.controls.username.errors?.['username']) {
-          <small class="error">3–32 chars, letters/digits/_/- only.</small>
+          <small class="error">{{ 'auth.validation.usernameShape' | t }}</small>
         }
       }
     </label>
 
     <label>
-      <span>Email</span>
+      <span>{{ 'auth.register.email' | t }}</span>
       <input type="email" formControlName="email" autocomplete="email" data-testid="email" />
       @if (form.controls.email.touched) {
         @if (form.controls.email.errors?.['required']) {
-          <small class="error">Required.</small>
+          <small class="error">{{ 'auth.validation.required' | t }}</small>
         } @else if (form.controls.email.errors?.['email']) {
-          <small class="error">Not a valid email.</small>
+          <small class="error">{{ 'auth.validation.emailShape' | t }}</small>
         }
       }
     </label>
 
     <label>
-      <span>Password</span>
+      <span>{{ 'auth.register.password' | t }}</span>
       <input type="password" formControlName="password" autocomplete="new-password" data-testid="password" />
       @if (form.controls.password.touched) {
         @if (form.controls.password.errors?.['required']) {
-          <small class="error">Required.</small>
+          <small class="error">{{ 'auth.validation.required' | t }}</small>
         } @else if (form.controls.password.errors?.['minlength']) {
-          <small class="error">Minimum 10 characters.</small>
+          <small class="error">{{ 'auth.validation.passwordMinLength' | t }}</small>
         } @else if (form.controls.password.errors?.['letter']) {
-          <small class="error">Must include at least one letter.</small>
+          <small class="error">{{ 'auth.validation.passwordLetter' | t }}</small>
         } @else if (form.controls.password.errors?.['digit']) {
-          <small class="error">Must include at least one digit.</small>
+          <small class="error">{{ 'auth.validation.passwordDigit' | t }}</small>
         }
       }
     </label>
 
     <label>
-      <span>Display name (optional)</span>
+      <span>{{ 'auth.register.displayName' | t }}</span>
       <input type="text" formControlName="displayName" autocomplete="nickname" data-testid="displayName" />
       @if (form.controls.displayName.touched && form.controls.displayName.errors?.['displayName']) {
-        <small class="error">1–32 characters.</small>
+        <small class="error">{{ 'auth.validation.displayNameShape' | t }}</small>
       }
     </label>
 
@@ -55,11 +55,16 @@
     }
 
     <button type="submit" [disabled]="submitting() || form.invalid" data-testid="submit">
-      @if (submitting()) { Creating account… } @else { Register }
+      @if (submitting()) {
+        {{ 'auth.register.submitting' | t }}
+      } @else {
+        {{ 'auth.register.submit' | t }}
+      }
     </button>
   </form>
 
   <p>
-    Already have an account? <a routerLink="/login">Sign in</a>
+    {{ 'auth.register.haveAccount' | t }}
+    <a routerLink="/login">{{ 'auth.register.signIn' | t }}</a>
   </p>
 </section>

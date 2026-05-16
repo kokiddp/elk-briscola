@@ -1593,13 +1593,13 @@ The `Spectator_redacted_state` and `Spectator_cannot_chat` cases live in `Specta
 
 ---
 
-### Step 6.4 — i18n scaffolding [S]
+### Step 6.4 — i18n scaffolding [S] [x]
 
 - `frontend/src/assets/i18n/en.json` (populated).
 - `frontend/src/assets/i18n/it.json` (skeleton with same keys, English fallback values).
 - Tiny runtime: `I18nService { current = signal<'en'|'it'>('en'); t(key: string): string }`. Component-friendly `<span>{{ t('lobby.title') }}</span>` pattern.
 
-**Phase 6 exit:** can register, log in, see a placeholder authenticated `/home` page. Lint, build, test all green.
+**Phase 6 exit:** can register, log in, see a placeholder authenticated `/home` page. Lint, build, test all green. ✓ — see `frontend/src/app/{core,features/{auth,home}}`. 37 unit tests cover error-toast service, i18n service, form validators, login & register components, and route guards.
 
 ---
 
