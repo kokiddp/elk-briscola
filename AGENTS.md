@@ -440,6 +440,7 @@ CI must run on every PR:
 
 - `dotnet build --configuration Release` — 0 warnings.
 - `dotnet test --configuration Release` — all green.
+- `npm run format:check` — clean (Prettier; `npm run format` to fix).
 - `npm run lint` — clean.
 - `npm run build` — succeeds.
 - `npm run test:ci` — all green.
@@ -473,24 +474,29 @@ CI must run on every PR:
 
 ### Per-step PR workflow (autonomous, as of Phase 6)
 
-**Every TODO step gets its own branch and its own PR.** This is now the agent's autonomous default — do not ask for permission each time, just do it. The previous "fast-forward to local `main` then push `main` directly" relaxation is **superseded by this PR workflow** and only retained as a fallback if PRs are explicitly unavailable.
+**Every TODO step (and every sub-step the agent has split out) gets its own branch and its own PR.** This is now the agent's autonomous default — do not ask for permission each time, just do it. The previous "fast-forward to local `main` then push `main` directly" relaxation is **subsumed** into this workflow: branches still land on `main` immediately after the gates pass, but they get a PR on the way through for review history.
 
-Concrete protocol the agent must follow for each step:
+Concrete protocol the agent must follow for each step or sub-step:
 
-1. **Branch from `origin/main`.** Name: `feat/<step-id>-<short-slug>` (e.g. `feat/6.1-workspace-polish`, `feat/6.2-core-module`). Bugfix/docs use `fix/...` or `docs/...` with the same `<step-id>-<slug>` shape.
+1. **Branch from `origin/main`.** Name: `feat/<step-id>-<short-slug>` (e.g. `feat/6.1-workspace-polish`, `feat/6.2-core-module`). Bugfix/docs/chore branches use `fix/...` / `docs/...` / `chore/...` with the same `<step-id>-<slug>` shape. Sub-steps the agent splits out (per the TODO "When to split a step" rules) follow `feat/<step-id>.<sub>-<slug>` (e.g. `feat/6.2.1-auth-service`).
 2. **One step, one branch, one commit (ideally).** If a single step legitimately needs multiple commits (e.g. a follow-up after review), keep them on that step's branch — never spread one step across multiple branches.
 3. **Commit:** imperative subject ≤ 72 chars, `feat:` / `fix:` / `docs:` / `chore:` / `test:` / `refactor:` prefix, body explains the *why*, trailer `Co-Authored-By: Claude <noreply@anthropic.com>`.
-4. **Local gates before push:** run the relevant lint/build/test suite for the touched layer. **Do not push a red branch.**
-5. **Push the branch:** `git push -u origin <branch>`. GitHub's push response prints a "Create a pull request" URL — capture it for the next step.
-6. **Open the PR** via `gh pr create` (preferred) or, if `gh` is unauthenticated, surface the "Create a pull request" URL from step 5 to the user. PR title mirrors the commit subject; body has **Summary** (1–3 bullets), **Test plan** (checklist), and a `Closes …` / `Refs TODO step …` line.
-7. **Fast-forward into local `main`** once the PR is approved & merged on the remote (or, when operating autonomously without a human merge gate, immediately after pushing the branch). `git fetch origin && git merge --ff-only origin/main` is the safe shape. Push `main` is only needed if the local merge happened before the remote merge — usually the remote merge already moved `origin/main`.
-8. **Delete the branch** both locally (`git branch -d`) and on the remote (`git push origin --delete` or via the PR-merge "delete branch" option).
+4. **Local gates before push (frontend changes):** run **all four** of `npm run format:check`, `npm run lint`, `npm run build`, `npm run test:ci` from `frontend/`. **All four must pass.** `format:check` (Prettier) is CI-gated separately from `lint` (ESLint) and routinely catches drift that `lint` does not — never skip it. **Do not push a red branch.**
+5. **Local gates before push (backend changes):** `dotnet build --configuration Release` (0 warnings) and `dotnet test --configuration Release` (all green) — also CI-gated. Same rule: do not push a red branch.
+6. **Push the branch:** `git push -u origin <branch>`. GitHub's push response prints a "Create a pull request" URL — capture it for the next step.
+7. **Open the PR** via `gh pr create` (preferred) or, if `gh` is unauthenticated, surface the "Create a pull request" URL from step 6 to the user. PR title mirrors the commit subject; body has **Summary** (1–3 bullets), **Test plan** (checklist), and a `Closes …` / `Refs TODO step …` line.
+8. **Always merge into `main` and push `main` immediately after the branch is pushed.** This is non-negotiable when operating autonomously: do **not** leave a step's branch hanging on the remote without it being on `main`. Sequence:
+   - `git checkout main && git pull --ff-only` (sync to whatever else has landed since branching).
+   - `git merge --ff-only <branch>` (fails loud if a non-FF merge would be needed — that means the branch was based on stale `main` and must be rebased first).
+   - `git push origin main`.
+   - One commit per push: never batch multiple step merges into one push, so each step gets its own discrete CI run on `main`.
+9. **Delete the branch** both locally (`git branch -d <branch>`) and on the remote (`git push origin --delete <branch>`) as soon as `main` carries the commit. Cleanup is part of "step done", not a follow-up.
 
 Inter-step ordering when steps have dependencies:
 
-- The canonical case is **sequential**: step N+1's branch is created from `main` only **after** step N has been merged into `main`. This keeps each PR diff small and reviewable on its own.
-- If two steps in flight don't depend on each other, opening them in parallel is fine.
-- If step N+1 depends on step N that is **not yet merged**, base N+1 on N's branch (a stacked PR). Call this out explicitly in N+1's PR body (`Based on #<N>`). Rebase N+1 onto `main` after N merges, then mark its base back to `main` on GitHub.
+- The canonical case is **sequential**: because step N is always merged into `main` immediately after passing the gates (per step 8 above), step N+1's branch is created from the fresh `main` and never needs to be stacked. This is the default — do not stack unless forced.
+- If two steps in flight don't depend on each other, opening them in parallel is fine; merge them in whichever order CI greens them up.
+- Stacked branches are only acceptable when the agent has to split the work across multiple branches *without* finishing the gates on the earlier branch first — for example, a long-running step where a follow-up needs to be drafted in parallel. Treat it as an exception and always rebase onto `main` (and retarget the PR base) as soon as the earlier branch lands.
 
 Hard rules that still hold:
 
