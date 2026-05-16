@@ -1,0 +1,11 @@
+:host {
+  display: block;
+}
+
+.home {
+  max-width: 40rem;
+  margin: 4rem auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}

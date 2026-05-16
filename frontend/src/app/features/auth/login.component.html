@@ -1,0 +1,43 @@
+<section class="auth-page">
+  <h1>Sign in</h1>
+
+  <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+    <label>
+      <span>Username or email</span>
+      <input
+        type="text"
+        formControlName="usernameOrEmail"
+        autocomplete="username"
+        data-testid="usernameOrEmail"
+      />
+      @if (form.controls.usernameOrEmail.touched && form.controls.usernameOrEmail.errors?.['required']) {
+        <small class="error">Required.</small>
+      }
+    </label>
+
+    <label>
+      <span>Password</span>
+      <input
+        type="password"
+        formControlName="password"
+        autocomplete="current-password"
+        data-testid="password"
+      />
+      @if (form.controls.password.touched && form.controls.password.errors?.['required']) {
+        <small class="error">Required.</small>
+      }
+    </label>
+
+    @if (errorMessage(); as msg) {
+      <p class="error" role="alert">{{ msg }}</p>
+    }
+
+    <button type="submit" [disabled]="submitting() || form.invalid" data-testid="submit">
+      @if (submitting()) { Signing in… } @else { Sign in }
+    </button>
+  </form>
+
+  <p>
+    Need an account? <a routerLink="/register">Register</a>
+  </p>
+</section>

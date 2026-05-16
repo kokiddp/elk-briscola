@@ -1583,7 +1583,7 @@ The `Spectator_redacted_state` and `Spectator_cannot_chat` cases live in `Specta
 
 ---
 
-### Step 6.3 — Auth pages [S]
+### Step 6.3 — Auth pages [S] [x]
 
 **Where:** `frontend/src/app/features/auth/`
 
