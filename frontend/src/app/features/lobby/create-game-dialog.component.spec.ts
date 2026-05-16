@@ -3,11 +3,11 @@ import { describe, expect, it, vi } from 'vitest';
 import { CreateGameDialogComponent } from './create-game-dialog.component';
 import { CreateGameRequest } from './lobby.models';
 
-async function setup() {
+async function setup(opts: { submitting?: boolean } = {}) {
   const submitted = vi.fn<(req: CreateGameRequest) => void>();
   const cancelled = vi.fn<() => void>();
   const r = await render(CreateGameDialogComponent, {
-    inputs: {},
+    inputs: { submitting: opts.submitting ?? false },
     on: {
       submitted: (req: CreateGameRequest) => submitted(req),
       cancelled: () => cancelled(),
@@ -93,5 +93,27 @@ describe('CreateGameDialogComponent', () => {
     fireEvent.input(screen.getByTestId('create-name'), { target: { value: '   spacey   ' } });
     fireEvent.click(screen.getByTestId('create-submit'));
     expect(submitted).toHaveBeenCalledWith(expect.objectContaining({ name: 'spacey' }));
+  });
+
+  it('shows the "submitting" label and disables submit when submitting input is true', async () => {
+    await setup({ submitting: true });
+    fireEvent.input(screen.getByTestId('create-name'), { target: { value: 'pending' } });
+    const submit = screen.getByTestId('create-submit') as HTMLButtonElement;
+    expect(submit.disabled).toBe(true);
+    expect(submit.textContent ?? '').toMatch(/creating/i);
+  });
+
+  it('does not emit cancelled while submitting is true', async () => {
+    const { cancelled } = await setup({ submitting: true });
+    fireEvent.click(screen.getByTestId('create-backdrop'));
+    fireEvent.click(screen.getByTestId('create-cancel'));
+    expect(cancelled).not.toHaveBeenCalled();
+  });
+
+  it('does not emit submitted while submitting is true', async () => {
+    const { submitted } = await setup({ submitting: true });
+    fireEvent.input(screen.getByTestId('create-name'), { target: { value: 'pending' } });
+    fireEvent.click(screen.getByTestId('create-submit'));
+    expect(submitted).not.toHaveBeenCalled();
   });
 });

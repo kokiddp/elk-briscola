@@ -90,4 +90,11 @@ describe('LobbyChatPanelComponent', () => {
 
     expect(sendChat).not.toHaveBeenCalled();
   });
+
+  it('formats valid ISO timestamps and falls back to empty for invalid input', async () => {
+    const { fixture } = await setup();
+    const cmp = fixture.componentInstance;
+    expect(cmp.formatTimestamp('2026-05-16T10:00:00Z')).toMatch(/\d{1,2}:\d{2}/);
+    expect(cmp.formatTimestamp('not-a-date')).toBe('');
+  });
 });

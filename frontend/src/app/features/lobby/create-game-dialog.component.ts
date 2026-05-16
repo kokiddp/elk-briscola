@@ -1,4 +1,5 @@
-import { Component, inject, output, signal } from '@angular/core';
+import { Component, inject, input, output } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { I18nPipe } from '../../shared/i18n.pipe';
 import { CreateGameRequest, GameMode } from './lobby.models';
@@ -13,10 +14,9 @@ import { CreateGameRequest, GameMode } from './lobby.models';
 export class CreateGameDialogComponent {
   private readonly fb = inject(FormBuilder);
 
+  readonly submitting = input(false);
   readonly submitted = output<CreateGameRequest>();
   readonly cancelled = output();
-
-  readonly submitting = signal(false);
 
   readonly form = this.fb.nonNullable.group({
     mode: ['TwoPlayer' as GameMode, [Validators.required]],
@@ -26,7 +26,7 @@ export class CreateGameDialogComponent {
   });
 
   constructor() {
-    this.form.controls.isPrivate.valueChanges.subscribe((isPrivate) => {
+    this.form.controls.isPrivate.valueChanges.pipe(takeUntilDestroyed()).subscribe((isPrivate) => {
       const pwd = this.form.controls.password;
       if (isPrivate) {
         pwd.addValidators([Validators.required, Validators.minLength(4), Validators.maxLength(64)]);
@@ -36,10 +36,6 @@ export class CreateGameDialogComponent {
       }
       pwd.updateValueAndValidity();
     });
-  }
-
-  setSubmitting(value: boolean): void {
-    this.submitting.set(value);
   }
 
   onSubmit(): void {
@@ -57,6 +53,9 @@ export class CreateGameDialogComponent {
   }
 
   onCancel(): void {
+    if (this.submitting()) {
+      return;
+    }
     this.cancelled.emit();
   }
 }

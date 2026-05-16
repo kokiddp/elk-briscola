@@ -47,11 +47,19 @@ export class LobbyService {
         this.connection ??= this.buildConnection();
         if (this.connection.state === HubConnectionState.Disconnected) {
           await this.connection.start();
-          this.connectionStateSig.set(this.connection.state);
         }
-        await this.connection.invoke('SubscribeOpen');
+        this.connectionStateSig.set(this.connection.state);
+        if (this.connection.state === HubConnectionState.Connected) {
+          await this.connection.invoke('SubscribeOpen');
+        }
       } catch (err) {
-        this.connectionStateSig.set(this.connection?.state ?? HubConnectionState.Disconnected);
+        // Drop the dead connection so the next connect() rebuilds it.
+        const dead = this.connection;
+        this.connection = null;
+        this.connectionStateSig.set(HubConnectionState.Disconnected);
+        if (dead) {
+          await dead.stop().catch(() => undefined);
+        }
         throw err;
       } finally {
         this.connectPromise = null;
@@ -62,17 +70,22 @@ export class LobbyService {
 
   async disconnect(): Promise<void> {
     const conn = this.connection;
-    this.connection = null;
-    this.connectionStateSig.set(HubConnectionState.Disconnected);
-    if (conn) {
-      try {
-        if (conn.state === HubConnectionState.Connected) {
-          await conn.invoke('UnsubscribeOpen').catch(() => undefined);
-        }
-        await conn.stop();
-      } catch {
-        // ignore: best-effort teardown
+    if (!conn) {
+      this.connectionStateSig.set(HubConnectionState.Disconnected);
+      return;
+    }
+    try {
+      if (conn.state === HubConnectionState.Connected) {
+        await conn.invoke('UnsubscribeOpen').catch(() => undefined);
       }
+      await conn.stop();
+    } catch {
+      // ignore: best-effort teardown
+    } finally {
+      // Clear the field *after* stop so a concurrent connect() doesn't spin up
+      // a second HubConnection while the first is still tearing down.
+      this.connection = null;
+      this.connectionStateSig.set(HubConnectionState.Disconnected);
     }
   }
 

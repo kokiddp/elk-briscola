@@ -67,6 +67,7 @@
 
   @if (dialogOpen()) {
     <bri-create-game-dialog
+      [submitting]="dialogSubmitting()"
       (submitted)="onCreateSubmit($event)"
       (cancelled)="closeCreateDialog()"
     />

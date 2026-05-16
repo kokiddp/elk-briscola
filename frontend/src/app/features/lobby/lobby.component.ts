@@ -1,6 +1,5 @@
-import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
-import { AuthService } from '../../core/auth.service';
 import { ErrorToastService } from '../../core/error-toast.service';
 import { I18nService } from '../../core/i18n.service';
 import { I18nPipe } from '../../shared/i18n.pipe';
@@ -18,7 +17,6 @@ import { LobbyService } from './lobby.service';
 })
 export class LobbyComponent implements OnInit, OnDestroy {
   private readonly lobby = inject(LobbyService);
-  private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
   private readonly toast = inject(ErrorToastService);
   private readonly i18n = inject(I18nService);
@@ -29,11 +27,6 @@ export class LobbyComponent implements OnInit, OnDestroy {
   readonly dialogSubmitting = signal(false);
   readonly joiningId = signal<string | null>(null);
 
-  readonly currentUserId = computed(() => this.auth.currentUser()?.id ?? null);
-  readonly currentDisplayName = computed(
-    () => this.auth.currentUser()?.displayName ?? this.auth.currentUser()?.username ?? '',
-  );
-
   async ngOnInit(): Promise<void> {
     try {
       await this.lobby.connect();
@@ -42,8 +35,8 @@ export class LobbyComponent implements OnInit, OnDestroy {
     }
   }
 
-  async ngOnDestroy(): Promise<void> {
-    await this.lobby.disconnect();
+  ngOnDestroy(): void {
+    void this.lobby.disconnect();
   }
 
   openCreateDialog(): void {
@@ -51,8 +44,10 @@ export class LobbyComponent implements OnInit, OnDestroy {
   }
 
   closeCreateDialog(): void {
+    if (this.dialogSubmitting()) {
+      return;
+    }
     this.dialogOpen.set(false);
-    this.dialogSubmitting.set(false);
   }
 
   async onCreateSubmit(req: CreateGameRequest): Promise<void> {
@@ -95,10 +90,6 @@ export class LobbyComponent implements OnInit, OnDestroy {
     } finally {
       this.joiningId.set(null);
     }
-  }
-
-  trackById(_index: number, item: GameSummary): string {
-    return item.id;
   }
 
   modeLabel(mode: GameSummary['mode']): string {

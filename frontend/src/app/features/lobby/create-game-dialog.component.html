@@ -74,7 +74,12 @@
       >
         {{ 'lobby.create.cancel' | t }}
       </button>
-      <button type="submit" [disabled]="submitting() || form.invalid" data-testid="create-submit">
+      <button
+        type="submit"
+        [disabled]="submitting() || form.invalid"
+        data-testid="create-submit"
+        [attr.aria-busy]="submitting() || null"
+      >
         @if (submitting()) {
           {{ 'lobby.create.submitting' | t }}
         } @else {

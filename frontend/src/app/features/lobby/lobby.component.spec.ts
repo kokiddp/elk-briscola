@@ -4,23 +4,9 @@ import { signal } from '@angular/core';
 import { provideRouter, Router } from '@angular/router';
 import { fireEvent, render, screen } from '@testing-library/angular';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { AuthService } from '../../core/auth.service';
 import { LobbyComponent } from './lobby.component';
 import { GameDetail, GameSummary } from './lobby.models';
 import { LobbyService } from './lobby.service';
-
-function makeAuth(): AuthService {
-  return {
-    currentUser: () => ({
-      id: 'u1',
-      username: 'alice',
-      displayName: 'Alice',
-      email: 'a@a',
-      activeCardSetId: 'placeholder',
-      ranking: { elo: 1000, wins: 0, losses: 0, draws: 0, gamesPlayed: 0, updatedAt: '' },
-    }),
-  } as unknown as AuthService;
-}
 
 interface MockLobby {
   svc: LobbyService;
@@ -79,7 +65,6 @@ async function setup(
       provideHttpClient(),
       provideHttpClientTesting(),
       provideRouter([{ path: '**', component: LobbyComponent }]),
-      { provide: AuthService, useValue: makeAuth() },
       { provide: LobbyService, useValue: lobby.svc },
     ],
   });
