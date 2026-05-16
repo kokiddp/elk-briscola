@@ -1619,7 +1619,7 @@ The `Spectator_redacted_state` and `Spectator_cannot_chat` cases live in `Specta
 - "Create" button opens a dialog (`CreateGameDialog`) — fields: mode, name, isPrivate (toggle), password (visible only when private).
 - "Join" button → POSTs join, then routes to `/game/:id`.
 
-### Step 7.3 — Lobby chat panel [S]
+### Step 7.3 — Lobby chat panel [S] [x]
 
 - Sidebar; reads `chatMessage` events from `LobbyHub`; sends via `SendChat`.
 

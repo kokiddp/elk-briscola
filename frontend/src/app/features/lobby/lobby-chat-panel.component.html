@@ -1,0 +1,35 @@
+<aside class="chat-panel" aria-label="lobby chat">
+  <h2>{{ 'lobby.chat.title' | t }}</h2>
+
+  <div class="log" #log data-testid="chat-log">
+    @if (!hasMessages()) {
+      <p class="empty">{{ 'lobby.chat.empty' | t }}</p>
+    } @else {
+      <ul>
+        @for (msg of messages(); track msg.id) {
+          <li class="msg" data-testid="chat-message">
+            <span class="meta">
+              <strong class="from">{{ msg.fromUserName }}</strong>
+              <time>{{ formatTimestamp(msg.createdAt) }}</time>
+            </span>
+            <span class="text">{{ msg.text }}</span>
+          </li>
+        }
+      </ul>
+    }
+  </div>
+
+  <form [formGroup]="form" (ngSubmit)="send()" novalidate>
+    <input
+      type="text"
+      formControlName="text"
+      autocomplete="off"
+      [attr.placeholder]="'lobby.chat.placeholder' | t"
+      data-testid="chat-input"
+      maxlength="500"
+    />
+    <button type="submit" [disabled]="sending() || form.invalid" data-testid="chat-send">
+      {{ 'lobby.chat.send' | t }}
+    </button>
+  </form>
+</aside>

@@ -25,14 +25,17 @@ function makeAuth(): AuthService {
 function makeLobby(opts: { open?: GameSummary[]; running?: GameSummary[] }): LobbyService {
   const openSig = signal<readonly GameSummary[]>(opts.open ?? []);
   const runningSig = signal<readonly GameSummary[]>(opts.running ?? []);
+  const chatLogSig = signal<readonly never[]>([]);
   return {
     openGames: () => openSig(),
     runningGames: () => runningSig(),
+    chatLog: () => chatLogSig(),
     connect: () => Promise.resolve(),
     disconnect: () => Promise.resolve(),
     createGame: () => Promise.resolve({} as never),
     joinGame: () => Promise.resolve({} as never),
     leaveGame: () => Promise.resolve(),
+    sendChat: () => Promise.resolve(),
   } as unknown as LobbyService;
 }
 

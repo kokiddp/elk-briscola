@@ -21,6 +21,17 @@
   }
 }
 
+.lobby-body {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.5rem;
+
+  @media (min-width: 960px) {
+    grid-template-columns: minmax(0, 3fr) minmax(18rem, 1fr);
+    align-items: start;
+  }
+}
+
 .lists {
   display: grid;
   grid-template-columns: 1fr;

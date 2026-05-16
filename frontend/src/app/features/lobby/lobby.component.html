@@ -6,57 +6,63 @@
     </button>
   </header>
 
-  <div class="lists">
-    <article class="lobby-list">
-      <h2>{{ 'lobby.openList' | t }}</h2>
-      @if (openGames().length === 0) {
-        <p class="empty">{{ 'lobby.empty.open' | t }}</p>
-      } @else {
-        <ul data-testid="open-list">
-          @for (game of openGames(); track game.id) {
-            <li class="row">
-              <span class="chip mode-chip" data-testid="mode-chip">{{ modeLabel(game.mode) }}</span>
-              <span class="name" data-testid="game-name">{{ game.name }}</span>
-              @if (game.isPrivate) {
-                <span class="chip private-chip">{{ 'lobby.private' | t }}</span>
-              }
-              <span class="seats" data-testid="seats">
-                {{ game.occupiedSeats }} / {{ game.totalSeats }}
-              </span>
-              <button
-                type="button"
-                (click)="onJoin(game)"
-                [disabled]="joiningId() !== null"
-                data-testid="join-button"
-              >
-                @if (joiningId() === game.id) {
-                  {{ 'lobby.joining' | t }}
-                } @else {
-                  {{ 'lobby.join' | t }}
+  <div class="lobby-body">
+    <div class="lists">
+      <article class="lobby-list">
+        <h2>{{ 'lobby.openList' | t }}</h2>
+        @if (openGames().length === 0) {
+          <p class="empty">{{ 'lobby.empty.open' | t }}</p>
+        } @else {
+          <ul data-testid="open-list">
+            @for (game of openGames(); track game.id) {
+              <li class="row">
+                <span class="chip mode-chip" data-testid="mode-chip">{{
+                  modeLabel(game.mode)
+                }}</span>
+                <span class="name" data-testid="game-name">{{ game.name }}</span>
+                @if (game.isPrivate) {
+                  <span class="chip private-chip">{{ 'lobby.private' | t }}</span>
                 }
-              </button>
-            </li>
-          }
-        </ul>
-      }
-    </article>
+                <span class="seats" data-testid="seats">
+                  {{ game.occupiedSeats }} / {{ game.totalSeats }}
+                </span>
+                <button
+                  type="button"
+                  (click)="onJoin(game)"
+                  [disabled]="joiningId() !== null"
+                  data-testid="join-button"
+                >
+                  @if (joiningId() === game.id) {
+                    {{ 'lobby.joining' | t }}
+                  } @else {
+                    {{ 'lobby.join' | t }}
+                  }
+                </button>
+              </li>
+            }
+          </ul>
+        }
+      </article>
 
-    <article class="lobby-list">
-      <h2>{{ 'lobby.runningList' | t }}</h2>
-      @if (runningGames().length === 0) {
-        <p class="empty">{{ 'lobby.empty.running' | t }}</p>
-      } @else {
-        <ul data-testid="running-list">
-          @for (game of runningGames(); track game.id) {
-            <li class="row">
-              <span class="chip mode-chip">{{ modeLabel(game.mode) }}</span>
-              <span class="name">{{ game.name }}</span>
-              <span class="seats">{{ game.occupiedSeats }} / {{ game.totalSeats }}</span>
-            </li>
-          }
-        </ul>
-      }
-    </article>
+      <article class="lobby-list">
+        <h2>{{ 'lobby.runningList' | t }}</h2>
+        @if (runningGames().length === 0) {
+          <p class="empty">{{ 'lobby.empty.running' | t }}</p>
+        } @else {
+          <ul data-testid="running-list">
+            @for (game of runningGames(); track game.id) {
+              <li class="row">
+                <span class="chip mode-chip">{{ modeLabel(game.mode) }}</span>
+                <span class="name">{{ game.name }}</span>
+                <span class="seats">{{ game.occupiedSeats }} / {{ game.totalSeats }}</span>
+              </li>
+            }
+          </ul>
+        }
+      </article>
+    </div>
+
+    <bri-lobby-chat-panel />
   </div>
 
   @if (dialogOpen()) {

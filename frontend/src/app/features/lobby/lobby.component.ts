@@ -5,13 +5,14 @@ import { ErrorToastService } from '../../core/error-toast.service';
 import { I18nService } from '../../core/i18n.service';
 import { I18nPipe } from '../../shared/i18n.pipe';
 import { CreateGameDialogComponent } from './create-game-dialog.component';
+import { LobbyChatPanelComponent } from './lobby-chat-panel.component';
 import { CreateGameRequest, GameSummary } from './lobby.models';
 import { LobbyService } from './lobby.service';
 
 @Component({
   selector: 'bri-lobby',
   standalone: true,
-  imports: [I18nPipe, CreateGameDialogComponent],
+  imports: [I18nPipe, CreateGameDialogComponent, LobbyChatPanelComponent],
   templateUrl: './lobby.component.html',
   styleUrl: './lobby.component.scss',
 })
