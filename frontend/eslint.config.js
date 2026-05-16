@@ -9,17 +9,21 @@ module.exports = defineConfig([
     files: ['**/*.ts'],
     extends: [
       eslint.configs.recommended,
-      tseslint.configs.recommended,
-      tseslint.configs.stylistic,
+      ...tseslint.configs.strict,
+      ...tseslint.configs.stylistic,
       angular.configs.tsRecommended,
     ],
     processor: angular.processInlineTemplates,
     rules: {
+      '@typescript-eslint/no-extraneous-class': [
+        'error',
+        { allowWithDecorator: true },
+      ],
       '@angular-eslint/directive-selector': [
         'error',
         {
           type: 'attribute',
-          prefix: 'app',
+          prefix: 'bri',
           style: 'camelCase',
         },
       ],
@@ -27,7 +31,7 @@ module.exports = defineConfig([
         'error',
         {
           type: 'element',
-          prefix: 'app',
+          prefix: ['app', 'bri'],
           style: 'kebab-case',
         },
       ],

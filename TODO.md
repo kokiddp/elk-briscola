@@ -1552,7 +1552,7 @@ The `Spectator_redacted_state` and `Spectator_cannot_chat` cases live in `Specta
 
 **Goal:** SPA shell with auth, routing, and a working SignalR client wrapper.
 
-### Step 6.1 — Workspace polish [S]
+### Step 6.1 — Workspace polish [S] [x]
 
 - Strict TS (`"strict": true, "noUncheckedIndexedAccess": true, "noImplicitReturns": true`).
 - `tsconfig.json` paths: `@app/*`, `@core/*`, `@features/*`, `@shared/*`.
