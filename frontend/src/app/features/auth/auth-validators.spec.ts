@@ -1,10 +1,6 @@
 import { FormControl } from '@angular/forms';
 import { describe, expect, it } from 'vitest';
-import {
-  displayNameValidator,
-  passwordValidator,
-  usernameValidator,
-} from './auth-validators';
+import { displayNameValidator, passwordValidator, usernameValidator } from './auth-validators';
 
 describe('usernameValidator', () => {
   it.each([

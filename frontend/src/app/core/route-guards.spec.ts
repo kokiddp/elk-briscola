@@ -39,9 +39,7 @@ describe('authGuard', () => {
         { provide: Router, useValue: router },
       ],
     });
-    const result = await run(injector, () =>
-      authGuard({} as never, {} as never),
-    );
+    const result = await run(injector, () => authGuard({} as never, {} as never));
     expect(result).toBe(true);
   });
 
@@ -61,9 +59,7 @@ describe('authGuard', () => {
         { provide: Router, useValue: router },
       ],
     });
-    const result = await run(injector, () =>
-      authGuard({} as never, {} as never),
-    );
+    const result = await run(injector, () => authGuard({} as never, {} as never));
     expect(result).toBe(true);
   });
 
@@ -74,9 +70,7 @@ describe('authGuard', () => {
         { provide: Router, useValue: router },
       ],
     });
-    const result = await run(injector, () =>
-      authGuard({} as never, {} as never),
-    );
+    const result = await run(injector, () => authGuard({} as never, {} as never));
     expect(result).toEqual(expect.objectContaining({ tag: 'urltree', s: '/login' }));
   });
 });

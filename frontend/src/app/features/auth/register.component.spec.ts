@@ -1,10 +1,7 @@
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
-import {
-  HttpTestingController,
-  provideHttpClientTesting,
-} from '@angular/common/http/testing';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter } from '@angular/router';
-import { render, screen, fireEvent } from '@testing-library/angular';
+import { fireEvent, render, screen } from '@testing-library/angular';
 import { describe, expect, it } from 'vitest';
 import { correlationIdInterceptor } from '../../core/correlation-id.interceptor';
 import { httpTokenInterceptor } from '../../core/http-token.interceptor';
@@ -13,9 +10,7 @@ import { RegisterComponent } from './register.component';
 async function setup() {
   const r = await render(RegisterComponent, {
     providers: [
-      provideHttpClient(
-        withInterceptors([correlationIdInterceptor, httpTokenInterceptor]),
-      ),
+      provideHttpClient(withInterceptors([correlationIdInterceptor, httpTokenInterceptor])),
       provideHttpClientTesting(),
       provideRouter([{ path: '**', component: RegisterComponent }]),
     ],

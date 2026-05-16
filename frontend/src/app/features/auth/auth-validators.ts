@@ -2,7 +2,9 @@ import { AbstractControl, ValidationErrors, ValidatorFn } from '@angular/forms';
 
 const USERNAME_PATTERN = /^[a-zA-Z0-9_-]{3,32}$/;
 
-export const usernameValidator: ValidatorFn = (control: AbstractControl): ValidationErrors | null => {
+export const usernameValidator: ValidatorFn = (
+  control: AbstractControl,
+): ValidationErrors | null => {
   const value = control.value as string | null | undefined;
   if (value == null || value === '') {
     return null;
@@ -10,7 +12,9 @@ export const usernameValidator: ValidatorFn = (control: AbstractControl): Valida
   return USERNAME_PATTERN.test(value) ? null : { username: true };
 };
 
-export const passwordValidator: ValidatorFn = (control: AbstractControl): ValidationErrors | null => {
+export const passwordValidator: ValidatorFn = (
+  control: AbstractControl,
+): ValidationErrors | null => {
   const value = control.value as string | null | undefined;
   if (value == null || value === '') {
     return null;
@@ -22,7 +26,9 @@ export const passwordValidator: ValidatorFn = (control: AbstractControl): Valida
   return Object.keys(errors).length === 0 ? null : errors;
 };
 
-export const displayNameValidator: ValidatorFn = (control: AbstractControl): ValidationErrors | null => {
+export const displayNameValidator: ValidatorFn = (
+  control: AbstractControl,
+): ValidationErrors | null => {
   const value = control.value as string | null | undefined;
   if (value == null || value === '') {
     return null;

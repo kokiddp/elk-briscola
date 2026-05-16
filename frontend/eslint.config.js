@@ -15,10 +15,7 @@ module.exports = defineConfig([
     ],
     processor: angular.processInlineTemplates,
     rules: {
-      '@typescript-eslint/no-extraneous-class': [
-        'error',
-        { allowWithDecorator: true },
-      ],
+      '@typescript-eslint/no-extraneous-class': ['error', { allowWithDecorator: true }],
       '@angular-eslint/directive-selector': [
         'error',
         {

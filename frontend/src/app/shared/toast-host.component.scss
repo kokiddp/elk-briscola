@@ -23,9 +23,15 @@
   color: #fff;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 
-  &.error { background: #b00020; }
-  &.info { background: #1976d2; }
-  &.success { background: #2e7d32; }
+  &.error {
+    background: #b00020;
+  }
+  &.info {
+    background: #1976d2;
+  }
+  &.success {
+    background: #2e7d32;
+  }
 
   button {
     background: transparent;

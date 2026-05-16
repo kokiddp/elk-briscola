@@ -1,5 +1,5 @@
 import { HttpClient } from '@angular/common/http';
-import { Injectable, computed, inject, signal } from '@angular/core';
+import { computed, inject, Injectable, signal } from '@angular/core';
 import { firstValueFrom, Observable, of, tap } from 'rxjs';
 import {
   ChangePasswordRequest,
@@ -84,9 +84,7 @@ export class AuthService {
     const refreshToken = this.refreshTokenSig();
     if (refreshToken) {
       try {
-        await firstValueFrom(
-          this.http.post(`${API_PREFIX}/auth/logout`, { refreshToken }),
-        );
+        await firstValueFrom(this.http.post(`${API_PREFIX}/auth/logout`, { refreshToken }));
       } catch {
         // best-effort; clear local state regardless
       }
@@ -95,9 +93,7 @@ export class AuthService {
   }
 
   async changePassword(req: ChangePasswordRequest): Promise<void> {
-    await firstValueFrom(
-      this.http.post(`${API_PREFIX}/auth/change-password`, req),
-    );
+    await firstValueFrom(this.http.post(`${API_PREFIX}/auth/change-password`, req));
   }
 
   refresh(): Promise<string | null> {
@@ -134,9 +130,7 @@ export class AuthService {
     if (this.user()) {
       return of(this.user());
     }
-    return this.http.get<MeResponse>(`${API_PREFIX}/me`).pipe(
-      tap((me) => this.user.set(me)),
-    );
+    return this.http.get<MeResponse>(`${API_PREFIX}/me`).pipe(tap((me) => this.user.set(me)));
   }
 
   private async loadMe(): Promise<void> {

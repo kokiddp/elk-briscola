@@ -4,7 +4,12 @@
   <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
     <label>
       <span>{{ 'auth.register.username' | t }}</span>
-      <input type="text" formControlName="username" autocomplete="username" data-testid="username" />
+      <input
+        type="text"
+        formControlName="username"
+        autocomplete="username"
+        data-testid="username"
+      />
       @if (form.controls.username.touched) {
         @if (form.controls.username.errors?.['required']) {
           <small class="error">{{ 'auth.validation.required' | t }}</small>
@@ -28,7 +33,12 @@
 
     <label>
       <span>{{ 'auth.register.password' | t }}</span>
-      <input type="password" formControlName="password" autocomplete="new-password" data-testid="password" />
+      <input
+        type="password"
+        formControlName="password"
+        autocomplete="new-password"
+        data-testid="password"
+      />
       @if (form.controls.password.touched) {
         @if (form.controls.password.errors?.['required']) {
           <small class="error">{{ 'auth.validation.required' | t }}</small>
@@ -44,7 +54,12 @@
 
     <label>
       <span>{{ 'auth.register.displayName' | t }}</span>
-      <input type="text" formControlName="displayName" autocomplete="nickname" data-testid="displayName" />
+      <input
+        type="text"
+        formControlName="displayName"
+        autocomplete="nickname"
+        data-testid="displayName"
+      />
       @if (form.controls.displayName.touched && form.controls.displayName.errors?.['displayName']) {
         <small class="error">{{ 'auth.validation.displayNameShape' | t }}</small>
       }

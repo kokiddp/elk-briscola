@@ -10,7 +10,9 @@
         autocomplete="username"
         data-testid="usernameOrEmail"
       />
-      @if (form.controls.usernameOrEmail.touched && form.controls.usernameOrEmail.errors?.['required']) {
+      @if (
+        form.controls.usernameOrEmail.touched && form.controls.usernameOrEmail.errors?.['required']
+      ) {
         <small class="error">{{ 'auth.validation.required' | t }}</small>
       }
     </label>

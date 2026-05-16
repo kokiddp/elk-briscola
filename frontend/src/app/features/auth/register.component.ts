@@ -4,11 +4,7 @@ import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../core/auth.service';
 import { I18nService } from '../../core/i18n.service';
 import { I18nPipe } from '../../shared/i18n.pipe';
-import {
-  displayNameValidator,
-  passwordValidator,
-  usernameValidator,
-} from './auth-validators';
+import { displayNameValidator, passwordValidator, usernameValidator } from './auth-validators';
 
 @Component({
   selector: 'bri-register',

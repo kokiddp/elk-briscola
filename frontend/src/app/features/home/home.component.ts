@@ -16,7 +16,9 @@ export class HomeComponent {
   private readonly i18n = inject(I18nService);
 
   readonly displayName = computed(() => this.auth.currentUser()?.displayName ?? 'player');
-  readonly welcomeMessage = computed(() => this.i18n.t('home.welcome', { name: this.displayName() }));
+  readonly welcomeMessage = computed(() =>
+    this.i18n.t('home.welcome', { name: this.displayName() }),
+  );
   readonly placeholder = computed(() => this.i18n.t('home.placeholder'));
   readonly logoutLabel = computed(() => this.i18n.t('home.logout'));
 
