@@ -1635,7 +1635,7 @@ The `Spectator_redacted_state` and `Spectator_cannot_chat` cases live in `Specta
 
 ## Phase 8 — Game table UI
 
-### Step 8.1 — `GameService` [M]
+### Step 8.1 — `GameService` [M] [x]
 
 **Where:** `frontend/src/app/features/game/game.service.ts`
 
