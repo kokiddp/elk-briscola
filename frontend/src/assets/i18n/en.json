@@ -67,5 +67,20 @@
   "game.scoreboard": "Scores",
   "game.myHand": "Your hand",
   "game.chat": "Game chat",
-  "game.errors.connectFailed": "Could not connect to the game."
+  "game.errors.connectFailed": "Could not connect to the game.",
+  "game.chat.placeholder": "Type a message…",
+  "game.chat.send": "Send",
+  "game.chat.empty": "No messages yet.",
+  "game.chat.tacticalBanner": "Tactical phase — coordinate with your partner.",
+  "game.reconnect.message": "Seat {seat} is reconnecting…",
+  "game.reconnect.messageGeneric": "A player is reconnecting…",
+  "game.reconnect.countdown": "{seconds}s remaining",
+  "game.end.youWin": "You won!",
+  "game.end.youLose": "You lost.",
+  "game.end.draw": "Draw.",
+  "game.end.result": "Game over.",
+  "game.end.back": "Back to lobby",
+  "game.end.reason.Normal": "Played to the end.",
+  "game.end.reason.ForfeitDisconnect": "Opponent disconnected.",
+  "game.end.reason.ForfeitIdle": "Opponent ran out of time."
 }

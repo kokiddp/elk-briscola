@@ -67,5 +67,20 @@
   "game.scoreboard": "Punteggi",
   "game.myHand": "La tua mano",
   "game.chat": "Chat della partita",
-  "game.errors.connectFailed": "Impossibile connettersi alla partita."
+  "game.errors.connectFailed": "Impossibile connettersi alla partita.",
+  "game.chat.placeholder": "Scrivi un messaggio…",
+  "game.chat.send": "Invia",
+  "game.chat.empty": "Nessun messaggio.",
+  "game.chat.tacticalBanner": "Fase tattica — coordinati con il tuo compagno.",
+  "game.reconnect.message": "Il posto {seat} sta riconnettendosi…",
+  "game.reconnect.messageGeneric": "Un giocatore sta riconnettendosi…",
+  "game.reconnect.countdown": "{seconds}s rimanenti",
+  "game.end.youWin": "Hai vinto!",
+  "game.end.youLose": "Hai perso.",
+  "game.end.draw": "Pareggio.",
+  "game.end.result": "Partita terminata.",
+  "game.end.back": "Torna alla lobby",
+  "game.end.reason.Normal": "Partita conclusa.",
+  "game.end.reason.ForfeitDisconnect": "Avversario disconnesso.",
+  "game.end.reason.ForfeitIdle": "Avversario senza tempo."
 }

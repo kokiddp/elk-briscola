@@ -1,0 +1,21 @@
+<div class="end-game-backdrop" data-testid="end-game-backdrop">
+  <section class="end-game-dialog" role="dialog" aria-modal="true" data-testid="end-game-dialog">
+    <h2 class="banner" data-testid="end-banner">{{ bannerKey() | t }}</h2>
+    <p class="reason" data-testid="end-reason">
+      {{ 'game.end.reason.' + result().reason | t }}
+    </p>
+    <table class="scores" data-testid="end-scores">
+      <tbody>
+        @for (row of rows(); track row.label) {
+          <tr>
+            <th scope="row">{{ row.label }}</th>
+            <td>{{ row.score }}</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+    <button type="button" (click)="onBack()" data-testid="end-back-to-lobby">
+      {{ 'game.end.back' | t }}
+    </button>
+  </section>
+</div>

@@ -1,0 +1,21 @@
+:host {
+  display: block;
+}
+
+.reconnect-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: rgba(220, 53, 69, 0.18);
+  color: #ffd1d6;
+  border: 1px solid rgba(220, 53, 69, 0.5);
+  border-radius: 0.375rem;
+  font-size: 0.9rem;
+}
+
+.countdown {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}

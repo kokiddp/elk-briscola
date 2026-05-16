@@ -1,0 +1,44 @@
+<aside class="chat-panel" aria-label="game chat" data-testid="chat-panel">
+  <header>
+    <h3>{{ 'game.chat' | t }}</h3>
+    @if (tacticalBanner()) {
+      <p class="tactical" data-testid="tactical-banner">{{ 'game.chat.tacticalBanner' | t }}</p>
+    }
+  </header>
+
+  <div class="log" #log data-testid="chat-log">
+    @if (!hasMessages()) {
+      <p class="empty">{{ 'game.chat.empty' | t }}</p>
+    } @else {
+      <ul>
+        @for (msg of messages(); track msg.id) {
+          <li class="msg" data-testid="chat-message">
+            <span class="meta">
+              <strong class="from">{{ msg.fromUserName }}</strong>
+              <time>{{ formatTimestamp(msg.createdAt) }}</time>
+            </span>
+            <span class="text">{{ msg.text }}</span>
+          </li>
+        }
+      </ul>
+    }
+  </div>
+
+  <form [formGroup]="form" (ngSubmit)="onSubmit()" novalidate>
+    <input
+      type="text"
+      formControlName="text"
+      autocomplete="off"
+      maxlength="500"
+      [attr.placeholder]="'game.chat.placeholder' | t"
+      data-testid="chat-input"
+    />
+    <button
+      type="submit"
+      [disabled]="sending() || form.invalid || !canSend()"
+      data-testid="chat-send"
+    >
+      {{ 'game.chat.send' | t }}
+    </button>
+  </form>
+</aside>

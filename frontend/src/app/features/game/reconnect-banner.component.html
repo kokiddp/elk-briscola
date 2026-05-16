@@ -1,0 +1,14 @@
+@if (visible()) {
+  <div class="reconnect-banner" role="status" data-testid="reconnect-banner">
+    <span class="message">
+      @if (seatIndex() !== null) {
+        {{ 'game.reconnect.message' | t: { seat: seatLabel() } }}
+      } @else {
+        {{ 'game.reconnect.messageGeneric' | t }}
+      }
+    </span>
+    <span class="countdown" data-testid="reconnect-countdown">
+      {{ 'game.reconnect.countdown' | t: { seconds: secondsRemaining() } }}
+    </span>
+  </div>
+}

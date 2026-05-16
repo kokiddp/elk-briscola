@@ -1,0 +1,11 @@
+<section class="scoreboard" [class.mode-4p]="is4p()" data-testid="scoreboard">
+  <h3 class="title">{{ 'game.scoreboard' | t }}</h3>
+  <ul>
+    @for (row of rows(); track row.label) {
+      <li class="row" [class.active]="row.highlight" data-testid="score-row">
+        <span class="label" data-testid="score-label">{{ row.label }}</span>
+        <span class="value" data-testid="score-value">{{ row.score }}</span>
+      </li>
+    }
+  </ul>
+</section>
