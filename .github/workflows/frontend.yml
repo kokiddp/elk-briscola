@@ -19,6 +19,14 @@ concurrency:
 permissions:
   contents: read
 
+# Opt every JS-based action in this workflow into Node.js 24 ahead of the
+# June 2026 forced cut-over. Silences the deprecation warning emitted by
+# `actions/upload-artifact@v5` (and any other action whose manifest still
+# pins `node20`). See:
+# https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build-test:
     name: lint + build + test
