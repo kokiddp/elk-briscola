@@ -1,3 +1,4 @@
+import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { render, screen } from '@testing-library/angular';
 import { describe, expect, it } from 'vitest';
 import { CardSetService } from '../../card-sets/card-set.service';
@@ -20,7 +21,7 @@ function cardSetsStub(): CardSetService {
 
 async function setup(plays: PlayedCard[]) {
   return render(TrickAreaComponent, {
-    providers: [{ provide: CardSetService, useValue: cardSetsStub() }],
+    providers: [provideNoopAnimations(), { provide: CardSetService, useValue: cardSetsStub() }],
     inputs: { plays },
   });
 }

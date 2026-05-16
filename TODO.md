@@ -1655,7 +1655,12 @@ The `Spectator_redacted_state` and `Spectator_cannot_chat` cases live in `Specta
   - **4p:** opponents arranged top-left/top-right/right; player bottom; partner cues highlighted.
 - Responsive: collapses to a column layout < 720 px.
 
-### Step 8.3 — Components [M]
+### Step 8.3 — Components [M] [x]
+
+> Split into sub-steps per AGENTS.md "When to split a step":
+> 8.3a Card + CardSetService, 8.3b MyHand + OpponentArea,
+> 8.3c TrickArea + Stock + BriscolaIndicator,
+> 8.3d Scoreboard + ChatPanel + ReconnectBanner + EndGameDialog.
 
 Each component is standalone and signal-driven.
 
@@ -1696,7 +1701,7 @@ Each component is standalone and signal-driven.
 - `EndGameDialog`:
   - Shows winner banner, score breakdown, "Back to lobby" button.
 
-### Step 8.4 — Animations [S]
+### Step 8.4 — Animations [S] [x]
 
 - `@angular/animations` for card fly-ins.
 - Reduced motion: `@media (prefers-reduced-motion)` disables transitions.

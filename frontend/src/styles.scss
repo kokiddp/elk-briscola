@@ -1,1 +1,18 @@
 /* You can add global styles to this file, and also import other style files */
+
+/**
+ * Honor `prefers-reduced-motion` across every component, including the
+ * Angular animations engine. By collapsing all transition + animation
+ * durations to a frame we keep the `:enter` / `:leave` flows working
+ * without any visible motion.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
