@@ -1,0 +1,24 @@
+:host {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.briscola-indicator {
+  transition: opacity 320ms ease;
+
+  &.faded {
+    opacity: 0.25;
+  }
+}
+
+.rotated {
+  transform: rotate(90deg);
+  transform-origin: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .briscola-indicator {
+    transition: none;
+  }
+}

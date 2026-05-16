@@ -1,0 +1,7 @@
+<div class="trick-area" data-testid="trick-area">
+  @for (play of plays(); track trackBySeat($index, play)) {
+    <div class="played-card" data-testid="played-card" [attr.data-seat]="play.seatIndex">
+      <bri-card [card]="play.card" />
+    </div>
+  }
+</div>

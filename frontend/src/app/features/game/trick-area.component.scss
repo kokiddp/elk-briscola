@@ -1,0 +1,23 @@
+:host {
+  display: block;
+}
+
+.trick-area {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  min-height: 8rem;
+}
+
+.played-card {
+  transition:
+    transform 220ms ease,
+    opacity 220ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .played-card {
+    transition: none;
+  }
+}

@@ -1,0 +1,8 @@
+<div class="stock" [class.empty]="isEmpty()" data-testid="stock">
+  <div class="stack" data-testid="stock-stack">
+    @for (i of visibleStack(); track i) {
+      <bri-card [card]="null" />
+    }
+  </div>
+  <span class="count-badge" data-testid="stock-count">{{ count() }}</span>
+</div>
