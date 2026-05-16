@@ -28,7 +28,7 @@ export const routes: Routes = [
     path: 'game/:id',
     canActivate: [authGuard],
     loadComponent: () =>
-      import('./features/game/game-placeholder.component').then((m) => m.GamePlaceholderComponent),
+      import('./features/game/game-table-page.component').then((m) => m.GameTablePageComponent),
   },
   { path: '**', redirectTo: 'home' },
 ];

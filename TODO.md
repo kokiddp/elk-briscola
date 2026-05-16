@@ -1648,7 +1648,7 @@ The `Spectator_redacted_state` and `Spectator_cannot_chat` cases live in `Specta
 - Methods: `connect(gameId)`, `disconnect()`, `play(card)`, `viewPile()`, `sendChat(text)`.
 - Reconnect logic uses `withAutomaticReconnect` from SignalR; on `onreconnected`, re-call `JoinGame` to fetch fresh state.
 
-### Step 8.2 — `GameTablePage` layout [M]
+### Step 8.2 — `GameTablePage` layout [M] [x]
 
 - Two layouts via CSS Grid:
   - **2p:** opponent at top, player at bottom, briscola/stock at center-left, trick area center.

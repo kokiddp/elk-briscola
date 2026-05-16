@@ -59,7 +59,13 @@
   "lobby.errors.connectFailed": "Could not connect to the lobby.",
   "lobby.errors.createFailed": "Could not create the game.",
   "lobby.errors.joinFailed": "Could not join the game.",
-  "game.placeholder.title": "Game table",
-  "game.placeholder.body": "The interactive table arrives in the next phase. You're connected to game:",
-  "game.placeholder.back": "Back to lobby"
+  "game.connecting": "Connecting to the table…",
+  "game.opponent": "Opponent (seat {seat})",
+  "game.partner": "Partner",
+  "game.briscola": "Briscola",
+  "game.trick": "Current trick",
+  "game.scoreboard": "Scores",
+  "game.myHand": "Your hand",
+  "game.chat": "Game chat",
+  "game.errors.connectFailed": "Could not connect to the game."
 }

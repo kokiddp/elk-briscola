@@ -1,0 +1,112 @@
+:host {
+  display: block;
+}
+
+.game-table {
+  min-height: 100vh;
+  display: grid;
+  gap: 0.75rem;
+  padding: 1rem;
+  background: linear-gradient(180deg, #163d2b 0%, #0e2a1e 100%);
+  color: #f4f4f0;
+
+  /* 2p layout — desktop default */
+  &.mode-2p {
+    grid-template-columns: 14rem 1fr 1fr 12rem;
+    grid-template-rows: 8rem 1fr 1fr 10rem;
+    grid-template-areas:
+      '. opponent opponent .'
+      'briscola trick trick scoreboard'
+      'briscola trick trick scoreboard'
+      'my-hand my-hand my-hand chat';
+  }
+
+  /* 4p layout — desktop default */
+  &.mode-4p {
+    grid-template-columns: 12rem 1fr 1fr 12rem;
+    grid-template-rows: 8rem 1fr 1fr 10rem;
+    grid-template-areas:
+      '. opp-top opp-top .'
+      'opp-left briscola trick opp-right'
+      'opp-left briscola scoreboard opp-right'
+      'my-hand my-hand my-hand chat';
+  }
+
+  @media (max-width: 720px) {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto;
+    grid-template-areas:
+      'opponent'
+      'briscola'
+      'trick'
+      'scoreboard'
+      'my-hand'
+      'chat';
+    &.mode-4p {
+      grid-template-areas:
+        'opp-top'
+        'opp-left'
+        'opp-right'
+        'briscola'
+        'trick'
+        'scoreboard'
+        'my-hand'
+        'chat';
+    }
+  }
+}
+
+.connecting {
+  grid-column: 1 / -1;
+  align-self: center;
+  justify-self: center;
+  font-style: italic;
+  opacity: 0.8;
+}
+
+.seat,
+.briscola-zone,
+.trick-zone,
+.scoreboard-zone,
+.my-hand-zone,
+.chat-zone {
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.65);
+  border: 1px dashed rgba(255, 255, 255, 0.12);
+}
+
+.opponent-top {
+  grid-area: opponent;
+}
+.opponent-left {
+  grid-area: opp-left;
+}
+.opponent-right {
+  grid-area: opp-right;
+}
+.mode-4p .opponent-top {
+  grid-area: opp-top;
+}
+
+.briscola-zone {
+  grid-area: briscola;
+}
+.trick-zone {
+  grid-area: trick;
+}
+.scoreboard-zone {
+  grid-area: scoreboard;
+}
+.my-hand-zone {
+  grid-area: my-hand;
+}
+.chat-zone {
+  grid-area: chat;
+}

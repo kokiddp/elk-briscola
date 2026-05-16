@@ -59,7 +59,13 @@
   "lobby.errors.connectFailed": "Impossibile connettersi alla lobby.",
   "lobby.errors.createFailed": "Impossibile creare la partita.",
   "lobby.errors.joinFailed": "Impossibile entrare nella partita.",
-  "game.placeholder.title": "Tavolo di gioco",
-  "game.placeholder.body": "Il tavolo interattivo arriverà nella prossima fase. Sei connesso alla partita:",
-  "game.placeholder.back": "Torna alla lobby"
+  "game.connecting": "Connessione al tavolo…",
+  "game.opponent": "Avversario (posto {seat})",
+  "game.partner": "Compagno",
+  "game.briscola": "Briscola",
+  "game.trick": "Mano corrente",
+  "game.scoreboard": "Punteggi",
+  "game.myHand": "La tua mano",
+  "game.chat": "Chat della partita",
+  "game.errors.connectFailed": "Impossibile connettersi alla partita."
 }

@@ -1,0 +1,37 @@
+<section class="game-table" [class.mode-2p]="!is4p()" [class.mode-4p]="is4p()">
+  @if (!isReady()) {
+    <p class="connecting" data-testid="connecting">{{ 'game.connecting' | t }}</p>
+  } @else {
+    @if (is4p()) {
+      <div class="seat opponent opponent-left" data-testid="opponent-slot">
+        {{ 'game.opponent' | t: { seat: '1' } }}
+      </div>
+      <div class="seat opponent opponent-top" data-testid="opponent-slot">
+        {{ 'game.partner' | t }}
+      </div>
+      <div class="seat opponent opponent-right" data-testid="opponent-slot">
+        {{ 'game.opponent' | t: { seat: '3' } }}
+      </div>
+    } @else {
+      <div class="seat opponent opponent-top" data-testid="opponent-slot">
+        {{ 'game.opponent' | t: { seat: '1' } }}
+      </div>
+    }
+
+    <div class="briscola-zone" data-testid="briscola-zone">
+      {{ 'game.briscola' | t }}
+    </div>
+    <div class="trick-zone" data-testid="trick-zone">
+      {{ 'game.trick' | t }}
+    </div>
+    <div class="scoreboard-zone" data-testid="scoreboard-zone">
+      {{ 'game.scoreboard' | t }}
+    </div>
+    <div class="my-hand-zone" data-testid="my-hand-zone">
+      {{ 'game.myHand' | t }}
+    </div>
+    <aside class="chat-zone" data-testid="chat-zone">
+      {{ 'game.chat' | t }}
+    </aside>
+  }
+</section>
