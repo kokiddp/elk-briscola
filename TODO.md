@@ -1745,7 +1745,7 @@ The catalog and the controller live in `Briscola.Api`, NOT in the application la
 - `preview.png`: 600×280 montage of 4 suits × asso for the picker thumbnail.
 - `manifest.json` per the README schema.
 
-### Step 9.3 — Frontend `CardSetService` [S]
+### Step 9.3 — Frontend `CardSetService` [S] [x]
 
 - On bootstrap (after auth), fetches `/api/v1/card-sets`, builds `CardSet` instances.
 - `activeSet` signal seeded from `currentUser.activeCardSetId`, persists changes via `PATCH /me`.

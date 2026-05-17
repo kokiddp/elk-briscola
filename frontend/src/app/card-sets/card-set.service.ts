@@ -1,6 +1,7 @@
 import { HttpClient } from '@angular/common/http';
-import { Injectable, computed, inject, signal } from '@angular/core';
+import { Injectable, computed, effect, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
+import { AuthService } from '../core/auth.service';
 import { Card } from '../features/game/game.models';
 import {
   CardSet,
@@ -11,10 +12,12 @@ import {
 } from './card-set.models';
 
 const CARD_SETS_ENDPOINT = '/api/v1/card-sets';
+const ME_ENDPOINT = '/api/v1/me';
 
 @Injectable({ providedIn: 'root' })
 export class CardSetService {
   private readonly http = inject(HttpClient);
+  private readonly auth = inject(AuthService);
 
   private readonly manifestsSig = signal<readonly CardSetManifest[]>([PLACEHOLDER_MANIFEST]);
   private readonly activeSetIdSig = signal<string>(PLACEHOLDER_SET_ID);
@@ -22,6 +25,11 @@ export class CardSetService {
   // Per (setId, card) pair we've already warned about, so a missing asset
   // doesn't spam the console.
   private readonly warned = new Set<string>();
+
+  // Latches once we've loaded the catalog and seeded the active set from
+  // the authenticated user's profile, so logout → login cycles don't
+  // refetch on every effect tick.
+  private bootstrapped = false;
 
   private readonly placeholder = buildCardSet(PLACEHOLDER_MANIFEST);
 
@@ -33,8 +41,53 @@ export class CardSetService {
     return manifest ? buildCardSet(manifest) : this.placeholder;
   });
 
-  setActiveSet(id: string): void {
+  constructor() {
+    // Bootstrap the catalog + active-set selection from the user's profile
+    // the first time we observe an authenticated session. A subsequent
+    // logout resets the latch so the next login re-bootstraps from the
+    // (potentially different) user.
+    effect(() => {
+      const user = this.auth.currentUser();
+      if (!user) {
+        this.bootstrapped = false;
+        return;
+      }
+      if (this.bootstrapped) {
+        return;
+      }
+      this.bootstrapped = true;
+      // Seed the active set from the user's stored preference *before* the
+      // manifest fetch resolves so the first paint doesn't flash placeholder
+      // assets while a different set is loading.
+      if (user.activeCardSetId) {
+        this.activeSetIdSig.set(user.activeCardSetId);
+      }
+      void this.loadManifests();
+    });
+  }
+
+  /**
+   * Sets the locally-active card set immediately (optimistic) and, when
+   * the caller is authenticated, persists the choice via `PATCH /me`.
+   * Reverts the local change if the request fails so the UI doesn't drift
+   * from the server. Unauthenticated callers (spectators, auth screens)
+   * still get the local switch — there's no server state to keep in sync.
+   */
+  async setActiveSet(id: string): Promise<void> {
+    const previous = this.activeSetIdSig();
+    if (previous === id) {
+      return;
+    }
     this.activeSetIdSig.set(id);
+    if (!this.auth.currentUser()) {
+      return;
+    }
+    try {
+      await firstValueFrom(this.http.patch(ME_ENDPOINT, { activeCardSetId: id }));
+    } catch (err) {
+      this.activeSetIdSig.set(previous);
+      throw err;
+    }
   }
 
   /**
