@@ -1758,7 +1758,7 @@ The catalog and the controller live in `Briscola.Api`, NOT in the application la
 
 - `wwwroot/card-sets/piacentine/manifest.json` exists with the metadata; no images. Resolver falls back to `placeholder` per missing card and warns once.
 
-### Step 9.6 — `docs/card-sets.md` [S]
+### Step 9.6 — `docs/card-sets.md` [S] [x]
 
 Document: directory layout, manifest schema, suit/rank slugs, file naming, licensing checklist, "how to add a new set" steps.
 
