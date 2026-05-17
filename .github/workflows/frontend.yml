@@ -70,3 +70,9 @@ jobs:
             frontend/coverage/
           if-no-files-found: ignore
           retention-days: 14
+
+      - name: Audit npm production deps for high/critical CVEs
+        # Per the Phase 11.4 security checklist. Only production deps gate
+        # the build; dev-dep advisories surface in the output but don't
+        # fail CI.
+        run: npm audit --omit=dev --audit-level=high
