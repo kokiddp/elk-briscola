@@ -30,10 +30,12 @@ export class GameService {
   private readonly lastInvalidMoveSig = signal<InvalidMoveCode | null>(null);
   private readonly lastFinishedSig = signal<GameFinishedEvent | null>(null);
   private readonly connectionStateSig = signal<HubConnectionState>(HubConnectionState.Disconnected);
+  private readonly spectatorSig = signal(false);
 
   private connection: HubConnection | null = null;
   private connectPromise: Promise<void> | null = null;
   private currentGameId: string | null = null;
+  private currentSpectator = false;
 
   readonly state = computed(() => this.stateSig());
   readonly chatLog = computed(() => this.chatLogSig());
@@ -42,6 +44,7 @@ export class GameService {
   readonly lastInvalidMove = computed(() => this.lastInvalidMoveSig());
   readonly lastFinished = computed(() => this.lastFinishedSig());
   readonly connectionState = computed(() => this.connectionStateSig());
+  readonly isSpectator = computed(() => this.spectatorSig());
 
   readonly myHand = computed<Card[]>(() => this.stateSig()?.myHand ?? []);
 
@@ -77,8 +80,17 @@ export class GameService {
   });
 
   async connect(gameId: string): Promise<void> {
+    return this.connectInternal(gameId, false);
+  }
+
+  async connectAsSpectator(gameId: string): Promise<void> {
+    return this.connectInternal(gameId, true);
+  }
+
+  private async connectInternal(gameId: string, spectator: boolean): Promise<void> {
     if (
       this.currentGameId === gameId &&
+      this.currentSpectator === spectator &&
       this.connection &&
       this.connection.state === HubConnectionState.Connected
     ) {
@@ -88,10 +100,12 @@ export class GameService {
       return this.connectPromise;
     }
     // Tear down any prior game's connection before opening a new one.
-    if (this.connection || this.currentGameId !== gameId) {
+    if (this.connection || this.currentGameId !== gameId || this.currentSpectator !== spectator) {
       await this.disconnect();
     }
     this.currentGameId = gameId;
+    this.currentSpectator = spectator;
+    this.spectatorSig.set(spectator);
     this.resetGameState();
 
     // Build + own a LOCAL reference. An external disconnect() that fires
@@ -110,7 +124,7 @@ export class GameService {
         }
         this.connectionStateSig.set(conn.state);
         if (conn.state === HubConnectionState.Connected) {
-          await conn.invoke('JoinGame', gameId);
+          await conn.invoke(spectator ? 'SpectateGame' : 'JoinGame', gameId);
         }
       } catch (err) {
         // If we still own the connection, drop it so the next connect()
@@ -137,18 +151,22 @@ export class GameService {
     }
     const conn = this.connection;
     const gameId = this.currentGameId;
+    const spectator = this.currentSpectator;
     // Clear the field before awaiting stop() — a concurrent connect() that
     // observes `this.connection !== local-conn` will see a fresh slate
     // instead of fighting the in-flight stop.
     this.connection = null;
     this.currentGameId = null;
+    this.currentSpectator = false;
+    this.spectatorSig.set(false);
     this.connectionStateSig.set(HubConnectionState.Disconnected);
     if (!conn) {
       return;
     }
     try {
       if (conn.state === HubConnectionState.Connected && gameId) {
-        await conn.invoke('LeaveGame', gameId).catch(() => undefined);
+        const leaveMethod = spectator ? 'UnspectateGame' : 'LeaveGame';
+        await conn.invoke(leaveMethod, gameId).catch(() => undefined);
       }
       await conn.stop();
     } catch {
@@ -225,7 +243,8 @@ export class GameService {
       this.connectionStateSig.set(HubConnectionState.Connected);
       if (this.currentGameId) {
         // Idempotent rejoin re-pushes the authoritative snapshot.
-        await conn.invoke('JoinGame', this.currentGameId).catch(() => undefined);
+        const method = this.currentSpectator ? 'SpectateGame' : 'JoinGame';
+        await conn.invoke(method, this.currentGameId).catch(() => undefined);
       }
     });
     conn.onclose(() => this.connectionStateSig.set(HubConnectionState.Disconnected));

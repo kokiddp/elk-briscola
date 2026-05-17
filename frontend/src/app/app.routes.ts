@@ -31,6 +31,13 @@ export const routes: Routes = [
       import('./features/game/game-table-page.component').then((m) => m.GameTablePageComponent),
   },
   {
+    path: 'game/:id/spectate',
+    canActivate: [authGuard],
+    data: { spectator: true },
+    loadComponent: () =>
+      import('./features/game/game-table-page.component').then((m) => m.GameTablePageComponent),
+  },
+  {
     path: 'profile',
     canActivate: [authGuard],
     loadComponent: () =>

@@ -73,6 +73,7 @@ interface MockGame {
   setState(state: RedactedStateForUser | null): void;
   setInvalidMove(code: InvalidMoveCode | null): void;
   connect: ReturnType<typeof vi.fn>;
+  connectAsSpectator: ReturnType<typeof vi.fn>;
   disconnect: ReturnType<typeof vi.fn>;
   play: ReturnType<typeof vi.fn>;
   sendChat: ReturnType<typeof vi.fn>;
@@ -85,7 +86,9 @@ function makeGame(opts: {
   disconnects?: SeatDisconnect[];
   finished?: GameFinishedEvent | null;
   invalidMove?: InvalidMoveCode | null;
+  spectator?: boolean;
   connect?: (id: string) => Promise<void>;
+  connectAsSpectator?: (id: string) => Promise<void>;
   play?: (c: Card) => Promise<void>;
   sendChat?: (text: string) => Promise<void>;
 }): MockGame {
@@ -94,8 +97,16 @@ function makeGame(opts: {
   const disconnectsSig = signal<readonly SeatDisconnect[]>(opts.disconnects ?? []);
   const finishedSig = signal<GameFinishedEvent | null>(opts.finished ?? null);
   const invalidMoveSig = signal<InvalidMoveCode | null>(opts.invalidMove ?? null);
+  const spectatorSig = signal(opts.spectator ?? false);
 
   const connect = vi.fn(opts.connect ?? (() => Promise.resolve()));
+  const connectAsSpectator = vi.fn(
+    opts.connectAsSpectator ??
+      (() => {
+        spectatorSig.set(true);
+        return Promise.resolve();
+      }),
+  );
   const disconnect = vi.fn(() => Promise.resolve());
   const play = vi.fn(opts.play ?? (() => Promise.resolve()));
   const sendChat = vi.fn(opts.sendChat ?? (() => Promise.resolve()));
@@ -110,8 +121,10 @@ function makeGame(opts: {
     disconnectDeadline: () => earliest,
     lastFinished: () => finishedSig(),
     lastInvalidMove: () => invalidMoveSig(),
+    isSpectator: () => spectatorSig(),
     legalMoves: () => new Set((stateSig()?.myHand ?? []).map((c) => `${c.suit}:${c.rank}`)),
     connect,
+    connectAsSpectator,
     disconnect,
     play,
     sendChat,
@@ -122,6 +135,7 @@ function makeGame(opts: {
     setState: (s) => stateSig.set(s),
     setInvalidMove: (code) => invalidMoveSig.set(code),
     connect,
+    connectAsSpectator,
     disconnect,
     play,
     sendChat,
@@ -137,7 +151,9 @@ async function setup(
     finished?: GameFinishedEvent | null;
     invalidMove?: InvalidMoveCode | null;
     id?: string | null;
+    spectator?: boolean;
     connect?: (id: string) => Promise<void>;
+    connectAsSpectator?: (id: string) => Promise<void>;
     play?: (c: Card) => Promise<void>;
     sendChat?: (text: string) => Promise<void>;
   } = {},
@@ -157,6 +173,7 @@ async function setup(
         useValue: {
           snapshot: {
             paramMap: convertToParamMap(opts.id === null ? {} : { id: opts.id ?? 'g1' }),
+            data: { spectator: opts.spectator === true },
           },
         },
       },
@@ -227,8 +244,9 @@ describe('GameTablePageComponent — rendering', () => {
 
 describe('GameTablePageComponent — lifecycle', () => {
   it('calls GameService.connect with the :id route param on init', async () => {
-    const { connect } = await setup({ id: 'game-42' });
+    const { connect, connectAsSpectator } = await setup({ id: 'game-42' });
     expect(connect).toHaveBeenCalledWith('game-42');
+    expect(connectAsSpectator).not.toHaveBeenCalled();
   });
 
   it('does not call connect when the :id route param is missing', async () => {
@@ -240,6 +258,35 @@ describe('GameTablePageComponent — lifecycle', () => {
     const { disconnect, fixture } = await setup();
     fixture.destroy();
     expect(disconnect).toHaveBeenCalledTimes(1);
+  });
+
+  it('calls connectAsSpectator when route data marks the page as spectator', async () => {
+    const { connect, connectAsSpectator } = await setup({ id: 'game-42', spectator: true });
+    expect(connectAsSpectator).toHaveBeenCalledWith('game-42');
+    expect(connect).not.toHaveBeenCalled();
+  });
+});
+
+describe('GameTablePageComponent — spectator mode', () => {
+  it('hides MyHand and shows the spectator banner when isSpectator is true', async () => {
+    await setup({ state: SNAPSHOT_2P, spectator: true });
+    expect(screen.queryByTestId('my-hand-zone')).toBeNull();
+    expect(screen.queryAllByTestId('hand-card')).toHaveLength(0);
+    expect(screen.getByTestId('spectator-banner')).toBeInTheDocument();
+  });
+
+  it('renders MyHand normally when isSpectator is false', async () => {
+    await setup({ state: SNAPSHOT_2P, spectator: false });
+    expect(screen.getByTestId('my-hand-zone')).toBeInTheDocument();
+    expect(screen.queryByTestId('spectator-banner')).toBeNull();
+  });
+
+  it('still renders the table (opponents, briscola, trick, scoreboard) for spectators', async () => {
+    await setup({ state: SNAPSHOT_2P, spectator: true });
+    expect(screen.getByTestId('briscola-zone')).toBeInTheDocument();
+    expect(screen.getByTestId('trick-zone')).toBeInTheDocument();
+    expect(screen.getByTestId('scoreboard-zone')).toBeInTheDocument();
+    expect(screen.getAllByTestId('opponent-slot')).toHaveLength(1);
   });
 });
 

@@ -253,3 +253,10 @@ describe('GameService.disconnect (no connection)', () => {
     expect(svc.state()).toBeNull();
   });
 });
+
+describe('GameService spectator flag', () => {
+  it('is false by default', () => {
+    const svc = makeService();
+    expect(svc.isSpectator()).toBe(false);
+  });
+});

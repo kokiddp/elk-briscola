@@ -78,17 +78,28 @@
       />
     </div>
 
-    <div
-      class="my-hand-zone flex items-center justify-center rounded-xl bg-white/5 p-3 ring-1 ring-inset ring-white/10"
-      data-testid="my-hand-zone"
-    >
-      <bri-my-hand
-        [cards]="state()!.myHand ?? []"
-        [legalMoves]="legalMoves()"
-        [myTurn]="myTurn()"
-        (cardPlayed)="onCardPlayed($event)"
-      />
-    </div>
+    @if (!isSpectator()) {
+      <div
+        class="my-hand-zone flex items-center justify-center rounded-xl bg-white/5 p-3 ring-1 ring-inset ring-white/10"
+        data-testid="my-hand-zone"
+      >
+        <bri-my-hand
+          [cards]="state()!.myHand ?? []"
+          [legalMoves]="legalMoves()"
+          [myTurn]="myTurn()"
+          (cardPlayed)="onCardPlayed($event)"
+        />
+      </div>
+    } @else {
+      <div
+        class="my-hand-zone flex items-center justify-center rounded-xl bg-white/10 p-3 ring-1 ring-inset ring-white/10"
+        data-testid="spectator-banner"
+      >
+        <span class="text-sm uppercase tracking-wider text-stone-200/90">
+          {{ 'game.spectator.banner' | t }}
+        </span>
+      </div>
+    }
 
     <aside class="chat-zone" data-testid="chat-zone">
       <bri-chat-panel

@@ -64,6 +64,7 @@ export class GameTablePageComponent implements OnInit, OnDestroy {
 
   readonly isReady = computed(() => this.state() !== null);
   readonly is4p = computed(() => this.state()?.mode === 'FourPlayerTeams');
+  readonly isSpectator = this.game.isSpectator;
 
   /**
    * v1 seat resolution. Latched once: the first snapshot that lets us derive
@@ -180,7 +181,9 @@ export class GameTablePageComponent implements OnInit, OnDestroy {
     if (!gameId) {
       return;
     }
-    this.game.connect(gameId).catch(() => {
+    const spectator = this.route.snapshot.data['spectator'] === true;
+    const start = spectator ? this.game.connectAsSpectator(gameId) : this.game.connect(gameId);
+    start.catch(() => {
       this.toast.error(this.i18n.t('game.errors.connectFailed'));
     });
   }
