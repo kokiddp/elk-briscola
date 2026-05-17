@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json.Serialization;
 using Briscola.Api;
 using Briscola.Api.Authentication;
+using Briscola.Api.CardSets;
 using Briscola.Api.Configuration;
 using Briscola.Api.Errors;
 using Briscola.Api.Middleware;
@@ -156,9 +157,14 @@ builder.Services
     });
 builder.Services.AddHostedService<Briscola.Api.Hubs.GameEventDispatcher>();
 
-// 10) Card-set catalog (loaded from wwwroot/card-sets at startup; empty until Phase 9).
+// 10) Card-set catalog (loaded from wwwroot/card-sets at startup). Also
+//     registered as ICardSetCatalog so application-layer services can
+//     validate user-supplied card-set ids without depending on Briscola.Api.
 builder.Services.AddSingleton(sp =>
-    CardSetCatalog.LoadFromWebRoot(sp.GetRequiredService<IWebHostEnvironment>()));
+    CardSetCatalog.LoadFromWebRoot(
+        sp.GetRequiredService<IWebHostEnvironment>(),
+        sp.GetRequiredService<ILoggerFactory>().CreateLogger<CardSetCatalog>()));
+builder.Services.AddSingleton<ICardSetCatalog>(sp => sp.GetRequiredService<CardSetCatalog>());
 
 // 11) Auto-docs (dev-only). Swashbuckle generates the OpenAPI v3 doc;
 //     two UIs render it: classic Swagger UI at /swagger, Scalar at

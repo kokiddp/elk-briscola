@@ -1719,7 +1719,7 @@ Each component is standalone and signal-driven.
 
 ## Phase 9 — Card sets
 
-### Step 9.1 — Backend manifest discovery [S]
+### Step 9.1 — Backend manifest discovery [S] [x]
 
 **Where:**
 - `backend/src/Briscola.Api/wwwroot/card-sets/{setId}/manifest.json` (+ asset files) — physical assets live in the API project so static-file middleware can serve them at `/card-sets/{setId}/{file}`.
