@@ -1,10 +1,25 @@
-<section class="scoreboard" [class.mode-4p]="is4p()" data-testid="scoreboard">
-  <h3 class="title">{{ 'game.scoreboard' | t }}</h3>
-  <ul>
+<section
+  class="flex flex-col gap-1 rounded-xl bg-black/30 p-3 text-white shadow"
+  data-testid="scoreboard"
+>
+  <h3 class="m-0 text-xs font-semibold uppercase tracking-widest text-white/70">
+    {{ 'game.scoreboard' | t }}
+  </h3>
+  <ul class="flex flex-col gap-1">
     @for (row of rows(); track row.label) {
-      <li class="row" [class.active]="row.highlight" data-testid="score-row">
-        <span class="label" data-testid="score-label">{{ row.label }}</span>
-        <span class="value" data-testid="score-value">{{ row.score }}</span>
+      <li
+        class="flex items-center justify-between rounded-md bg-white/5 px-2 py-1"
+        [class.active]="row.highlight"
+        [class.!bg-warm-400\/20]="row.highlight"
+        [class.ring-1]="row.highlight"
+        [class.ring-inset]="row.highlight"
+        [class.ring-warm-400\/40]="row.highlight"
+        data-testid="score-row"
+      >
+        <span class="text-sm" data-testid="score-label">{{ row.label }}</span>
+        <span class="text-sm font-semibold tabular-nums" data-testid="score-value">
+          {{ row.score }}
+        </span>
       </li>
     }
   </ul>

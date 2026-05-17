@@ -1,76 +1,89 @@
-<div class="dialog-backdrop">
+<div class="fixed inset-0 z-50 flex items-center justify-center p-4">
   <button
     type="button"
-    class="dialog-backdrop-button"
+    class="absolute inset-0 h-full w-full cursor-pointer border-0 bg-black/45 p-0"
     (click)="onCancel()"
     [attr.aria-label]="'lobby.create.cancel' | t"
     data-testid="create-backdrop"
   ></button>
   <form
-    class="dialog"
+    class="relative z-10 flex w-full max-w-md flex-col gap-3 rounded-2xl bg-white p-6 shadow-2xl"
     role="dialog"
     aria-modal="true"
     [formGroup]="form"
     (ngSubmit)="onSubmit()"
     novalidate
   >
-    <h2>{{ 'lobby.create.title' | t }}</h2>
+    <h2 class="font-display text-xl font-semibold text-stone-900">
+      {{ 'lobby.create.title' | t }}
+    </h2>
 
-    <label>
-      <span>{{ 'lobby.create.mode' | t }}</span>
-      <select formControlName="mode" data-testid="create-mode">
+    <label class="flex flex-col gap-1.5">
+      <span class="text-sm font-medium text-stone-700">{{ 'lobby.create.mode' | t }}</span>
+      <select
+        formControlName="mode"
+        data-testid="create-mode"
+        class="rounded-md border border-stone-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30"
+      >
         <option value="TwoPlayer">{{ 'lobby.mode.twoPlayer' | t }}</option>
         <option value="FourPlayerTeams">{{ 'lobby.mode.fourPlayerTeams' | t }}</option>
       </select>
     </label>
 
-    <label>
-      <span>{{ 'lobby.create.name' | t }}</span>
+    <label class="flex flex-col gap-1.5">
+      <span class="text-sm font-medium text-stone-700">{{ 'lobby.create.name' | t }}</span>
       <input
         type="text"
         formControlName="name"
         autocomplete="off"
         maxlength="64"
         data-testid="create-name"
+        class="rounded-md border border-stone-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30"
       />
       @if (form.controls.name.touched && form.controls.name.errors?.['required']) {
-        <small class="error">{{ 'auth.validation.required' | t }}</small>
+        <small class="text-xs text-rose-600">{{ 'auth.validation.required' | t }}</small>
       }
       @if (form.controls.name.touched && form.controls.name.errors?.['maxlength']) {
-        <small class="error">{{ 'lobby.create.nameTooLong' | t }}</small>
+        <small class="text-xs text-rose-600">{{ 'lobby.create.nameTooLong' | t }}</small>
       }
     </label>
 
-    <label class="checkbox">
-      <input type="checkbox" formControlName="isPrivate" data-testid="create-isPrivate" />
-      <span>{{ 'lobby.create.isPrivate' | t }}</span>
+    <label class="flex items-center gap-2">
+      <input
+        type="checkbox"
+        formControlName="isPrivate"
+        data-testid="create-isPrivate"
+        class="h-4 w-4 rounded border-stone-300 text-brand-600 focus:ring-brand-500/30"
+      />
+      <span class="text-sm text-stone-700">{{ 'lobby.create.isPrivate' | t }}</span>
     </label>
 
     @if (form.controls.isPrivate.value) {
-      <label>
-        <span>{{ 'lobby.create.password' | t }}</span>
+      <label class="flex flex-col gap-1.5">
+        <span class="text-sm font-medium text-stone-700">{{ 'lobby.create.password' | t }}</span>
         <input
           type="password"
           formControlName="password"
           autocomplete="new-password"
           data-testid="create-password"
+          class="rounded-md border border-stone-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30"
         />
         @if (form.controls.password.touched && form.controls.password.errors?.['required']) {
-          <small class="error">{{ 'auth.validation.required' | t }}</small>
+          <small class="text-xs text-rose-600">{{ 'auth.validation.required' | t }}</small>
         }
         @if (form.controls.password.touched && form.controls.password.errors?.['minlength']) {
-          <small class="error">{{ 'lobby.create.passwordTooShort' | t }}</small>
+          <small class="text-xs text-rose-600">{{ 'lobby.create.passwordTooShort' | t }}</small>
         }
       </label>
     }
 
-    <div class="actions">
+    <div class="mt-3 flex justify-end gap-2">
       <button
         type="button"
-        class="ghost"
         (click)="onCancel()"
         [disabled]="submitting()"
         data-testid="create-cancel"
+        class="rounded-md border border-stone-300 bg-white px-4 py-2 text-sm font-medium text-stone-700 transition hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {{ 'lobby.create.cancel' | t }}
       </button>
@@ -79,6 +92,7 @@
         [disabled]="submitting() || form.invalid"
         data-testid="create-submit"
         [attr.aria-busy]="submitting() || null"
+        class="inline-flex h-9 items-center justify-center rounded-md bg-brand-600 px-4 text-sm font-semibold text-white shadow transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60"
       >
         @if (submitting()) {
           {{ 'lobby.create.submitting' | t }}

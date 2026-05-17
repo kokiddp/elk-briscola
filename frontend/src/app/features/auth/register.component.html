@@ -1,85 +1,126 @@
-<section class="auth-page">
-  <h1>{{ 'auth.register.title' | t }}</h1>
+<section
+  class="mx-auto flex min-h-[calc(100vh-3.5rem)] w-full max-w-md flex-col justify-center px-4 py-12"
+>
+  <div class="rounded-2xl border border-stone-200 bg-white p-8 shadow-sm">
+    <div class="mb-6 flex items-center gap-3">
+      <span
+        class="grid h-10 w-10 place-items-center rounded-lg bg-table-800 text-2xl text-warm-400"
+        aria-hidden="true"
+      >
+        ♣
+      </span>
+      <h1 class="font-display text-2xl font-semibold text-stone-900">
+        {{ 'auth.register.title' | t }}
+      </h1>
+    </div>
 
-  <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
-    <label>
-      <span>{{ 'auth.register.username' | t }}</span>
-      <input
-        type="text"
-        formControlName="username"
-        autocomplete="username"
-        data-testid="username"
-      />
-      @if (form.controls.username.touched) {
-        @if (form.controls.username.errors?.['required']) {
-          <small class="error">{{ 'auth.validation.required' | t }}</small>
-        } @else if (form.controls.username.errors?.['username']) {
-          <small class="error">{{ 'auth.validation.usernameShape' | t }}</small>
+    <form [formGroup]="form" (ngSubmit)="submit()" novalidate class="flex flex-col gap-4">
+      <label class="flex flex-col gap-1.5">
+        <span class="text-sm font-medium text-stone-700">{{ 'auth.register.username' | t }}</span>
+        <input
+          type="text"
+          formControlName="username"
+          autocomplete="username"
+          data-testid="username"
+          class="rounded-md border border-stone-300 bg-white px-3 py-2 text-sm shadow-sm transition focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30"
+        />
+        @if (form.controls.username.touched) {
+          @if (form.controls.username.errors?.['required']) {
+            <small class="text-xs text-rose-600">{{ 'auth.validation.required' | t }}</small>
+          } @else if (form.controls.username.errors?.['username']) {
+            <small class="text-xs text-rose-600">{{ 'auth.validation.usernameShape' | t }}</small>
+          }
         }
-      }
-    </label>
+      </label>
 
-    <label>
-      <span>{{ 'auth.register.email' | t }}</span>
-      <input type="email" formControlName="email" autocomplete="email" data-testid="email" />
-      @if (form.controls.email.touched) {
-        @if (form.controls.email.errors?.['required']) {
-          <small class="error">{{ 'auth.validation.required' | t }}</small>
-        } @else if (form.controls.email.errors?.['email']) {
-          <small class="error">{{ 'auth.validation.emailShape' | t }}</small>
+      <label class="flex flex-col gap-1.5">
+        <span class="text-sm font-medium text-stone-700">{{ 'auth.register.email' | t }}</span>
+        <input
+          type="email"
+          formControlName="email"
+          autocomplete="email"
+          data-testid="email"
+          class="rounded-md border border-stone-300 bg-white px-3 py-2 text-sm shadow-sm transition focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30"
+        />
+        @if (form.controls.email.touched) {
+          @if (form.controls.email.errors?.['required']) {
+            <small class="text-xs text-rose-600">{{ 'auth.validation.required' | t }}</small>
+          } @else if (form.controls.email.errors?.['email']) {
+            <small class="text-xs text-rose-600">{{ 'auth.validation.emailShape' | t }}</small>
+          }
         }
-      }
-    </label>
+      </label>
 
-    <label>
-      <span>{{ 'auth.register.password' | t }}</span>
-      <input
-        type="password"
-        formControlName="password"
-        autocomplete="new-password"
-        data-testid="password"
-      />
-      @if (form.controls.password.touched) {
-        @if (form.controls.password.errors?.['required']) {
-          <small class="error">{{ 'auth.validation.required' | t }}</small>
-        } @else if (form.controls.password.errors?.['minlength']) {
-          <small class="error">{{ 'auth.validation.passwordMinLength' | t }}</small>
-        } @else if (form.controls.password.errors?.['letter']) {
-          <small class="error">{{ 'auth.validation.passwordLetter' | t }}</small>
-        } @else if (form.controls.password.errors?.['digit']) {
-          <small class="error">{{ 'auth.validation.passwordDigit' | t }}</small>
+      <label class="flex flex-col gap-1.5">
+        <span class="text-sm font-medium text-stone-700">{{ 'auth.register.password' | t }}</span>
+        <input
+          type="password"
+          formControlName="password"
+          autocomplete="new-password"
+          data-testid="password"
+          class="rounded-md border border-stone-300 bg-white px-3 py-2 text-sm shadow-sm transition focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30"
+        />
+        @if (form.controls.password.touched) {
+          @if (form.controls.password.errors?.['required']) {
+            <small class="text-xs text-rose-600">{{ 'auth.validation.required' | t }}</small>
+          } @else if (form.controls.password.errors?.['minlength']) {
+            <small class="text-xs text-rose-600">{{
+              'auth.validation.passwordMinLength' | t
+            }}</small>
+          } @else if (form.controls.password.errors?.['letter']) {
+            <small class="text-xs text-rose-600">{{ 'auth.validation.passwordLetter' | t }}</small>
+          } @else if (form.controls.password.errors?.['digit']) {
+            <small class="text-xs text-rose-600">{{ 'auth.validation.passwordDigit' | t }}</small>
+          }
         }
+      </label>
+
+      <label class="flex flex-col gap-1.5">
+        <span class="text-sm font-medium text-stone-700">{{
+          'auth.register.displayName' | t
+        }}</span>
+        <input
+          type="text"
+          formControlName="displayName"
+          autocomplete="nickname"
+          data-testid="displayName"
+          class="rounded-md border border-stone-300 bg-white px-3 py-2 text-sm shadow-sm transition focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30"
+        />
+        @if (
+          form.controls.displayName.touched && form.controls.displayName.errors?.['displayName']
+        ) {
+          <small class="text-xs text-rose-600">{{ 'auth.validation.displayNameShape' | t }}</small>
+        }
+      </label>
+
+      @if (errorMessage(); as msg) {
+        <p
+          class="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700"
+          role="alert"
+        >
+          {{ msg }}
+        </p>
       }
-    </label>
 
-    <label>
-      <span>{{ 'auth.register.displayName' | t }}</span>
-      <input
-        type="text"
-        formControlName="displayName"
-        autocomplete="nickname"
-        data-testid="displayName"
-      />
-      @if (form.controls.displayName.touched && form.controls.displayName.errors?.['displayName']) {
-        <small class="error">{{ 'auth.validation.displayNameShape' | t }}</small>
-      }
-    </label>
+      <button
+        type="submit"
+        [disabled]="submitting() || form.invalid"
+        data-testid="submit"
+        class="mt-2 inline-flex h-10 items-center justify-center rounded-md bg-brand-600 px-4 text-sm font-semibold text-white shadow transition hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500/40 disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        @if (submitting()) {
+          {{ 'auth.register.submitting' | t }}
+        } @else {
+          {{ 'auth.register.submit' | t }}
+        }
+      </button>
+    </form>
 
-    @if (errorMessage(); as msg) {
-      <p class="error" role="alert">{{ msg }}</p>
-    }
-
-    <button type="submit" [disabled]="submitting() || form.invalid" data-testid="submit">
-      @if (submitting()) {
-        {{ 'auth.register.submitting' | t }}
-      } @else {
-        {{ 'auth.register.submit' | t }}
-      }
-    </button>
-  </form>
-
-  <p>
-    {{ 'auth.register.haveAccount' | t }}
-    <a routerLink="/login">{{ 'auth.register.signIn' | t }}</a>
-  </p>
+    <p class="mt-6 text-center text-sm text-stone-600">
+      {{ 'auth.register.haveAccount' | t }}
+      <a routerLink="/login" class="font-medium text-brand-700 underline-offset-2 hover:underline">
+        {{ 'auth.register.signIn' | t }}
+      </a>
+    </p>
+  </div>
 </section>

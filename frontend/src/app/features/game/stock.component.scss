@@ -1,38 +1,6 @@
-:host {
-  display: inline-flex;
-}
-
-.stock {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.25rem;
-  transition: opacity 220ms ease;
-
-  &.empty {
-    opacity: 0.35;
-  }
-}
-
-.stack {
-  position: relative;
-
-  bri-card + bri-card {
-    margin-left: -3.5rem;
-  }
-}
-
-.count-badge {
-  background: rgba(0, 0, 0, 0.4);
-  color: #fff;
-  border-radius: 999px;
-  padding: 0 0.4rem;
-  font-size: 0.75rem;
-  font-variant-numeric: tabular-nums;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .stock {
-    transition: none;
-  }
-}
+/**
+ * Empty by design. Styling lives in the component template via Tailwind
+ * utility classes; this file is kept as a per-component escape hatch
+ * for the rare style that can't be expressed as a class (custom
+ * keyframes, complex selectors, pseudo-elements, etc.).
+ */

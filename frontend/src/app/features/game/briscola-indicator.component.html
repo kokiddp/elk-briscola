@@ -1,5 +1,10 @@
-<div class="briscola-indicator" [class.faded]="!visible()" data-testid="briscola-indicator">
-  <div class="rotated">
+<div
+  class="inline-flex items-center justify-center transition motion-safe:duration-300"
+  [class.opacity-25]="!visible()"
+  [class.faded]="!visible()"
+  data-testid="briscola-indicator"
+>
+  <div class="origin-center rotate-90">
     <bri-card [card]="briscolaCard()" />
   </div>
 </div>

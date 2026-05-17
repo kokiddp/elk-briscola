@@ -1,8 +1,18 @@
-<div class="stock" [class.empty]="isEmpty()" data-testid="stock">
-  <div class="stack" data-testid="stock-stack">
+<div
+  class="flex flex-col items-center gap-1 transition motion-safe:duration-200"
+  [class.opacity-35]="isEmpty()"
+  [class.empty]="isEmpty()"
+  data-testid="stock"
+>
+  <div class="relative flex items-center" data-testid="stock-stack">
     @for (i of visibleStack(); track i) {
-      <bri-card [card]="null" />
+      <bri-card class="-ml-14 first:ml-0" [card]="null" />
     }
   </div>
-  <span class="count-badge" data-testid="stock-count">{{ count() }}</span>
+  <span
+    class="rounded-full bg-black/40 px-2 py-0.5 text-xs tabular-nums text-white"
+    data-testid="stock-count"
+  >
+    {{ count() }}
+  </span>
 </div>

@@ -1,6 +1,11 @@
 <img
-  class="card"
+  class="block h-[6.75rem] w-[4.5rem] select-none rounded-md bg-white shadow"
+  [class.card]="true"
   [class.highlighted]="highlighted()"
+  [class.outline]="highlighted()"
+  [class.outline-2]="highlighted()"
+  [class.outline-warm-400]="highlighted()"
+  [class.outline-offset-2]="highlighted()"
   [src]="src()"
   [alt]="altText()"
   loading="eager"

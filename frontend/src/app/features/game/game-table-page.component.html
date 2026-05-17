@@ -1,9 +1,18 @@
-<section class="game-table" [class.mode-2p]="!is4p()" [class.mode-4p]="is4p()">
+<section
+  class="game-table min-h-[calc(100vh-3.5rem)] bg-gradient-to-b from-table-800 to-table-900 text-stone-100"
+  [class.mode-2p]="!is4p()"
+  [class.mode-4p]="is4p()"
+>
   @if (!isReady()) {
-    <p class="connecting" data-testid="connecting">{{ 'game.connecting' | t }}</p>
+    <p
+      class="connecting col-span-full place-self-center text-center text-base italic text-stone-100/70"
+      data-testid="connecting"
+    >
+      {{ 'game.connecting' | t }}
+    </p>
   } @else {
     @if (disconnectDeadline()) {
-      <div class="banner-zone">
+      <div class="banner-zone col-span-full">
         <bri-reconnect-banner
           [deadline]="disconnectDeadline()"
           [seatIndex]="disconnectSeatIndex()"
@@ -13,7 +22,11 @@
 
     @if (is4p()) {
       @for (slot of opponentSlots(); track slot.seatIndex; let idx = $index) {
-        <div class="seat opponent" [class]="'opponent-' + idx" data-testid="opponent-slot">
+        <div
+          class="seat opponent flex items-center justify-center rounded-xl bg-white/5 p-3 ring-1 ring-inset ring-white/10"
+          [class]="'opponent-' + idx"
+          data-testid="opponent-slot"
+        >
           <bri-opponent-area
             [seatIndex]="slot.seatIndex"
             [cardCount]="opponentCountFor(slot.seatIndex)"
@@ -25,7 +38,10 @@
       }
     } @else {
       @for (slot of opponentSlots(); track slot.seatIndex) {
-        <div class="seat opponent opponent-top" data-testid="opponent-slot">
+        <div
+          class="seat opponent opponent-top flex items-center justify-center rounded-xl bg-white/5 p-3 ring-1 ring-inset ring-white/10"
+          data-testid="opponent-slot"
+        >
           <bri-opponent-area
             [seatIndex]="slot.seatIndex"
             [cardCount]="opponentCountFor(slot.seatIndex)"
@@ -36,7 +52,10 @@
       }
     }
 
-    <div class="briscola-zone" data-testid="briscola-zone">
+    <div
+      class="briscola-zone flex items-center justify-center gap-3 rounded-xl bg-white/5 p-3 ring-1 ring-inset ring-white/10"
+      data-testid="briscola-zone"
+    >
       <bri-briscola-indicator
         [briscolaCard]="state()!.briscolaCard"
         [stockCount]="state()!.stockCount"
@@ -44,7 +63,10 @@
       <bri-stock [count]="state()!.stockCount" />
     </div>
 
-    <div class="trick-zone" data-testid="trick-zone">
+    <div
+      class="trick-zone flex items-center justify-center rounded-xl bg-white/5 p-3 ring-1 ring-inset ring-white/10"
+      data-testid="trick-zone"
+    >
       <bri-trick-area [plays]="state()!.currentTrick" />
     </div>
 
@@ -56,7 +78,10 @@
       />
     </div>
 
-    <div class="my-hand-zone" data-testid="my-hand-zone">
+    <div
+      class="my-hand-zone flex items-center justify-center rounded-xl bg-white/5 p-3 ring-1 ring-inset ring-white/10"
+      data-testid="my-hand-zone"
+    >
       <bri-my-hand
         [cards]="state()!.myHand ?? []"
         [legalMoves]="legalMoves()"

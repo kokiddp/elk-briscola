@@ -1,6 +1,6 @@
-<div class="trick-area" data-testid="trick-area">
+<div class="flex min-h-[8rem] items-center justify-center gap-3" data-testid="trick-area">
   @for (play of plays(); track trackBySeat($index, play)) {
-    <div class="played-card" data-testid="played-card" [attr.data-seat]="play.seatIndex" @cardEnter>
+    <div data-testid="played-card" [attr.data-seat]="play.seatIndex" @cardEnter>
       <bri-card [card]="play.card" />
     </div>
   }

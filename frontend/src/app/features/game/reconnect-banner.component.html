@@ -1,13 +1,17 @@
 @if (visible()) {
-  <div class="reconnect-banner" role="status" data-testid="reconnect-banner">
-    <span class="message">
+  <div
+    class="flex items-center justify-between gap-2 rounded-md border border-rose-400/40 bg-rose-500/15 px-3 py-2 text-sm text-rose-100"
+    role="status"
+    data-testid="reconnect-banner"
+  >
+    <span>
       @if (seatIndex() !== null) {
         {{ 'game.reconnect.message' | t: { seat: seatLabel() } }}
       } @else {
         {{ 'game.reconnect.messageGeneric' | t }}
       }
     </span>
-    <span class="countdown" data-testid="reconnect-countdown">
+    <span class="font-semibold tabular-nums" data-testid="reconnect-countdown">
       {{ 'game.reconnect.countdown' | t: { seconds: secondsRemaining() } }}
     </span>
   </div>

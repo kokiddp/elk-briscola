@@ -1,5 +1,4 @@
 import { Component, computed, inject, signal } from '@angular/core';
-import { RouterLink } from '@angular/router';
 import { CardSetService } from '../../card-sets/card-set.service';
 import { AuthService } from '../../core/auth.service';
 import { ErrorToastService } from '../../core/error-toast.service';
@@ -9,7 +8,7 @@ import { I18nPipe } from '../../shared/i18n.pipe';
 @Component({
   selector: 'bri-profile',
   standalone: true,
-  imports: [RouterLink, I18nPipe],
+  imports: [I18nPipe],
   templateUrl: './profile.component.html',
   styleUrl: './profile.component.scss',
 })

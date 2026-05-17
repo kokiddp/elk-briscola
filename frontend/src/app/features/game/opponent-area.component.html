@@ -1,21 +1,30 @@
 <div
-  class="opponent-area"
+  [class]="
+    'flex flex-col items-center gap-1 rounded-lg p-2 transition ' +
+    (isActive() ? 'bg-warm-400/15 ring-1 ring-warm-400/40' : '') +
+    (isDisconnected() ? ' opacity-55 grayscale' : '')
+  "
   [class.active]="isActive()"
   [class.disconnected]="isDisconnected()"
   data-testid="opponent-area"
 >
-  <header class="opponent-meta">
-    <span class="seat-label" data-testid="opponent-name">{{
-      displayName() || ('game.opponent' | t: { seat: seatIndex() })
-    }}</span>
+  <header class="flex items-center gap-1.5 text-sm text-stone-100/90">
+    <span class="font-semibold" data-testid="opponent-name">
+      {{ displayName() || ('game.opponent' | t: { seat: seatIndex() }) }}
+    </span>
     @if (isPartner()) {
-      <span class="partner-chip" data-testid="partner-chip" aria-label="partner">🤝</span>
+      <span class="text-base" data-testid="partner-chip" aria-label="partner">🤝</span>
     }
-    <span class="count-badge" data-testid="card-count">{{ cardCount() }}</span>
+    <span
+      class="rounded-full bg-black/35 px-2 py-0.5 text-xs tabular-nums"
+      data-testid="card-count"
+    >
+      {{ cardCount() }}
+    </span>
   </header>
-  <div class="stack" data-testid="opponent-stack">
+  <div class="flex items-center" data-testid="opponent-stack">
     @for (i of stack(); track i) {
-      <bri-card [card]="null" />
+      <bri-card class="-ml-12 first:ml-0" [card]="null" />
     }
   </div>
 </div>

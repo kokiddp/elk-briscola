@@ -1,23 +1,6 @@
-:host {
-  display: block;
-}
-
-.trick-area {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.75rem;
-  min-height: 8rem;
-}
-
-.played-card {
-  transition:
-    transform 220ms ease,
-    opacity 220ms ease;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .played-card {
-    transition: none;
-  }
-}
+/**
+ * Empty by design. Styling lives in the component template via Tailwind
+ * utility classes; this file is kept as a per-component escape hatch
+ * for the rare style that can't be expressed as a class (custom
+ * keyframes, complex selectors, pseudo-elements, etc.).
+ */

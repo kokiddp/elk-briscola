@@ -1,20 +1,35 @@
-<div class="end-game-backdrop" data-testid="end-game-backdrop">
-  <section class="end-game-dialog" role="dialog" aria-modal="true" data-testid="end-game-dialog">
-    <h2 class="banner" data-testid="end-banner">{{ bannerKey() | t }}</h2>
-    <p class="reason" data-testid="end-reason">
+<div
+  class="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4"
+  data-testid="end-game-backdrop"
+>
+  <section
+    class="flex w-full max-w-md flex-col gap-3 rounded-2xl bg-stone-900 p-6 text-center text-stone-100 shadow-2xl"
+    role="dialog"
+    aria-modal="true"
+    data-testid="end-game-dialog"
+  >
+    <h2 class="m-0 font-display text-3xl font-semibold" data-testid="end-banner">
+      {{ bannerKey() | t }}
+    </h2>
+    <p class="m-0 text-sm text-stone-300" data-testid="end-reason">
       {{ 'game.end.reason.' + result().reason | t }}
     </p>
-    <table class="scores" data-testid="end-scores">
+    <table class="mx-auto border-collapse text-sm" data-testid="end-scores">
       <tbody>
         @for (row of rows(); track row.label) {
           <tr>
-            <th scope="row">{{ row.label }}</th>
-            <td>{{ row.score }}</td>
+            <th scope="row" class="pr-4 text-left font-medium">{{ row.label }}</th>
+            <td class="pl-4 text-right font-semibold tabular-nums">{{ row.score }}</td>
           </tr>
         }
       </tbody>
     </table>
-    <button type="button" (click)="onBack()" data-testid="end-back-to-lobby">
+    <button
+      type="button"
+      (click)="onBack()"
+      data-testid="end-back-to-lobby"
+      class="mx-auto mt-2 inline-flex h-10 items-center justify-center rounded-md bg-warm-400 px-5 text-sm font-semibold text-table-900 shadow transition hover:bg-warm-200"
+    >
       {{ 'game.end.back' | t }}
     </button>
   </section>

@@ -1,5 +1,8 @@
 {
   "app.title": "elk-briscola",
+  "nav.lobby": "Lobby",
+  "nav.profile": "Profilo",
+  "nav.logout": "Esci",
   "auth.login.title": "Accedi",
   "auth.login.submit": "Accedi",
   "auth.login.submitting": "Accesso in corso…",
@@ -40,6 +43,7 @@
   "profile.cardSet.saving": "Salvataggio…",
   "profile.cardSet.error": "Impossibile salvare la scelta del mazzo.",
   "lobby.title": "Lobby",
+  "lobby.subtitle": "Crea un tavolo o uniscine uno in attesa di giocatori.",
   "lobby.openList": "Partite aperte",
   "lobby.runningList": "In corso",
   "lobby.createButton": "Crea partita",

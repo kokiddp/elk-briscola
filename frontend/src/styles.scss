@@ -1,4 +1,44 @@
-/* You can add global styles to this file, and also import other style files */
+@import 'tailwindcss';
+
+/**
+ * Project-wide tokens. Tailwind v4's `@theme` block extends the default
+ * design tokens — the variables below surface as `bg-brand-500`,
+ * `text-table-800`, etc. The palette is muted-green felt + warm wood;
+ * Georgia for card-set rendering, the system stack for everything else.
+ */
+@theme {
+  --color-brand-50: #ecfdf5;
+  --color-brand-100: #d1fae5;
+  --color-brand-300: #6ee7b7;
+  --color-brand-500: #2e7d32;
+  --color-brand-600: #1f6b28;
+  --color-brand-700: #1b5e20;
+  --color-table-900: #0e2a1e;
+  --color-table-800: #163d2b;
+  --color-felt: #1e5a3f;
+  --color-warm-50: #fffbeb;
+  --color-warm-200: #fde68a;
+  --color-warm-400: #fbbf24;
+  --color-warm-500: #f59e0b;
+  --font-display: 'Georgia', 'Times New Roman', serif;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  @apply bg-stone-50 text-stone-900 antialiased;
+  font-family:
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    Roboto,
+    Arial,
+    sans-serif;
+}
 
 /**
  * Honor `prefers-reduced-motion` across every component, including the

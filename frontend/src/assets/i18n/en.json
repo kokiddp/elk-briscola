@@ -1,5 +1,8 @@
 {
   "app.title": "elk-briscola",
+  "nav.lobby": "Lobby",
+  "nav.profile": "Profile",
+  "nav.logout": "Sign out",
   "auth.login.title": "Sign in",
   "auth.login.submit": "Sign in",
   "auth.login.submitting": "Signing in…",
@@ -40,6 +43,7 @@
   "profile.cardSet.saving": "Saving…",
   "profile.cardSet.error": "Could not save your card-set choice.",
   "lobby.title": "Lobby",
+  "lobby.subtitle": "Create a table or jump into one waiting for players.",
   "lobby.openList": "Open games",
   "lobby.runningList": "In progress",
   "lobby.createButton": "Create game",

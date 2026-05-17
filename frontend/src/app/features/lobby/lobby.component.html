@@ -1,13 +1,28 @@
-<section class="lobby-page">
-  <header class="lobby-header">
-    <h1>{{ 'lobby.title' | t }}</h1>
-    <button type="button" (click)="openCreateDialog()" data-testid="create-game">
+<section class="mx-auto w-full max-w-6xl px-4 py-8">
+  <header class="mb-6 flex items-center justify-between gap-4">
+    <div>
+      <h1 class="font-display text-3xl font-semibold text-stone-900">
+        {{ 'lobby.title' | t }}
+      </h1>
+      <p class="text-sm text-stone-500">{{ 'lobby.subtitle' | t }}</p>
+    </div>
+    <button
+      type="button"
+      (click)="openCreateDialog()"
+      data-testid="create-game"
+      class="inline-flex h-10 items-center gap-2 rounded-md bg-brand-600 px-4 text-sm font-semibold text-white shadow transition hover:bg-brand-700"
+    >
+      <span aria-hidden="true">+</span>
       {{ 'lobby.createButton' | t }}
     </button>
   </header>
 
   @if (pendingGame(); as p) {
-    <p class="pending-banner" role="status" data-testid="pending-banner">
+    <p
+      class="mb-6 rounded-lg border border-warm-200 bg-warm-50 px-4 py-3 text-sm text-amber-900"
+      role="status"
+      data-testid="pending-banner"
+    >
       {{
         'lobby.waitingForPlayers'
           | t: { name: p.name, filled: p.occupiedSeats, total: p.totalSeats }
@@ -15,24 +30,37 @@
     </p>
   }
 
-  <div class="lobby-body">
-    <div class="lists">
-      <article class="lobby-list">
-        <h2>{{ 'lobby.openList' | t }}</h2>
+  <div class="grid gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(20rem,1fr)]">
+    <div class="grid gap-6 md:grid-cols-2">
+      <article class="rounded-xl border border-stone-200 bg-white p-5 shadow-sm">
+        <h2 class="mb-3 font-display text-lg font-semibold text-stone-900">
+          {{ 'lobby.openList' | t }}
+        </h2>
         @if (openGames().length === 0) {
-          <p class="empty">{{ 'lobby.empty.open' | t }}</p>
+          <p class="text-sm italic text-stone-400">{{ 'lobby.empty.open' | t }}</p>
         } @else {
-          <ul data-testid="open-list">
+          <ul data-testid="open-list" class="flex flex-col gap-2">
             @for (game of openGames(); track game.id) {
-              <li class="row">
-                <span class="chip mode-chip" data-testid="mode-chip">{{
-                  modeLabel(game.mode)
-                }}</span>
-                <span class="name" data-testid="game-name">{{ game.name }}</span>
-                @if (game.isPrivate) {
-                  <span class="chip private-chip">{{ 'lobby.private' | t }}</span>
-                }
-                <span class="seats" data-testid="seats">
+              <li
+                class="grid grid-cols-[auto_1fr_auto_auto] items-center gap-3 rounded-md bg-stone-50 px-3 py-2 ring-1 ring-inset ring-stone-200"
+              >
+                <span
+                  class="rounded-full bg-stone-200 px-2 py-0.5 text-xs font-medium text-stone-700"
+                  data-testid="mode-chip"
+                >
+                  {{ modeLabel(game.mode) }}
+                </span>
+                <span class="truncate font-medium text-stone-900" data-testid="game-name">
+                  {{ game.name }}
+                  @if (game.isPrivate) {
+                    <span
+                      class="ml-1 rounded-full bg-warm-400/20 px-2 py-0.5 text-xs font-medium text-amber-800"
+                    >
+                      {{ 'lobby.private' | t }}
+                    </span>
+                  }
+                </span>
+                <span class="font-mono text-xs tabular-nums text-stone-500" data-testid="seats">
                   {{ game.occupiedSeats }} / {{ game.totalSeats }}
                 </span>
                 <button
@@ -40,6 +68,7 @@
                   (click)="onJoin(game)"
                   [disabled]="joiningId() !== null"
                   data-testid="join-button"
+                  class="inline-flex h-8 items-center justify-center rounded-md bg-brand-600 px-3 text-xs font-semibold text-white shadow-sm transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   @if (joiningId() === game.id) {
                     {{ 'lobby.joining' | t }}
@@ -53,17 +82,27 @@
         }
       </article>
 
-      <article class="lobby-list">
-        <h2>{{ 'lobby.runningList' | t }}</h2>
+      <article class="rounded-xl border border-stone-200 bg-white p-5 shadow-sm">
+        <h2 class="mb-3 font-display text-lg font-semibold text-stone-900">
+          {{ 'lobby.runningList' | t }}
+        </h2>
         @if (runningGames().length === 0) {
-          <p class="empty">{{ 'lobby.empty.running' | t }}</p>
+          <p class="text-sm italic text-stone-400">{{ 'lobby.empty.running' | t }}</p>
         } @else {
-          <ul data-testid="running-list">
+          <ul data-testid="running-list" class="flex flex-col gap-2">
             @for (game of runningGames(); track game.id) {
-              <li class="row">
-                <span class="chip mode-chip">{{ modeLabel(game.mode) }}</span>
-                <span class="name">{{ game.name }}</span>
-                <span class="seats">{{ game.occupiedSeats }} / {{ game.totalSeats }}</span>
+              <li
+                class="grid grid-cols-[auto_1fr_auto] items-center gap-3 rounded-md bg-stone-50 px-3 py-2 ring-1 ring-inset ring-stone-200"
+              >
+                <span
+                  class="rounded-full bg-stone-200 px-2 py-0.5 text-xs font-medium text-stone-700"
+                >
+                  {{ modeLabel(game.mode) }}
+                </span>
+                <span class="truncate font-medium text-stone-900">{{ game.name }}</span>
+                <span class="font-mono text-xs tabular-nums text-stone-500">
+                  {{ game.occupiedSeats }} / {{ game.totalSeats }}
+                </span>
               </li>
             }
           </ul>

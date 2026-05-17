@@ -1,7 +1,31 @@
-<section class="home">
-  <h1>{{ welcomeMessage() }}</h1>
-  <p>{{ placeholder() }}</p>
-  <a routerLink="/lobby" data-testid="go-to-lobby">{{ lobbyLinkLabel() }}</a>
-  <a routerLink="/profile" data-testid="go-to-profile">{{ profileLinkLabel() }}</a>
-  <button type="button" (click)="logout()" data-testid="logout">{{ logoutLabel() }}</button>
+<section class="mx-auto w-full max-w-4xl px-4 py-12">
+  <div class="rounded-2xl bg-gradient-to-br from-table-800 to-table-900 p-10 text-white shadow-xl">
+    <p class="font-display text-3xl font-semibold sm:text-4xl">{{ welcomeMessage() }}</p>
+    <p class="mt-2 max-w-prose text-stone-100/80">{{ placeholder() }}</p>
+
+    <div class="mt-8 flex flex-wrap gap-3">
+      <a
+        routerLink="/lobby"
+        data-testid="go-to-lobby"
+        class="inline-flex items-center justify-center rounded-md bg-warm-400 px-5 py-2.5 text-sm font-semibold text-table-900 shadow transition hover:bg-warm-200"
+      >
+        {{ lobbyLinkLabel() }}
+      </a>
+      <a
+        routerLink="/profile"
+        data-testid="go-to-profile"
+        class="inline-flex items-center justify-center rounded-md border border-white/30 bg-white/10 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-white/20"
+      >
+        {{ profileLinkLabel() }}
+      </a>
+      <button
+        type="button"
+        (click)="logout()"
+        data-testid="logout"
+        class="ml-auto inline-flex items-center justify-center rounded-md border border-white/20 px-4 py-2 text-sm font-medium text-white/90 transition hover:bg-white/10"
+      >
+        {{ logoutLabel() }}
+      </button>
+    </div>
+  </div>
 </section>

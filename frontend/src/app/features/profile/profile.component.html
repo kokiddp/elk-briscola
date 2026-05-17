@@ -1,46 +1,69 @@
-<section class="profile">
-  <header class="profile-header">
-    <h1>{{ 'profile.title' | t }}</h1>
-    <p class="subtitle">{{ 'profile.greeting' | t: { name: displayName() } }}</p>
-    <nav class="profile-nav">
-      <a routerLink="/lobby" data-testid="profile-back">{{ 'profile.back' | t }}</a>
-    </nav>
+<section class="mx-auto w-full max-w-5xl px-4 py-8">
+  <header class="mb-8">
+    <h1 class="font-display text-3xl font-semibold text-stone-900">
+      {{ 'profile.title' | t }}
+    </h1>
+    <p class="text-sm text-stone-500">
+      {{ 'profile.greeting' | t: { name: displayName() } }}
+    </p>
   </header>
 
-  <section class="card-sets" aria-labelledby="card-sets-heading">
-    <h2 id="card-sets-heading">{{ 'profile.cardSet.title' | t }}</h2>
-    <p class="hint">{{ 'profile.cardSet.hint' | t }}</p>
+  <section
+    class="rounded-2xl border border-stone-200 bg-white p-6 shadow-sm"
+    aria-labelledby="card-sets-heading"
+  >
+    <div class="mb-4 flex flex-col gap-1">
+      <h2 id="card-sets-heading" class="font-display text-xl font-semibold text-stone-900">
+        {{ 'profile.cardSet.title' | t }}
+      </h2>
+      <p class="text-sm text-stone-500">{{ 'profile.cardSet.hint' | t }}</p>
+    </div>
 
-    <ul class="grid" data-testid="card-set-grid">
+    <ul
+      class="grid grid-cols-[repeat(auto-fill,minmax(13rem,1fr))] gap-4"
+      data-testid="card-set-grid"
+    >
       @for (manifest of manifests(); track trackById($index, manifest)) {
         <li>
           <button
             type="button"
-            class="card-set-tile"
-            [class.active]="isActive(manifest.id)"
-            [class.pending]="isPending(manifest.id)"
+            [class]="
+              'relative flex w-full flex-col items-stretch gap-2 rounded-xl border-2 bg-stone-50 p-3 text-left shadow-sm transition disabled:cursor-not-allowed disabled:opacity-55 ' +
+              (isActive(manifest.id)
+                ? 'active border-brand-600'
+                : isPending(manifest.id)
+                  ? 'border-warm-400'
+                  : 'border-transparent hover:-translate-y-0.5 hover:border-stone-300')
+            "
             [disabled]="pendingId() !== null && !isPending(manifest.id)"
             (click)="onSelect(manifest.id)"
             data-testid="card-set-tile"
             [attr.data-set-id]="manifest.id"
           >
             <img
-              class="preview"
+              class="preview block aspect-[600/280] w-full rounded-md bg-white object-contain"
               [src]="previewUrl(manifest)"
               (error)="onPreviewError($event)"
               alt=""
               loading="lazy"
               decoding="async"
             />
-            <span class="name">{{ manifest.name }}</span>
-            <small class="license">{{ manifest.license }}</small>
+            <span class="font-semibold text-stone-900">{{ manifest.name }}</span>
+            <small class="text-xs text-stone-500">{{ manifest.license }}</small>
             @if (isActive(manifest.id)) {
-              <span class="badge active-badge" data-testid="active-badge">
+              <span
+                class="absolute right-2 top-2 rounded-full bg-brand-600 px-2 py-0.5 text-xs font-semibold text-white"
+                data-testid="active-badge"
+              >
                 {{ 'profile.cardSet.active' | t }}
               </span>
             }
             @if (isPending(manifest.id)) {
-              <span class="badge pending-badge">{{ 'profile.cardSet.saving' | t }}</span>
+              <span
+                class="absolute right-2 top-2 rounded-full bg-warm-400 px-2 py-0.5 text-xs font-semibold text-amber-900"
+              >
+                {{ 'profile.cardSet.saving' | t }}
+              </span>
             }
           </button>
         </li>

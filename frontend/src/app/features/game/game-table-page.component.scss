@@ -2,15 +2,17 @@
   display: block;
 }
 
+/**
+ * Tailwind doesn't model named grid-template-areas elegantly, so we keep
+ * the table layout in SCSS. The visual chrome (backgrounds, rings,
+ * spacing inside each zone) lives in the template as Tailwind classes —
+ * this file is layout-only.
+ */
 .game-table {
-  min-height: 100vh;
   display: grid;
   gap: 0.75rem;
   padding: 1rem;
-  background: linear-gradient(180deg, #163d2b 0%, #0e2a1e 100%);
-  color: #f4f4f0;
 
-  /* 2p layout — desktop default */
   &.mode-2p {
     grid-template-columns: 14rem 1fr 1fr 12rem;
     grid-template-rows: 8rem 1fr 1fr 10rem;
@@ -21,7 +23,6 @@
       'my-hand my-hand my-hand chat';
   }
 
-  /* 4p layout — desktop default */
   &.mode-4p {
     grid-template-columns: 12rem 1fr 1fr 12rem;
     grid-template-rows: 8rem 1fr 1fr 10rem;
@@ -56,32 +57,6 @@
   }
 }
 
-.connecting {
-  grid-column: 1 / -1;
-  align-self: center;
-  justify-self: center;
-  font-style: italic;
-  opacity: 0.8;
-}
-
-.seat,
-.briscola-zone,
-.trick-zone,
-.scoreboard-zone,
-.my-hand-zone,
-.chat-zone {
-  background: rgba(255, 255, 255, 0.06);
-  border-radius: 0.5rem;
-  padding: 0.75rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  font-size: 0.85rem;
-  color: rgba(255, 255, 255, 0.65);
-  border: 1px dashed rgba(255, 255, 255, 0.12);
-}
-
 .opponent-top {
   grid-area: opponent;
 }
@@ -91,8 +66,6 @@
 .opponent-right {
   grid-area: opp-right;
 }
-
-/* 4p three-opponent ordering follows opponentSlots() iteration order. */
 .mode-4p .opponent-0 {
   grid-area: opp-left;
 }

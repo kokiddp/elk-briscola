@@ -1,11 +1,6 @@
-:host {
-  display: block;
-}
-
-.home {
-  max-width: 40rem;
-  margin: 4rem auto;
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
+/**
+ * Empty by design. Styling lives in the component template via Tailwind
+ * utility classes; this file is kept as a per-component escape hatch
+ * for the rare style that can't be expressed as a class (custom
+ * keyframes, complex selectors, pseudo-elements, etc.).
+ */

@@ -1,9 +1,15 @@
-<div class="my-hand" [class.disabled]="disabled()" data-testid="my-hand">
+<div
+  class="flex min-h-[7rem] items-end justify-center gap-2 p-2"
+  [class.disabled]="disabled()"
+  [class.opacity-70]="disabled()"
+  data-testid="my-hand"
+>
   @for (card of cards(); track trackByCard($index, card)) {
     <button
       type="button"
-      class="hand-slot"
-      [class.playable]="isPlayable(card)"
+      class="border-0 bg-transparent p-0 transition disabled:cursor-not-allowed motion-safe:hover:enabled:-translate-y-2"
+      [class.cursor-pointer]="isPlayable(card)"
+      [class.cursor-not-allowed]="!isPlayable(card)"
       [disabled]="!isPlayable(card)"
       (click)="onCardClick(card)"
       [attr.aria-label]="card.rank + ' di ' + card.suit"
