@@ -27,6 +27,7 @@
             <img
               class="preview"
               [src]="previewUrl(manifest)"
+              (error)="onPreviewError($event)"
               alt=""
               loading="lazy"
               decoding="async"

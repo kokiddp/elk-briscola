@@ -1754,7 +1754,7 @@ The catalog and the controller live in `Briscola.Api`, NOT in the application la
 
 - Located at `/profile`. Shows preview thumbnails; click selects.
 
-### Step 9.5 — Piacentine slot [S]
+### Step 9.5 — Piacentine slot [S] [x]
 
 - `wwwroot/card-sets/piacentine/manifest.json` exists with the metadata; no images. Resolver falls back to `placeholder` per missing card and warns once.
 

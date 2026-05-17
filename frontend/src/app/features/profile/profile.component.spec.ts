@@ -129,6 +129,22 @@ describe('ProfileComponent', () => {
     expect(setActiveSet).not.toHaveBeenCalled();
   });
 
+  it('falls back to the placeholder preview when a tile image 404s', async () => {
+    await setup();
+    const piacentineImg = screen
+      .getAllByTestId('card-set-tile')[1]
+      ?.querySelector('img.preview') as HTMLImageElement | null;
+    if (!piacentineImg) throw new Error('test setup');
+    expect(piacentineImg.getAttribute('src')).toBe('/card-sets/piacentine/preview.png');
+    piacentineImg.dispatchEvent(new Event('error'));
+    expect(piacentineImg.getAttribute('src')).toBe('/card-sets/placeholder/preview.svg');
+
+    // Bouncing the same error again must not loop.
+    const afterFallback = piacentineImg.getAttribute('src');
+    piacentineImg.dispatchEvent(new Event('error'));
+    expect(piacentineImg.getAttribute('src')).toBe(afterFallback);
+  });
+
   it('shows a toast when setActiveSet rejects', async () => {
     const { toastError, fixture } = await setup({
       active: 'placeholder',

@@ -1,0 +1,9 @@
+{
+  "id": "piacentine",
+  "name": "Piacentine",
+  "license": "Pending — see README §Card sets sourcing note",
+  "preview": "preview.svg",
+  "fileExtension": "svg",
+  "filePattern": "{suit}-{rank}.{ext}",
+  "back": "back.svg"
+}

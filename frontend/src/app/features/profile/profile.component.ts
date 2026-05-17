@@ -42,6 +42,23 @@ export class ProfileComponent {
     return `/card-sets/${manifest.id}/${manifest.preview}`;
   }
 
+  /**
+   * Tiles whose preview asset 404s (e.g. an unfinished set like
+   * `piacentine`) fall back once to the placeholder preview so the picker
+   * never shows a broken image. We don't bounce back if the placeholder
+   * itself is unavailable — that would indicate an installation bug,
+   * caught by the backend's startup validator.
+   */
+  onPreviewError(event: Event): void {
+    const img = event.target as HTMLImageElement | null;
+    if (!img) return;
+    const fallback = '/card-sets/placeholder/preview.svg';
+    if (img.src.endsWith(fallback)) {
+      return;
+    }
+    img.src = fallback;
+  }
+
   async onSelect(id: string): Promise<void> {
     if (this.pendingId() || this.isActive(id)) {
       return;
