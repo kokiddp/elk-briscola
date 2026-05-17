@@ -242,6 +242,9 @@ if (migrations.RunOnStartup)
 }
 
 // 13) Middleware pipeline (order matters).
+// Correlation-Id MUST run before SerilogRequestLogging so the request-summary
+// line carries the same id the per-request logs do.
+app.UseMiddleware<Briscola.Api.Middleware.CorrelationIdMiddleware>();
 app.UseSerilogRequestLogging();
 app.UseExceptionHandler(new ExceptionHandlerOptions
 {

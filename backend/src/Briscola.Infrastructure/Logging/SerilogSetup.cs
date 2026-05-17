@@ -39,6 +39,7 @@ public static class SerilogSetup
 
         if (environment.IsDevelopment())
         {
+            // {Properties:j} dumps every enriched property (CorrelationId included).
             config
                 .WriteTo.Console(
                     outputTemplate:
