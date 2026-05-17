@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit, computed, inject } from '@angular/core';
+import { Component, OnDestroy, OnInit, computed, effect, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { ErrorToastService } from '../../core/error-toast.service';
 import { I18nService } from '../../core/i18n.service';
@@ -6,7 +6,7 @@ import { I18nPipe } from '../../shared/i18n.pipe';
 import { BriscolaIndicatorComponent } from './briscola-indicator.component';
 import { ChatPanelComponent } from './chat-panel.component';
 import { EndGameDialogComponent } from './end-game-dialog.component';
-import { Card } from './game.models';
+import { Card, InvalidMoveCode } from './game.models';
 import { GameService } from './game.service';
 import { MyHandComponent } from './my-hand.component';
 import { OpponentAreaComponent } from './opponent-area.component';
@@ -19,6 +19,16 @@ interface OpponentSlot {
   seatIndex: number;
   isPartner: boolean;
 }
+
+const INVALID_MOVE_I18N: Record<InvalidMoveCode, string> = {
+  NotYourTurn: 'game.invalidMove.notYourTurn',
+  CardNotInHand: 'game.invalidMove.cardNotInHand',
+  GameFinished: 'game.invalidMove.gameFinished',
+  WrongPhase: 'game.invalidMove.wrongPhase',
+  PileViewNotAllowed: 'game.invalidMove.pileViewNotAllowed',
+  SpectatorsCannotChat: 'game.invalidMove.spectatorsCannotChat',
+  RateLimited: 'game.invalidMove.rateLimited',
+};
 
 @Component({
   selector: 'bri-game-table-page',
@@ -56,20 +66,16 @@ export class GameTablePageComponent implements OnInit, OnDestroy {
   readonly is4p = computed(() => this.state()?.mode === 'FourPlayerTeams');
 
   /**
-   * v1 seat resolution: pick the seat whose hand size matches our myHand
-   * length. When multiple seats tie, we fall back to the first match. The
-   * backend snapshot doesn't yet ship `mySeatIndex`; until that lands this
-   * heuristic is good enough for layout and active-seat highlighting.
+   * v1 seat resolution. Latched once: the first snapshot that lets us derive
+   * a unique seat (exactly one seat in `handCountsBySeat` matches the visible
+   * hand length) sticks. Hand sizes drift in and out of alignment between
+   * players as the game progresses, so we MUST NOT recompute per snapshot —
+   * doing so would make the player and opponent swap visually. Known
+   * follow-up: ship `mySeatIndex` directly in the wire snapshot to retire
+   * this heuristic.
    */
-  readonly mySeatIndex = computed<number | null>(() => {
-    const s = this.state();
-    if (!s || !s.myHand) {
-      return null;
-    }
-    const target = s.myHand.length;
-    const idx = s.handCountsBySeat.findIndex((c) => c === target);
-    return idx === -1 ? null : idx;
-  });
+  private readonly latchedSeat = signal<number | null>(null);
+  readonly mySeatIndex = computed<number | null>(() => this.latchedSeat());
 
   readonly opponentSlots = computed<OpponentSlot[]>(() => {
     const s = this.state();
@@ -78,11 +84,17 @@ export class GameTablePageComponent implements OnInit, OnDestroy {
       return [];
     }
     const total = s.handCountsBySeat.length;
+    if (total <= 1) {
+      return [];
+    }
+    // Rotate so the seat across (partner in 4p) is always the middle slot.
+    // For 4p (total = 4) the order is [left, top, right] = [me+3, me+2, me+1]
+    // mod 4. For 2p (total = 2) the only opponent is me+1 mod 2.
     const slots: OpponentSlot[] = [];
-    for (let i = 0; i < total; i++) {
-      if (i === me) continue;
-      const isPartner = s.mode === 'FourPlayerTeams' && i % 2 === me % 2;
-      slots.push({ seatIndex: i, isPartner });
+    for (let offset = total - 1; offset >= 1; offset--) {
+      const seatIndex = (me + offset) % total;
+      const isPartner = s.mode === 'FourPlayerTeams' && seatIndex % 2 === me % 2;
+      slots.push({ seatIndex, isPartner });
     }
     return slots;
   });
@@ -107,6 +119,46 @@ export class GameTablePageComponent implements OnInit, OnDestroy {
 
   readonly opponentCountFor = (seatIndex: number): number =>
     this.state()?.handCountsBySeat[seatIndex] ?? 0;
+
+  constructor() {
+    // Latch mySeat the first time we can identify it unambiguously.
+    effect(() => {
+      if (this.latchedSeat() !== null) {
+        return;
+      }
+      const s = this.state();
+      if (!s || !s.myHand) {
+        return;
+      }
+      const target = s.myHand.length;
+      let unique: number | null = null;
+      for (let i = 0; i < s.handCountsBySeat.length; i++) {
+        if (s.handCountsBySeat[i] === target) {
+          if (unique !== null) {
+            // Ambiguous: more than one seat matches. Wait for a later
+            // snapshot where counts diverge before latching.
+            return;
+          }
+          unique = i;
+        }
+      }
+      if (unique !== null) {
+        this.latchedSeat.set(unique);
+      }
+    });
+
+    // Surface invalidMove rejections as a toast (i18n'd by code), then clear
+    // the signal so the same code can fire again later.
+    effect(() => {
+      const code = this.game.lastInvalidMove();
+      if (!code) {
+        return;
+      }
+      const key = INVALID_MOVE_I18N[code] ?? 'game.invalidMove.generic';
+      this.toast.error(this.i18n.t(key));
+      this.game.clearInvalidMove();
+    });
+  }
 
   ngOnInit(): void {
     const gameId = this.route.snapshot.paramMap.get('id');
@@ -135,7 +187,7 @@ export class GameTablePageComponent implements OnInit, OnDestroy {
       await this.game.sendChat(text);
     } catch {
       // Server-side rate-limit / spectator rejection comes back via the
-      // invalidMove signal; no toast needed here.
+      // invalidMove signal — already handled by the toast effect above.
     }
   }
 

@@ -82,4 +82,14 @@ describe('MyHandComponent', () => {
     fireEvent.click(first);
     expect(onPlay).not.toHaveBeenCalled();
   });
+
+  it('marks the wrapper .disabled when not my turn', async () => {
+    await setup({ myTurn: false });
+    expect(screen.getByTestId('my-hand').classList.contains('disabled')).toBe(true);
+  });
+
+  it('marks the wrapper .disabled when legalMoves is empty even on my turn', async () => {
+    await setup({ myTurn: true, legal: new Set() });
+    expect(screen.getByTestId('my-hand').classList.contains('disabled')).toBe(true);
+  });
 });

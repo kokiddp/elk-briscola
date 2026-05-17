@@ -53,19 +53,35 @@ function makeSnapshot(opts: Partial<RedactedStateForUser> = {}): RedactedStateFo
 
 // Internal accessor cast to drive the private event reducers without
 // spinning up a real SignalR connection.
-function reducers(svc: GameService) {
-  return svc as unknown as {
-    applySnapshot(s: RedactedStateForUser): void;
-    upsertDisconnect(seat: number, iso: string): void;
-    removeDisconnect(seat: number): void;
-    upsertIdleWarning(seat: number, iso: string): void;
-    appendChat(m: GameChatMessage): void;
-    stateSig: {
-      update: (fn: (s: RedactedStateForUser | null) => RedactedStateForUser | null) => void;
-    };
-    lastInvalidMoveSig: { set: (code: string) => void };
-    lastFinishedSig: { set: (e: GameFinishedEvent) => void };
+interface ReducerHandles {
+  applySnapshot(s: RedactedStateForUser): void;
+  upsertDisconnect(seat: number, iso: string): void;
+  removeDisconnect(seat: number): void;
+  upsertIdleWarning(seat: number, iso: string): void;
+  appendChat(m: GameChatMessage): void;
+  stateSig: {
+    set: (s: RedactedStateForUser | null) => void;
+    update: (fn: (s: RedactedStateForUser | null) => RedactedStateForUser | null) => void;
   };
+  lastInvalidMoveSig: { set: (code: string) => void };
+  lastFinishedSig: { set: (e: GameFinishedEvent) => void };
+}
+
+function reducers(svc: GameService): ReducerHandles {
+  return svc as unknown as ReducerHandles;
+}
+
+/** Drives `phaseChanged` the same way the hub callback does. */
+function applyPhaseChanged(svc: GameService, phase: RedactedStateForUser['phase']): void {
+  reducers(svc).stateSig.update((s) => (s ? { ...s, phase } : s));
+}
+
+/** Drives `gameFinished` the same way the hub callback does. */
+function applyGameFinished(svc: GameService, evt: GameFinishedEvent): void {
+  reducers(svc).lastFinishedSig.set(evt);
+  reducers(svc).stateSig.update((s) =>
+    s ? { ...s, phase: 'Finished', seatScores: evt.seatScores, outcome: evt.outcome } : s,
+  );
 }
 
 describe('GameService.applySnapshot', () => {
@@ -191,5 +207,49 @@ describe('GameService invalid-move signal', () => {
     expect(svc.lastInvalidMove()).toBe('CardNotInHand');
     svc.clearInvalidMove();
     expect(svc.lastInvalidMove()).toBeNull();
+  });
+});
+
+describe('GameService phase + game-finished reducers', () => {
+  it('phaseChanged swaps the phase in place without losing other fields', () => {
+    const svc = makeService();
+    reducers(svc).applySnapshot(makeSnapshot({ phase: 'Playing', seatScores: [12, 7] }));
+    applyPhaseChanged(svc, 'LastHand');
+    expect(svc.state()?.phase).toBe('LastHand');
+    expect(svc.state()?.seatScores).toEqual([12, 7]);
+  });
+
+  it('gameFinished sets phase=Finished, persists outcome + seatScores, and exposes lastFinished', () => {
+    const svc = makeService();
+    reducers(svc).applySnapshot(makeSnapshot({ phase: 'LastHand' }));
+    const evt: GameFinishedEvent = {
+      outcome: { kind: 'Winner', winnerKey: 1 },
+      seatScores: [55, 65],
+      reason: 'Normal',
+    };
+    applyGameFinished(svc, evt);
+    expect(svc.state()?.phase).toBe('Finished');
+    expect(svc.state()?.seatScores).toEqual([55, 65]);
+    expect(svc.state()?.outcome).toEqual(evt.outcome);
+    expect(svc.lastFinished()).toEqual(evt);
+  });
+
+  it('gameFinished is a no-op when no snapshot has been applied yet', () => {
+    const svc = makeService();
+    applyGameFinished(svc, {
+      outcome: { kind: 'Winner', winnerKey: 0 },
+      seatScores: [60, 60],
+      reason: 'Normal',
+    });
+    expect(svc.state()).toBeNull();
+    expect(svc.lastFinished()).not.toBeNull();
+  });
+});
+
+describe('GameService.disconnect (no connection)', () => {
+  it('is a safe no-op when no game is currently connected', async () => {
+    const svc = makeService();
+    await svc.disconnect();
+    expect(svc.state()).toBeNull();
   });
 });

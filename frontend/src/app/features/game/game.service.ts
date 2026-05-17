@@ -94,22 +94,34 @@ export class GameService {
     this.currentGameId = gameId;
     this.resetGameState();
 
+    // Build + own a LOCAL reference. An external disconnect() that fires
+    // while start() is in flight will null `this.connection`; we must not
+    // touch `this.connection.state` after that point.
+    const conn = this.buildConnection();
+    this.connection = conn;
+
     this.connectPromise = (async () => {
       try {
-        this.connection = this.buildConnection();
-        await this.connection.start();
-        this.connectionStateSig.set(this.connection.state);
-        if (this.connection.state === HubConnectionState.Connected) {
-          await this.connection.invoke('JoinGame', gameId);
+        await conn.start();
+        // External disconnect won the race: stop and bail without throwing.
+        if (this.connection !== conn) {
+          await conn.stop().catch(() => undefined);
+          return;
+        }
+        this.connectionStateSig.set(conn.state);
+        if (conn.state === HubConnectionState.Connected) {
+          await conn.invoke('JoinGame', gameId);
         }
       } catch (err) {
-        const dead = this.connection;
-        this.connection = null;
-        this.currentGameId = null;
-        this.connectionStateSig.set(HubConnectionState.Disconnected);
-        if (dead) {
-          await dead.stop().catch(() => undefined);
+        // If we still own the connection, drop it so the next connect()
+        // rebuilds. If an external disconnect already swapped it out,
+        // don't trample its bookkeeping.
+        if (this.connection === conn) {
+          this.connection = null;
+          this.currentGameId = null;
+          this.connectionStateSig.set(HubConnectionState.Disconnected);
         }
+        await conn.stop().catch(() => undefined);
         throw err;
       } finally {
         this.connectPromise = null;
@@ -119,11 +131,19 @@ export class GameService {
   }
 
   async disconnect(): Promise<void> {
+    // Wait out any in-flight connect attempt so we don't race with start().
+    if (this.connectPromise) {
+      await this.connectPromise.catch(() => undefined);
+    }
     const conn = this.connection;
     const gameId = this.currentGameId;
+    // Clear the field before awaiting stop() — a concurrent connect() that
+    // observes `this.connection !== local-conn` will see a fresh slate
+    // instead of fighting the in-flight stop.
+    this.connection = null;
+    this.currentGameId = null;
+    this.connectionStateSig.set(HubConnectionState.Disconnected);
     if (!conn) {
-      this.currentGameId = null;
-      this.connectionStateSig.set(HubConnectionState.Disconnected);
       return;
     }
     try {
@@ -133,10 +153,6 @@ export class GameService {
       await conn.stop();
     } catch {
       // best-effort
-    } finally {
-      this.connection = null;
-      this.currentGameId = null;
-      this.connectionStateSig.set(HubConnectionState.Disconnected);
     }
   }
 

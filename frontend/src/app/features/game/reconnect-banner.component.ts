@@ -1,13 +1,4 @@
-import {
-  Component,
-  DestroyRef,
-  OnInit,
-  computed,
-  effect,
-  inject,
-  input,
-  signal,
-} from '@angular/core';
+import { Component, computed, effect, input, signal } from '@angular/core';
 import { I18nPipe } from '../../shared/i18n.pipe';
 
 @Component({
@@ -17,9 +8,7 @@ import { I18nPipe } from '../../shared/i18n.pipe';
   templateUrl: './reconnect-banner.component.html',
   styleUrl: './reconnect-banner.component.scss',
 })
-export class ReconnectBannerComponent implements OnInit {
-  private readonly destroyRef = inject(DestroyRef);
-
+export class ReconnectBannerComponent {
   readonly deadline = input<Date | null>(null);
   readonly seatIndex = input<number | null>(null);
 
@@ -54,9 +43,5 @@ export class ReconnectBannerComponent implements OnInit {
       const id = setInterval(() => this.nowSig.set(Date.now()), 1000);
       onCleanup(() => clearInterval(id));
     });
-  }
-
-  ngOnInit(): void {
-    this.destroyRef.onDestroy(() => undefined);
   }
 }
