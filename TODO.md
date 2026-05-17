@@ -1735,7 +1735,7 @@ The catalog and the controller live in `Briscola.Api`, NOT in the application la
 
 **`GET /api/v1/card-sets`** returns the cached catalog as a list of DTOs (id, name, license, preview path). Response is the same for every caller (no auth state changes the result), so it can be served behind a 5-minute response-cache header in production.
 
-### Step 9.2 — `placeholder` SVG set [S]
+### Step 9.2 — `placeholder` SVG set [S] [x]
 
 **Where:** `backend/src/Briscola.Api/wwwroot/card-sets/placeholder/`
 

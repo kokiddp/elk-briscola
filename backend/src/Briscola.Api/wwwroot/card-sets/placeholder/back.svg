@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 280"
+     role="img" aria-label="Card back">
+  <defs>
+    <pattern id="weave" x="0" y="0" width="20" height="20"
+             patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <rect width="20" height="20" fill="#163d2b"/>
+      <path d="M0 10 L20 10 M10 0 L10 20" stroke="#1e5a3f" stroke-width="2"/>
+    </pattern>
+  </defs>
+  <rect x="2" y="2" width="196" height="276" rx="8" ry="8"
+        fill="url(#weave)" stroke="#0e2a1e" stroke-width="3"/>
+  <rect x="22" y="22" width="156" height="236" rx="6" ry="6"
+        fill="none" stroke="#ffd54f" stroke-width="2" opacity="0.55"/>
+  <text x="100" y="156" text-anchor="middle"
+        font-family="Georgia, serif" font-weight="700" font-size="32"
+        fill="#ffd54f" opacity="0.85">elk</text>
+</svg>

@@ -314,6 +314,20 @@ app.MapHub<Briscola.Api.Hubs.GameHub>("/hubs/game");
 // 15) Liveness ping at root (covered by HealthController too).
 app.MapGet("/", () => Results.Ok("elk-briscola api"));
 
+// 16) Startup validation: the README mandates that the bundled
+//     `placeholder` card set is always present. Treat its absence as an
+//     installation bug — the resolver's per-card fallback relies on it,
+//     so a missing placeholder would leave broken images. Fail fast.
+{
+    CardSetCatalog catalog = app.Services.GetRequiredService<CardSetCatalog>();
+    if (!catalog.Contains(CardSetCatalog.PlaceholderId))
+    {
+        throw new InvalidOperationException(
+            $"wwwroot/card-sets/{CardSetCatalog.PlaceholderId}/manifest.json is missing. " +
+            "The placeholder set is required — see README §Card sets.");
+    }
+}
+
 await app.RunAsync().ConfigureAwait(false);
 
 static byte[]? TryDecodeBase64(string s)

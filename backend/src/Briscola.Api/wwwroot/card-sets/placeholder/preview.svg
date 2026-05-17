@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 280"
+     role="img" aria-label="Placeholder card set preview">
+  <rect width="600" height="280" fill="#fafafa"/>
+  <g transform="translate(0, 0) scale(0.75)">
+    <rect x="2" y="2" width="196" height="276" rx="8" ry="8"
+          fill="#fff" stroke="#2e7d32" stroke-width="3"/>
+    <text x="100" y="160" text-anchor="middle" dominant-baseline="middle"
+          font-family="Georgia, serif" font-size="100" font-weight="700"
+          fill="#2e7d32">A</text>
+    <text x="100" y="220" text-anchor="middle" font-family="Georgia, serif"
+          font-size="22" fill="#2e7d32">Bastoni</text>
+  </g>
+  <g transform="translate(150, 0) scale(0.75)">
+    <rect x="2" y="2" width="196" height="276" rx="8" ry="8"
+          fill="#fff" stroke="#c62828" stroke-width="3"/>
+    <text x="100" y="160" text-anchor="middle" dominant-baseline="middle"
+          font-family="Georgia, serif" font-size="100" font-weight="700"
+          fill="#c62828">A</text>
+    <text x="100" y="220" text-anchor="middle" font-family="Georgia, serif"
+          font-size="22" fill="#c62828">Coppe</text>
+  </g>
+  <g transform="translate(300, 0) scale(0.75)">
+    <rect x="2" y="2" width="196" height="276" rx="8" ry="8"
+          fill="#fff" stroke="#f9a825" stroke-width="3"/>
+    <text x="100" y="160" text-anchor="middle" dominant-baseline="middle"
+          font-family="Georgia, serif" font-size="100" font-weight="700"
+          fill="#f9a825">A</text>
+    <text x="100" y="220" text-anchor="middle" font-family="Georgia, serif"
+          font-size="22" fill="#f9a825">Denari</text>
+  </g>
+  <g transform="translate(450, 0) scale(0.75)">
+    <rect x="2" y="2" width="196" height="276" rx="8" ry="8"
+          fill="#fff" stroke="#1565c0" stroke-width="3"/>
+    <text x="100" y="160" text-anchor="middle" dominant-baseline="middle"
+          font-family="Georgia, serif" font-size="100" font-weight="700"
+          fill="#1565c0">A</text>
+    <text x="100" y="220" text-anchor="middle" font-family="Georgia, serif"
+          font-size="22" fill="#1565c0">Spade</text>
+  </g>
+</svg>

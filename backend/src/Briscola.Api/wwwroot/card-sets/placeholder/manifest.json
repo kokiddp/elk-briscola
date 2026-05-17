@@ -1,0 +1,9 @@
+{
+  "id": "placeholder",
+  "name": "Placeholder",
+  "license": "Bundled — schematic SVGs",
+  "preview": "preview.svg",
+  "fileExtension": "svg",
+  "filePattern": "{suit}-{rank}.{ext}",
+  "back": "back.svg"
+}
