@@ -44,18 +44,20 @@ public sealed partial class CardSetCatalog : ICardSetCatalog
 
     private readonly ImmutableArray<CardSetManifestDto> _items;
     private readonly HashSet<string> _idIndex;
+    private readonly ImmutableArray<string> _idsView;
 
     public CardSetCatalog(ImmutableArray<CardSetManifestDto> items)
     {
         _items = items;
         _idIndex = items.Select(static m => m.Id).ToHashSet(StringComparer.Ordinal);
+        _idsView = items.Select(static m => m.Id).ToImmutableArray();
     }
 
     public ImmutableArray<CardSetManifestDto> All => _items;
 
     string ICardSetCatalog.DefaultSetId => PlaceholderId;
 
-    IReadOnlyList<string> ICardSetCatalog.AllIds => _items.Select(static m => m.Id).ToList();
+    IReadOnlyList<string> ICardSetCatalog.AllIds => _idsView;
 
     public bool Contains(string id) => _idIndex.Contains(id);
 
