@@ -1,3 +1,5 @@
+using Briscola.Application.Ranking;
+
 namespace Briscola.Application.Ports;
 
 /// <summary>
@@ -27,4 +29,12 @@ public interface IGameRepositoryFactory
 public interface IGameRepositoryScope : IAsyncDisposable, IDisposable
 {
     IGameRepository Repository { get; }
+
+    /// <summary>
+    /// Ranking service resolved from the same DI scope as
+    /// <see cref="Repository"/>, so per-match ranking updates can share the
+    /// EF <c>DbContext</c> and run alongside <c>SaveResultAsync</c> without
+    /// opening a second scope.
+    /// </summary>
+    RankingService Ranking { get; }
 }

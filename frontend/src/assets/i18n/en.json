@@ -54,6 +54,7 @@
   "profile.history.loading": "Loading match history…",
   "profile.history.empty": "No finished games yet — play one and check back!",
   "profile.history.error": "Could not load your match history.",
+  "profile.history.retry": "Retry",
   "profile.history.pageOf": "Page {page} of {total}",
   "profile.history.prev": "← Previous",
   "profile.history.next": "Next →",

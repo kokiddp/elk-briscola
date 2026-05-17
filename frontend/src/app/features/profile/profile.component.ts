@@ -33,6 +33,7 @@ export class ProfileComponent implements OnInit {
 
   readonly historyPage = signal<MatchHistoryPage | null>(null);
   readonly historyLoading = signal(false);
+  readonly historyError = signal(false);
   readonly historyPageSize = HISTORY_PAGE_SIZE;
 
   readonly totalPages = computed(() => {
@@ -52,10 +53,12 @@ export class ProfileComponent implements OnInit {
       return;
     }
     this.historyLoading.set(true);
+    this.historyError.set(false);
     try {
       const result = await this.history.loadPage(page, HISTORY_PAGE_SIZE);
       this.historyPage.set(result);
     } catch {
+      this.historyError.set(true);
       this.toast.error(this.i18n.t('profile.history.error'));
     } finally {
       this.historyLoading.set(false);

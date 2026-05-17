@@ -5,6 +5,7 @@ using Briscola.Application.Errors;
 using Briscola.Application.Lobby;
 using Briscola.Application.Orchestration;
 using Briscola.Application.Persistence;
+using Briscola.Application.Ranking;
 using Briscola.Application.Tests.TestDoubles;
 using Briscola.Domain.Engine;
 using Briscola.Domain.Primitives;
@@ -307,7 +308,9 @@ public sealed class LobbyServiceTests
 
         public TestFixture()
         {
-            GamesFactory = new InMemoryGameRepositoryFactory(Games);
+            InMemoryRankingRepository rankings = new(Clock.UtcNow);
+            RankingService ranking = new(rankings, Clock);
+            GamesFactory = new InMemoryGameRepositoryFactory(Games, ranking);
             IBriscolaEngine engine = new BriscolaEngine();
             RecordingGameEventBus bus = new();
             FakeTimerService timers = new(Clock);

@@ -420,9 +420,15 @@ public sealed class GameRoom : IAsyncDisposable
             return;
         }
 
+        GameResultRecord resultRecord = ToResultRecord(_state, reason);
         await using (IGameRepositoryScope scope = _gamesFactory.Create())
         {
-            await scope.Repository.SaveResultAsync(ToResultRecord(_state, reason), ct).ConfigureAwait(false);
+            await scope.Repository.SaveResultAsync(resultRecord, ct).ConfigureAwait(false);
+            // Apply ranking inside the same scope so RankingService shares
+            // the EF DbContext / unit-of-work with the result persistence.
+            // ApplyResultAsync is idempotent on result.GameId, so retries
+            // after a partial failure don't double-count.
+            await scope.Ranking.ApplyResultAsync(_record, resultRecord, ct).ConfigureAwait(false);
         }
 
         await _eventBus.PublishAsync(

@@ -312,6 +312,16 @@ describe('ProfileComponent match history', () => {
     await fixture.whenStable();
     expect(toastError).toHaveBeenCalled();
   });
+
+  it('shows the error panel + retry button when the load fails', async () => {
+    const { fixture } = await setup({ historyRejects: true });
+    await fixture.whenStable();
+    expect(screen.getByTestId('history-error')).toBeInTheDocument();
+    expect(screen.getByTestId('history-retry')).toBeInTheDocument();
+    // Empty/list views must not render while the section is in the error state.
+    expect(screen.queryByTestId('history-empty')).toBeNull();
+    expect(screen.queryByTestId('history-list')).toBeNull();
+  });
 });
 
 function historyEntry(suffix: string): MatchHistoryPage['items'][number] {

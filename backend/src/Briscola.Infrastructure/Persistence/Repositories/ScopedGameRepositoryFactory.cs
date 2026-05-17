@@ -1,4 +1,5 @@
 using Briscola.Application.Ports;
+using Briscola.Application.Ranking;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Briscola.Infrastructure.Persistence.Repositories;
@@ -24,7 +25,8 @@ public sealed class ScopedGameRepositoryFactory : IGameRepositoryFactory
     {
         IServiceScope scope = _scopes.CreateScope();
         IGameRepository repo = scope.ServiceProvider.GetRequiredService<IGameRepository>();
-        return new ServiceScopedGameRepository(scope, repo);
+        RankingService ranking = scope.ServiceProvider.GetRequiredService<RankingService>();
+        return new ServiceScopedGameRepository(scope, repo, ranking);
     }
 
     private sealed class ServiceScopedGameRepository : IGameRepositoryScope
@@ -32,13 +34,16 @@ public sealed class ScopedGameRepositoryFactory : IGameRepositoryFactory
         private readonly IServiceScope _scope;
         private bool _disposed;
 
-        public ServiceScopedGameRepository(IServiceScope scope, IGameRepository repository)
+        public ServiceScopedGameRepository(IServiceScope scope, IGameRepository repository, RankingService ranking)
         {
             _scope = scope;
             Repository = repository;
+            Ranking = ranking;
         }
 
         public IGameRepository Repository { get; }
+
+        public RankingService Ranking { get; }
 
         public void Dispose()
         {

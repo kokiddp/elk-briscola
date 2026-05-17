@@ -54,6 +54,7 @@
   "profile.history.loading": "Caricamento cronologia…",
   "profile.history.empty": "Nessuna partita conclusa per ora — giocane una e torna!",
   "profile.history.error": "Impossibile caricare la cronologia.",
+  "profile.history.retry": "Riprova",
   "profile.history.pageOf": "Pagina {page} di {total}",
   "profile.history.prev": "← Precedente",
   "profile.history.next": "Successiva →",

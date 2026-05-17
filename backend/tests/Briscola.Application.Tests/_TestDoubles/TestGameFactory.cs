@@ -2,6 +2,7 @@ using System.Collections.Immutable;
 using Briscola.Application.Configuration;
 using Briscola.Application.Orchestration;
 using Briscola.Application.Persistence;
+using Briscola.Application.Ranking;
 using Briscola.Domain.Engine;
 using Briscola.Domain.Primitives;
 using Briscola.Domain.State;
@@ -13,6 +14,8 @@ internal sealed class TestGameFactory
 {
     public FakeClock Clock { get; } = new(new DateTimeOffset(2026, 5, 9, 12, 0, 0, TimeSpan.Zero));
     public InMemoryGameRepository Games { get; } = new();
+    public InMemoryRankingRepository Rankings { get; }
+    public RankingService Ranking { get; }
     public InMemoryGameRepositoryFactory GamesFactory { get; }
     public InMemoryGameStateCodec Codec { get; } = new();
     public RecordingGameEventBus Bus { get; } = new();
@@ -29,7 +32,9 @@ internal sealed class TestGameFactory
     public TestGameFactory()
     {
         Timers = new FakeTimerService(Clock);
-        GamesFactory = new InMemoryGameRepositoryFactory(Games);
+        Rankings = new InMemoryRankingRepository(Clock.UtcNow);
+        Ranking = new RankingService(Rankings, Clock);
+        GamesFactory = new InMemoryGameRepositoryFactory(Games, Ranking);
     }
 
     public async Task<(GameRoom Room, GameRecord Record, Guid[] Users)> CreateRunningRoomAsync(
