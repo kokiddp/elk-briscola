@@ -965,7 +965,7 @@ These came out of the post-implementation review; none block Phase 3, but they s
 
 - **Stale-record recovery.** Still open. See the [Phase 4 follow-ups](#phase-4-follow-up-items-deferred-for-later-phases) for the current scoping decision (deferred to Phase 12).
 - ~~**Hydrate orphan task.**~~ **Closed in Phase 5.2b refactor.** `GameRoom` is now `IAsyncDisposable` and orchestrator dispose-on-lost-race semantics eliminated the leak. See the Phase 4 follow-up entry below.
-- **4p team Elo magnitude.** `RankingService.ApplyFourPlayerAsync` adds `+delta` to each of two teammates and `-delta` to each of two opponents. Net team rating change is `2*delta`. For K=24 this is plausible for a 4-player game (more variance than 1v1) but is worth re-examining when Phase 10 wires up real ranked matches: consider halving the delta for teams to keep per-team K constant, or document the choice as intentional.
+- **4p team Elo magnitude — resolved in Phase 10.** Kept the per-player K=24 (effective team K=48) as intentional and documented the rationale on the `K` constant in `RankingService`.
 - ~~**Snapshot codec coverage.**~~ **Closed in Phase 3.6:** `JsonGameStateCodec` (System.Text.Json + custom `ImmutableArrayJsonConverter` + `GameOutcomeJsonConverter`) replaces `InMemoryGameStateCodec` in production wiring. `JsonGameStateCodecTests` round-trips a fully populated `GameState` (4p with non-empty pozzi and a captured `GameOutcome.Winner`).
 
 ---
@@ -1768,23 +1768,31 @@ Document: directory layout, manifest schema, suit/rank slugs, file naming, licen
 
 ## Phase 10 — Match history, ranking, spectator
 
-### Step 10.1 — `/profile` history & ranking [S]
+### Step 10.1 — `/profile` history & ranking [S] [x]
 
 - `GET /me/history` paginated; renders a list with date, mode, opponents, result, score.
 - `GET /me/ranking` shows Elo + W/L/D + games played.
 
-### Step 10.2 — Spectator route [S]
+### Step 10.2 — Spectator route [S] [x]
 
 - `/game/:id/spectate`.
-- `GameService.connectAsSpectator(gameId)` calls `POST /games/{id}/spectate` then joins the `GameHub` and listens for spectator-redacted snapshots.
-- UI shows the same table as a player but without a `MyHand`.
+- `GameService.connectAsSpectator(gameId)` uses the existing `SpectateGame` hub method (no separate REST endpoint shipped — the hub path was already there and was the simpler wiring).
+- UI shows the same table as a player but without a `MyHand`; chat input is disabled for spectators.
 
-### Step 10.3 — Visibility-rule E2E (lightweight) [S]
+### Step 10.3 — Visibility-rule E2E (lightweight) [S] [x]
 
 - Component tests assert that `MyHand` component is not rendered when state has no `myHand`.
 - Integration test (already in Phase 5) covers the wire-level redaction.
 
-**Phase 10 exit:** profile and spectator features visible and tested.
+### Phase 10 follow-up items (resolved during the deep review)
+
+- **Elo never moved after a finish.** `RankingService.ApplyResultAsync` existed since Phase 2 but was never wired into `GameRoom.SaveFinishedAsync`. Fixed by extending `IGameRepositoryScope` to expose `RankingService` from the same DI scope as the repo and calling `ApplyResultAsync` alongside `SaveResultAsync`. Regression test `GameFinishAppliesRankingTests`.
+- **4p team Elo magnitude — kept as designed.** `ApplyFourPlayerAsync` adds `+delta` to each of two teammates and `-delta` to each opponent (Phase 2 follow-up flagged this). We're keeping per-player K=24 intentionally: it makes 4p individual rating drift behave like 2p individual rating drift. The team-level effective K of 48 is documented in `RankingService` and matches the philosophy that the rating belongs to the *player*, not the *team*.
+- **`/me/history` pagination** now uses `AsSplitQuery()` and adds a deterministic `ThenByDescending(g.Id)` tiebreaker so paging never skips/duplicates rows when timestamps tie.
+- **`/me/history` integration coverage** added (`MeHistoryTests`): 401 unauthenticated, empty page, newest-first ordering with player-relative seat, pagination across pages with no duplicate rows, size-clamp, and visibility isolation between users.
+- **Frontend** `MatchHistoryService` spec covers params, client-side clamping and error propagation.
+
+**Phase 10 exit:** profile and spectator features visible and tested. Elo now updates after every finished match. ✅
 
 ---
 

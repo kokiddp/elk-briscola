@@ -6,7 +6,17 @@ namespace Briscola.Application.Ranking;
 
 public sealed class RankingService(IRankingRepository rankings, IClock clock)
 {
+    /// <summary>
+    /// K-factor used for both 2p and 4p Elo deltas. In 4p (teams) every
+    /// player on the winning team gains +K*(score-expected) and every
+    /// loser pays the symmetric -K — so the team-level effective K is 2K.
+    /// That's intentional: Elo here tracks the <em>player</em>, not the
+    /// team, and we want a 4p win to move an individual rating with the
+    /// same magnitude as a 2p win. See [Phase 2 follow-up in TODO.md][1].
+    /// [1]: ../../../../TODO.md#phase-2-follow-up-items-deferred-for-later-phases
+    /// </summary>
     private const int K = 24;
+
     private const int DefaultElo = 1500;
 
     public async Task ApplyResultAsync(GameRecord game, GameResultRecord result, CancellationToken ct)

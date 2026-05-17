@@ -138,9 +138,9 @@ public sealed class MeController : ControllerBase
     [ProducesResponseType(typeof(MatchHistoryPageDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> GetHistory(
+        CancellationToken ct,
         [FromQuery] int page = 1,
-        [FromQuery] int size = MatchHistoryService.DefaultPageSize,
-        CancellationToken ct = default)
+        [FromQuery] int size = MatchHistoryService.DefaultPageSize)
     {
         ApplicationUser? user = await _users.GetUserAsync(User).ConfigureAwait(false);
         if (user is null)

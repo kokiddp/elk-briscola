@@ -105,6 +105,7 @@
       <bri-chat-panel
         [messages]="chatLog()"
         [tacticalBanner]="state()!.phase === 'LastHand' && is4p()"
+        [canSend]="!isSpectator()"
         (send)="onSendChat($event)"
       />
     </aside>

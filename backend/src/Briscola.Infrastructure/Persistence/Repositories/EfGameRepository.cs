@@ -181,11 +181,19 @@ public sealed class EfGameRepository(BriscolaDbContext db) : IGameRepository
 
         long total = await baseQuery.LongCountAsync(ct).ConfigureAwait(false);
 
+        // ThenBy(Id) gives a deterministic tiebreaker when two games
+        // finished in the same tick — without it pagination can skip or
+        // duplicate rows across pages.
+        // AsSplitQuery sidesteps EF's row-multiplication warning when
+        // paginating across a one-to-many Include — seats are then loaded
+        // via a second SELECT keyed by the paged game IDs.
         var rows = await baseQuery
             .Include(g => g.Seats)
             .OrderByDescending(g => g.EndedAt ?? g.StartedAt ?? g.CreatedAt)
+            .ThenByDescending(g => g.Id)
             .Skip((clampedPage - 1) * clampedSize)
             .Take(clampedSize)
+            .AsSplitQuery()
             .ToListAsync(ct)
             .ConfigureAwait(false);
 
@@ -199,11 +207,8 @@ public sealed class EfGameRepository(BriscolaDbContext db) : IGameRepository
         List<MatchHistoryRow> items = new(rows.Count);
         foreach (GameEntity g in rows)
         {
-            GameSeatEntity? mySeat = g.Seats.FirstOrDefault(s => s.UserId == userId);
-            if (mySeat is null)
-            {
-                continue;
-            }
+            // mySeat is guaranteed non-null by the WHERE Seats.Any(...) above.
+            GameSeatEntity mySeat = g.Seats.First(s => s.UserId == userId);
 
             int totalSeats = g.Seats.Count == 0
                 ? PlayerCount(g.Mode)
