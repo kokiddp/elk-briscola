@@ -27,14 +27,20 @@ function makeLobby(
   const openSig = signal<readonly GameSummary[]>(opts.open ?? []);
   const runningSig = signal<readonly GameSummary[]>(opts.running ?? []);
   const chatLogSig = signal<readonly never[]>([]);
-  const joinGame = vi.fn(opts.joinGame ?? ((id: string) => Promise.resolve({ id } as GameDetail)));
-  const createGame = vi.fn(
-    opts.createGame ?? (() => Promise.resolve({ id: 'new-game' } as GameDetail)),
+  const lastStartedSig = signal<string | null>(null);
+  const joinGame = vi.fn(
+    opts.joinGame ?? ((id: string) => Promise.resolve({ id, status: 'Running' } as GameDetail)),
   );
+  const createGame = vi.fn(
+    opts.createGame ?? (() => Promise.resolve({ id: 'new-game', status: 'Running' } as GameDetail)),
+  );
+  const clearLastStartedGameId = vi.fn(() => lastStartedSig.set(null));
   const svc = {
     openGames: () => openSig(),
     runningGames: () => runningSig(),
     chatLog: () => chatLogSig(),
+    lastStartedGameId: () => lastStartedSig(),
+    clearLastStartedGameId,
     connect: () => Promise.resolve(),
     disconnect: () => Promise.resolve(),
     createGame,

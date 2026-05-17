@@ -99,6 +99,22 @@ public sealed record IdleWarningEvent(
     int SeatIndex,
     DateTimeOffset ForfeitDeadlineUtc) : IGameEvent;
 
+/// <summary>
+/// Lifecycle telemetry for the lobby UI: created/seat-fill/started/ended.
+/// The hub dispatcher fans these to the <c>lobby:open</c> SignalR group.
+/// </summary>
+[ExcludeFromCodeCoverage]
+public sealed record LobbyGameCreatedEvent(Guid GameId, DateTimeOffset At, GameRecord Record) : IGameEvent;
+
+[ExcludeFromCodeCoverage]
+public sealed record LobbyGameUpdatedEvent(Guid GameId, DateTimeOffset At, GameRecord Record) : IGameEvent;
+
+[ExcludeFromCodeCoverage]
+public sealed record LobbyGameStartedEvent(Guid GameId, DateTimeOffset At) : IGameEvent;
+
+[ExcludeFromCodeCoverage]
+public sealed record LobbyGameEndedEvent(Guid GameId, DateTimeOffset At) : IGameEvent;
+
 [ExcludeFromCodeCoverage]
 public sealed record RedactedStateForUser(
     Guid GameId,

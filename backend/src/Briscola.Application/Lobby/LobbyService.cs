@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using Briscola.Application.Errors;
 using Briscola.Application.Orchestration;
+using Briscola.Application.Orchestration.Events;
 using Briscola.Application.Persistence;
 using Briscola.Application.Ports;
 using Briscola.Domain.Engine;
@@ -16,7 +17,8 @@ public sealed class LobbyService(
     IBriscolaEngine engine,
     IRandomSourceFactory randomSourceFactory,
     IClock clock,
-    GameOrchestrator orchestrator)
+    GameOrchestrator orchestrator,
+    IGameEventBus eventBus)
 {
     private const int MaxJoinRetries = 3;
 
@@ -59,6 +61,8 @@ public sealed class LobbyService(
             Version: 0);
 
         await games.CreateAsync(record, ct).ConfigureAwait(false);
+        await eventBus.PublishAsync(
+            new LobbyGameCreatedEvent(record.Id, now, record), ct).ConfigureAwait(false);
         return record;
     }
 
@@ -89,7 +93,8 @@ public sealed class LobbyService(
             ImmutableArray<Guid?> seats = record.SeatUserIds.SetItem(seat, userId);
             GameRecord desired = record with { SeatUserIds = seats };
 
-            if (seats.All(static id => id.HasValue))
+            bool transitioningToRunning = seats.All(static id => id.HasValue);
+            if (transitioningToRunning)
             {
                 desired = StartRecord(desired, seats);
             }
@@ -104,6 +109,15 @@ public sealed class LobbyService(
             if (saved.Status == GameStatus.Running)
             {
                 orchestrator.GetOrCreate(saved);
+            }
+
+            DateTimeOffset now = clock.UtcNow;
+            await eventBus.PublishAsync(
+                new LobbyGameUpdatedEvent(saved.Id, now, saved), ct).ConfigureAwait(false);
+            if (transitioningToRunning)
+            {
+                await eventBus.PublishAsync(
+                    new LobbyGameStartedEvent(saved.Id, now), ct).ConfigureAwait(false);
             }
 
             return saved;
@@ -133,6 +147,9 @@ public sealed class LobbyService(
             bool updated = await games.UpdateAsync(desired, ct).ConfigureAwait(false);
             if (updated)
             {
+                GameRecord saved = desired with { Version = desired.Version + 1 };
+                await eventBus.PublishAsync(
+                    new LobbyGameUpdatedEvent(saved.Id, clock.UtcNow, saved), ct).ConfigureAwait(false);
                 return;
             }
         }

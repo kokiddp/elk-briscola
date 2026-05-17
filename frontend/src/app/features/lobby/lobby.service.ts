@@ -25,6 +25,7 @@ export class LobbyService {
   private readonly runningGamesSig = signal<readonly GameSummary[]>([]);
   private readonly chatLogSig = signal<readonly LobbyChatMessage[]>([]);
   private readonly connectionStateSig = signal<HubConnectionState>(HubConnectionState.Disconnected);
+  private readonly lastStartedGameIdSig = signal<string | null>(null);
 
   private connection: HubConnection | null = null;
   private connectPromise: Promise<void> | null = null;
@@ -33,6 +34,13 @@ export class LobbyService {
   readonly runningGames = computed(() => this.runningGamesSig());
   readonly chatLog = computed(() => this.chatLogSig());
   readonly connectionState = computed(() => this.connectionStateSig());
+  /** Last game id we saw transition Open → Running. Components watch this
+   *  to auto-route into the table when their pending game starts. */
+  readonly lastStartedGameId = computed(() => this.lastStartedGameIdSig());
+
+  clearLastStartedGameId(): void {
+    this.lastStartedGameIdSig.set(null);
+  }
 
   async connect(): Promise<void> {
     if (this.connection && this.connection.state === HubConnectionState.Connected) {
@@ -156,8 +164,14 @@ export class LobbyService {
     if (summary.status === 'Open') {
       this.upsertOpen(summary);
     } else if (summary.status === 'Running') {
+      const wasOpen = this.openGamesSig().some((g) => g.id === summary.id);
       this.removeOpen(summary.id);
       this.upsertRunning(summary);
+      // A gameUpdated(status=Running) push covers the same transition as
+      // gameStarted; surface it so creators waiting in the lobby route in.
+      if (wasOpen) {
+        this.lastStartedGameIdSig.set(summary.id);
+      }
     } else {
       this.removeOpen(summary.id);
       this.removeRunning(summary.id);
@@ -166,6 +180,7 @@ export class LobbyService {
 
   private onGameStarted(gameId: string): void {
     this.removeOpen(gameId);
+    this.lastStartedGameIdSig.set(gameId);
   }
 
   private onGameEnded(gameId: string): void {

@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using Briscola.Api.Dtos;
 using Briscola.Application.Orchestration.Events;
+using Briscola.Application.Persistence;
 using Briscola.Application.Ports;
 using Briscola.Domain.Primitives;
 using Briscola.Domain.State;
@@ -38,15 +39,18 @@ public sealed partial class GameEventDispatcher : BackgroundService
 
     private readonly IGameEventBus _bus;
     private readonly IHubContext<GameHub, IGameClient> _hub;
+    private readonly IHubContext<LobbyHub, ILobbyClient> _lobby;
     private readonly ILogger<GameEventDispatcher> _logger;
 
     public GameEventDispatcher(
         IGameEventBus bus,
         IHubContext<GameHub, IGameClient> hub,
+        IHubContext<LobbyHub, ILobbyClient> lobby,
         ILogger<GameEventDispatcher> logger)
     {
         _bus = bus;
         _hub = hub;
+        _lobby = lobby;
         _logger = logger;
     }
 
@@ -82,11 +86,7 @@ public sealed partial class GameEventDispatcher : BackgroundService
         CardsDrawnEvent d => DispatchCardsDrawnAsync(d),
         PhaseChangedEvent p =>
             BroadcastGroups(p.GameId).PhaseChanged(p.NewPhase.ToString()),
-        GameFinishedEvent f =>
-            BroadcastGroups(f.GameId).GameFinished(new GameFinishedDto(
-                ToDto(f.Outcome),
-                f.SeatScores,
-                f.Reason.ToString())),
+        GameFinishedEvent f => DispatchGameFinishedAsync(f),
         PlayerDisconnectedEvent pd =>
             BroadcastGroups(pd.GameId).PlayerDisconnected(pd.SeatIndex, pd.GraceDeadlineUtc),
         PlayerReconnectedEvent pr =>
@@ -96,8 +96,38 @@ public sealed partial class GameEventDispatcher : BackgroundService
         InvalidMoveRejectedEvent im =>
             _hub.Clients.User(im.TargetUserId.ToString()).InvalidMove(im.Code.ToString()),
         ChatMessageEvent => Task.CompletedTask, // chat is broadcast directly by GameHub.SendChat
+        LobbyGameCreatedEvent lc =>
+            LobbyGroup().GameCreated(ToSummaryDto(lc.Record)),
+        LobbyGameUpdatedEvent lu =>
+            LobbyGroup().GameUpdated(ToSummaryDto(lu.Record)),
+        LobbyGameStartedEvent ls =>
+            LobbyGroup().GameStarted(ls.GameId),
+        LobbyGameEndedEvent le =>
+            LobbyGroup().GameEnded(le.GameId),
         _ => Task.CompletedTask,
     };
+
+    private ILobbyClient LobbyGroup() => _lobby.Clients.Group(LobbyHub.OpenLobbyGroup);
+
+    private async Task DispatchGameFinishedAsync(GameFinishedEvent evt)
+    {
+        await BroadcastGroups(evt.GameId)
+            .GameFinished(new GameFinishedDto(ToDto(evt.Outcome), evt.SeatScores, evt.Reason.ToString()))
+            .ConfigureAwait(false);
+        await LobbyGroup().GameEnded(evt.GameId).ConfigureAwait(false);
+    }
+
+    private static GameSummaryDto ToSummaryDto(GameRecord record) =>
+        new(
+            record.Id,
+            record.Mode,
+            record.Name,
+            record.Status,
+            record.SeatUserIds.Count(static id => id.HasValue),
+            record.SeatUserIds.Length,
+            record.IsPrivate,
+            record.CreatedAt,
+            record.StartedAt);
 
     /// <summary>
     /// Returns a client proxy that fans broadcasts to both the players'

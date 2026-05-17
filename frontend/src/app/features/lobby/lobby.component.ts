@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, computed, effect, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { ErrorToastService } from '../../core/error-toast.service';
 import { I18nService } from '../../core/i18n.service';
@@ -26,6 +26,30 @@ export class LobbyComponent implements OnInit, OnDestroy {
   readonly dialogOpen = signal(false);
   readonly dialogSubmitting = signal(false);
   readonly joiningId = signal<string | null>(null);
+  /**
+   * Game we're currently waiting in (created or joined into an Open seat).
+   * GameHub's JoinGame requires the game to be Running, so we hold the
+   * route here until the lobby pushes gameStarted/gameUpdated(Running).
+   */
+  readonly pendingGameId = signal<string | null>(null);
+  readonly pendingGame = computed<GameSummary | null>(() => {
+    const id = this.pendingGameId();
+    if (!id) return null;
+    return this.openGames().find((g) => g.id === id) ?? null;
+  });
+
+  constructor() {
+    // Auto-route once our pending game transitions to Running.
+    effect(() => {
+      const started = this.lobby.lastStartedGameId();
+      const pending = this.pendingGameId();
+      if (started && started === pending) {
+        this.pendingGameId.set(null);
+        this.lobby.clearLastStartedGameId();
+        void this.router.navigateByUrl(`/game/${started}`);
+      }
+    });
+  }
 
   async ngOnInit(): Promise<void> {
     try {
@@ -58,7 +82,13 @@ export class LobbyComponent implements OnInit, OnDestroy {
     try {
       const detail = await this.lobby.createGame(req);
       this.dialogOpen.set(false);
-      await this.router.navigateByUrl(`/game/${detail.id}`);
+      if (detail.status === 'Running') {
+        await this.router.navigateByUrl(`/game/${detail.id}`);
+      } else {
+        // Stay on the lobby; the effect above will route us in once another
+        // player fills the last seat and the lobby pushes gameStarted.
+        this.pendingGameId.set(detail.id);
+      }
     } catch {
       this.toast.error(this.i18n.t('lobby.errors.createFailed'));
     } finally {
@@ -83,8 +113,13 @@ export class LobbyComponent implements OnInit, OnDestroy {
         }
         password = prompted;
       }
-      await this.lobby.joinGame(game.id, password);
-      await this.router.navigateByUrl(`/game/${game.id}`);
+      const detail = await this.lobby.joinGame(game.id, password);
+      if (detail.status === 'Running') {
+        await this.router.navigateByUrl(`/game/${game.id}`);
+      } else {
+        // Joined a 4p game still waiting on more seats.
+        this.pendingGameId.set(game.id);
+      }
     } catch {
       this.toast.error(this.i18n.t('lobby.errors.joinFailed'));
     } finally {

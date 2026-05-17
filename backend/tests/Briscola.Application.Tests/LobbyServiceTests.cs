@@ -326,7 +326,8 @@ public sealed class LobbyServiceTests
                 engine,
                 new FakeRandomSourceFactory(),
                 Clock,
-                orchestrator);
+                orchestrator,
+                bus);
         }
     }
 }

@@ -37,6 +37,7 @@
   "lobby.empty.open": "No open games yet.",
   "lobby.empty.running": "No games in progress.",
   "lobby.private": "Private",
+  "lobby.waitingForPlayers": "Waiting in \"{name}\" — {filled} of {total} players seated. The table will open as soon as everyone joins.",
   "lobby.join": "Join",
   "lobby.joining": "Joining…",
   "lobby.mode.twoPlayer": "2 players",

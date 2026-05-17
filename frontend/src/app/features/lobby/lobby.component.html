@@ -6,6 +6,15 @@
     </button>
   </header>
 
+  @if (pendingGame(); as p) {
+    <p class="pending-banner" role="status" data-testid="pending-banner">
+      {{
+        'lobby.waitingForPlayers'
+          | t: { name: p.name, filled: p.occupiedSeats, total: p.totalSeats }
+      }}
+    </p>
+  }
+
   <div class="lobby-body">
     <div class="lists">
       <article class="lobby-list">

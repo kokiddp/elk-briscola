@@ -83,7 +83,17 @@ public sealed class GameHub : Hub<IGameClient>
     public async Task JoinGame(Guid gameId)
     {
         Guid userId = ResolveUserId();
-        await EnsureUserIsParticipantAsync(gameId, userId).ConfigureAwait(false);
+        GameRecord record = await EnsureUserIsParticipantAsync(gameId, userId).ConfigureAwait(false);
+
+        // The room only exists for Running games. If the caller deep-links
+        // to /game/:id while the game is still Open (e.g. they refresh the
+        // creator's tab before opponents fill the seats), bounce out with
+        // a stable error code instead of crashing the room constructor.
+        if (record.Status != GameStatus.Running)
+        {
+            await Clients.Caller.InvalidMove("WrongPhase").ConfigureAwait(false);
+            return;
+        }
 
         await Groups.AddToGroupAsync(Context.ConnectionId, GameGroup(gameId), Context.ConnectionAborted)
             .ConfigureAwait(false);
@@ -284,7 +294,7 @@ public sealed class GameHub : Hub<IGameClient>
         await base.OnDisconnectedAsync(exception).ConfigureAwait(false);
     }
 
-    private async Task EnsureUserIsParticipantAsync(Guid gameId, Guid userId)
+    private async Task<GameRecord> EnsureUserIsParticipantAsync(Guid gameId, Guid userId)
     {
         GameRecord? record = await _games.GetAsync(gameId, Context.ConnectionAborted).ConfigureAwait(false)
             ?? throw new HubException($"Game {gameId} not found.");
@@ -292,6 +302,7 @@ public sealed class GameHub : Hub<IGameClient>
         {
             throw new HubException("You are not a participant in this game.");
         }
+        return record;
     }
 
     private Guid ResolveUserId()

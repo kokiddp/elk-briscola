@@ -157,7 +157,10 @@ export class GameTablePageComponent implements OnInit, OnDestroy {
     });
 
     // Surface invalidMove rejections as a toast (i18n'd by code), then clear
-    // the signal so the same code can fire again later.
+    // the signal so the same code can fire again later. If WrongPhase fires
+    // before we have any state, it almost certainly means the user landed
+    // here before the game transitioned to Running — bounce them back to
+    // the lobby instead of hanging on the connecting placeholder.
     effect(() => {
       const code = this.game.lastInvalidMove();
       if (!code) {
@@ -166,6 +169,9 @@ export class GameTablePageComponent implements OnInit, OnDestroy {
       const key = INVALID_MOVE_I18N[code] ?? 'game.invalidMove.generic';
       this.toast.error(this.i18n.t(key));
       this.game.clearInvalidMove();
+      if (code === 'WrongPhase' && this.state() === null) {
+        void this.router.navigateByUrl('/lobby');
+      }
     });
   }
 
