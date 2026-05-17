@@ -30,5 +30,11 @@ export const routes: Routes = [
     loadComponent: () =>
       import('./features/game/game-table-page.component').then((m) => m.GameTablePageComponent),
   },
+  {
+    path: 'profile',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./features/profile/profile.component').then((m) => m.ProfileComponent),
+  },
   { path: '**', redirectTo: 'home' },
 ];

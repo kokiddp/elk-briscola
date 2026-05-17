@@ -1,0 +1,144 @@
+:host {
+  display: block;
+}
+
+.profile {
+  max-width: 64rem;
+  margin: 2rem auto;
+  padding: 0 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.profile-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+
+  h1 {
+    margin: 0;
+  }
+
+  .subtitle {
+    margin: 0;
+    color: rgba(0, 0, 0, 0.65);
+  }
+
+  .profile-nav {
+    margin-top: 0.5rem;
+    a {
+      font-size: 0.9rem;
+    }
+  }
+}
+
+.card-sets {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+
+  h2 {
+    margin: 0;
+    font-size: 1.2rem;
+  }
+
+  .hint {
+    margin: 0;
+    color: rgba(0, 0, 0, 0.65);
+    font-size: 0.9rem;
+  }
+}
+
+.grid {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+  gap: 1rem;
+}
+
+.card-set-tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  background: var(--surface, #fafafa);
+  border: 2px solid transparent;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  transition:
+    border-color 160ms ease,
+    transform 160ms ease;
+
+  &:hover:not([disabled]) {
+    transform: translateY(-2px);
+  }
+
+  &.active {
+    border-color: #2e7d32;
+  }
+
+  &.pending {
+    border-color: #f9a825;
+  }
+
+  &[disabled] {
+    opacity: 0.55;
+    cursor: not-allowed;
+    transform: none;
+  }
+}
+
+.preview {
+  width: 100%;
+  aspect-ratio: 600 / 280;
+  object-fit: contain;
+  background: #fff;
+  border-radius: 0.25rem;
+  display: block;
+}
+
+.name {
+  font-weight: 600;
+}
+
+.license {
+  color: rgba(0, 0, 0, 0.55);
+  font-size: 0.75rem;
+}
+
+.badge {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  padding: 0.125rem 0.5rem;
+  font-size: 0.7rem;
+  border-radius: 999px;
+  color: #fff;
+}
+
+.active-badge {
+  background: #2e7d32;
+}
+
+.pending-badge {
+  background: #f9a825;
+  color: #4a3500;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card-set-tile {
+    transition: none;
+
+    &:hover:not([disabled]) {
+      transform: none;
+    }
+  }
+}

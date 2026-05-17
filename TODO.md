@@ -1750,7 +1750,7 @@ The catalog and the controller live in `Briscola.Api`, NOT in the application la
 - On bootstrap (after auth), fetches `/api/v1/card-sets`, builds `CardSet` instances.
 - `activeSet` signal seeded from `currentUser.activeCardSetId`, persists changes via `PATCH /me`.
 
-### Step 9.4 — `CardSetPicker` [S]
+### Step 9.4 — `CardSetPicker` [S] [x]
 
 - Located at `/profile`. Shows preview thumbnails; click selects.
 

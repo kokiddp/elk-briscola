@@ -1,0 +1,49 @@
+<section class="profile">
+  <header class="profile-header">
+    <h1>{{ 'profile.title' | t }}</h1>
+    <p class="subtitle">{{ 'profile.greeting' | t: { name: displayName() } }}</p>
+    <nav class="profile-nav">
+      <a routerLink="/lobby" data-testid="profile-back">{{ 'profile.back' | t }}</a>
+    </nav>
+  </header>
+
+  <section class="card-sets" aria-labelledby="card-sets-heading">
+    <h2 id="card-sets-heading">{{ 'profile.cardSet.title' | t }}</h2>
+    <p class="hint">{{ 'profile.cardSet.hint' | t }}</p>
+
+    <ul class="grid" data-testid="card-set-grid">
+      @for (manifest of manifests(); track trackById($index, manifest)) {
+        <li>
+          <button
+            type="button"
+            class="card-set-tile"
+            [class.active]="isActive(manifest.id)"
+            [class.pending]="isPending(manifest.id)"
+            [disabled]="pendingId() !== null && !isPending(manifest.id)"
+            (click)="onSelect(manifest.id)"
+            data-testid="card-set-tile"
+            [attr.data-set-id]="manifest.id"
+          >
+            <img
+              class="preview"
+              [src]="previewUrl(manifest)"
+              alt=""
+              loading="lazy"
+              decoding="async"
+            />
+            <span class="name">{{ manifest.name }}</span>
+            <small class="license">{{ manifest.license }}</small>
+            @if (isActive(manifest.id)) {
+              <span class="badge active-badge" data-testid="active-badge">
+                {{ 'profile.cardSet.active' | t }}
+              </span>
+            }
+            @if (isPending(manifest.id)) {
+              <span class="badge pending-badge">{{ 'profile.cardSet.saving' | t }}</span>
+            }
+          </button>
+        </li>
+      }
+    </ul>
+  </section>
+</section>

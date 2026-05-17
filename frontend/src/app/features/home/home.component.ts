@@ -22,6 +22,7 @@ export class HomeComponent {
   readonly placeholder = computed(() => this.i18n.t('home.placeholder'));
   readonly logoutLabel = computed(() => this.i18n.t('home.logout'));
   readonly lobbyLinkLabel = computed(() => this.i18n.t('home.goToLobby'));
+  readonly profileLinkLabel = computed(() => this.i18n.t('home.goToProfile'));
 
   async logout(): Promise<void> {
     await this.auth.logout();
