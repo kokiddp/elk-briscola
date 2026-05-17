@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.Extensions.Configuration;
 
 namespace Briscola.Api.RateLimiting;
 
@@ -10,19 +11,42 @@ public static class RateLimitingPolicies
     public const string AuthRegister = "auth-register";
     public const string AuthRefresh = "auth-refresh";
 
+    /// <summary>
+    /// Default REST rate limits. Each policy is overridable via config under
+    /// <c>RateLimits:&lt;Key&gt;:PermitLimit</c> / <c>WindowSeconds</c>
+    /// (Section names mirror the policy keys above). The defaults match the
+    /// README's documented limits; overriding to higher numbers is useful
+    /// for soak tests and e2e harnesses without touching the production
+    /// defaults.
+    /// </summary>
+    private static readonly Dictionary<string, (int PermitLimit, TimeSpan Window)> Defaults =
+        new()
+        {
+            [AuthLogin] = (5, TimeSpan.FromMinutes(1)),
+            [AuthRegister] = (3, TimeSpan.FromHours(1)),
+            [AuthRefresh] = (30, TimeSpan.FromMinutes(1)),
+        };
+
     public static void Configure(RateLimiterOptions options)
+        => Configure(options, configuration: null);
+
+    public static void Configure(RateLimiterOptions options, IConfiguration? configuration)
     {
         ArgumentNullException.ThrowIfNull(options);
 
         options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
+        (int permit, TimeSpan window) login = ReadLimits(configuration, AuthLogin);
+        (int permit, TimeSpan window) register = ReadLimits(configuration, AuthRegister);
+        (int permit, TimeSpan window) refresh = ReadLimits(configuration, AuthRefresh);
 
         options.AddPolicy(AuthLogin, ctx =>
             RateLimitPartition.GetFixedWindowLimiter(
                 partitionKey: PartitionByIp(ctx),
                 factory: _ => new FixedWindowRateLimiterOptions
                 {
-                    PermitLimit = 5,
-                    Window = TimeSpan.FromMinutes(1),
+                    PermitLimit = login.permit,
+                    Window = login.window,
                     QueueLimit = 0,
                 }));
 
@@ -31,8 +55,8 @@ public static class RateLimitingPolicies
                 partitionKey: PartitionByIp(ctx),
                 factory: _ => new FixedWindowRateLimiterOptions
                 {
-                    PermitLimit = 3,
-                    Window = TimeSpan.FromHours(1),
+                    PermitLimit = register.permit,
+                    Window = register.window,
                     QueueLimit = 0,
                 }));
 
@@ -41,10 +65,23 @@ public static class RateLimitingPolicies
                 partitionKey: PartitionByUser(ctx),
                 factory: _ => new FixedWindowRateLimiterOptions
                 {
-                    PermitLimit = 30,
-                    Window = TimeSpan.FromMinutes(1),
+                    PermitLimit = refresh.permit,
+                    Window = refresh.window,
                     QueueLimit = 0,
                 }));
+    }
+
+    private static (int permit, TimeSpan window) ReadLimits(IConfiguration? config, string key)
+    {
+        var (defaultPermit, defaultWindow) = Defaults[key];
+        if (config is null)
+        {
+            return (defaultPermit, defaultWindow);
+        }
+        IConfigurationSection section = config.GetSection($"RateLimits:{key}");
+        int permit = section.GetValue("PermitLimit", defaultPermit);
+        int windowSeconds = section.GetValue("WindowSeconds", (int)defaultWindow.TotalSeconds);
+        return (permit, TimeSpan.FromSeconds(windowSeconds));
     }
 
     private static string PartitionByIp(HttpContext ctx) =>

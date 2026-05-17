@@ -104,7 +104,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJw
 builder.Services.AddAuthorization();
 
 // 6) Rate limiting (per-policy; opt-in via [EnableRateLimiting] on actions).
-builder.Services.AddRateLimiter(RateLimitingPolicies.Configure);
+builder.Services.AddRateLimiter(opts => RateLimitingPolicies.Configure(opts, builder.Configuration));
 
 // 7) CORS.
 builder.Services.AddCors(opts =>
