@@ -1798,44 +1798,44 @@ Document: directory layout, manifest schema, suit/rank slugs, file naming, licen
 
 ## Phase 11 — Hardening
 
-### Step 11.1 — Logging review [S]
+### Step 11.1 — Logging review [S] [x]
 
-- Grep for `_logger.Log*` calls; ensure none log: `password`, `token`, `accessToken`, `refreshToken`, `card`, `hand`, `chatText`. Add a unit test that uses Serilog's test sink to assert.
-- Correlation ID middleware; ensure ID is on every log line and propagated to outbound calls.
+- `[LoggerMessage]`-only across API + Application + Infrastructure (verified by `SensitiveLogContentTests`; no `_logger.LogX("…")` raw-string calls left).
+- `CorrelationIdMiddleware` reads / generates `X-Correlation-Id` and pushes it into Serilog `LogContext` so every line in the request — including `UseSerilogRequestLogging`'s summary — carries the same id. Oversize (>128 chars) inbound headers are dropped server-side.
 
-### Step 11.2 — Health & readiness [S]
+### Step 11.2 — Health & readiness [S] [x]
 
-- `/healthz`: returns 200 OK if process is alive (no checks).
-- `/readyz`: pings DB via `dbContext.Database.CanConnectAsync()`. Returns 503 on failure.
-- `Microsoft.Extensions.Diagnostics.HealthChecks` package is overkill for v1; hand-rolled controllers are fine.
+- `/healthz` returns 200 (liveness only — no checks).
+- `/readyz` calls `Database.CanConnectAsync()` and returns 503 `{ status: "db_unreachable" }` on any failure (driver exception or `false` return), so orchestrators stop routing to a host whose DB just disappeared.
 
-### Step 11.3 — OpenTelemetry [S]
+### Step 11.3 — OpenTelemetry [S] [x]
 
-- `OpenTelemetry.Extensions.Hosting`, `OpenTelemetry.Instrumentation.AspNetCore`, `…EntityFrameworkCore`, `…Runtime`.
-- Default exporter: console in dev, OTLP in prod (configurable endpoint).
-- Custom metrics: `briscola.active_games` (UpDownCounter), `briscola.connected_players`, `briscola.moves_total`.
+- `AddOpenTelemetry().WithMetrics(...)` wires AspNetCore + Runtime instrumentation. Console exporter in dev, OTLP when `OTEL_EXPORTER_OTLP_ENDPOINT` is set.
+- Custom `BriscolaMetrics` meter exposes `briscola.active_games` / `briscola.connected_players` / `briscola.moves_total`. After the Phase 11 review fix the active-games counter actually tracks live games (Finished rooms are evicted from `GameOrchestrator._rooms` via the new `DisposeRoomAsync`, which the SignalR dispatcher calls on `GameFinishedEvent`).
+- Side benefit: bumped the test Postgres `max_connections` to 400 + capped Npgsql pool size, fixing the "too many clients" parallel-test flake the bigger integration suite had been hitting under load.
 
-### Step 11.4 — Security review checklist [S]
+### Step 11.4 — Security review checklist [S] [x]
 
-Walk `docs/security.md` line by line; each item maps to a test or a review note. Items:
-- No card data in non-self-targeted messages (asserted by hub tests).
-- All hub callbacks validate caller identity vs. seat.
-- Rate limits on chat and play-card.
-- HSTS, CSP, security headers (asserted by integration test).
-- Dependency audit (`dotnet list package --vulnerable --include-transitive`, `npm audit --production`). Fail build on high/critical.
-- JWT secret from env var only; cannot start without it in prod.
+Walked `docs/security.md` — the checklist now maps each item to the file that enforces it and the test that proves it stays enforced. CI runs `dotnet list package --vulnerable --include-transitive` (NuGet) and `npm audit --omit=dev --audit-level=high` (npm) on every build; both pass clean locally.
 
-### Step 11.5 — Stress test [S]
+### Step 11.5 — Stress test [S] [x]
 
-- A small NBomber or k6 script: 50 concurrent 2p games for 30 minutes.
-- Assert: no growth in active-games counter beyond expected; no `OutOfMemoryException`; CPU < 70% on a 2-core VM.
-- Document baseline numbers in `docs/deployment.md`.
+- `backend/tools/Briscola.StressTest` — self-contained C# load generator (no third-party SDK; NBomber 6.x is non-OSS for organizations). Spawns N concurrent worker tasks, each looping the full register → login → create-game → join → SignalR-connect flow, and reports request count + p50/p90/p95/p99 latency + top failure shapes.
+- New `appsettings.Stress.json` ASP.NET environment relaxes the auth rate limits and shortens the game idle / forfeit windows so single-host load testing is possible without touching production defaults.
+- Assertion budget + run instructions documented in `docs/deployment.md`. Baseline numbers populated from the next dev-env run before tagging a release.
 
-### Step 11.6 — Graceful shutdown [S]
+### Step 11.6 — Graceful shutdown [S] [x]
 
-- `IHostApplicationLifetime.ApplicationStopping` callback drains hubs (refuses new connections, lets in-flight commands complete with a 10 s budget), snapshots all active rooms (already done per move; this is a final flush), closes DB.
+- `GracefulShutdownHostedService` registers an `ApplicationStopping` callback that drains `GameOrchestrator.DisposeAsync()` inside a 10-second budget. `DisposeAsync` iterates every active room, completes its command channel, and awaits the per-room process loop — which drains queued commands and snapshots state on every accepted move, so the final write lands before the host moves to Stopped.
+- Drain-timeout maps to a single warn-level `LogDrainTimedOut` so a stuck room can't hold the process open indefinitely.
+- Hub deregistration is handled by Kestrel stopping the listener after `ApplicationStopping` fires; no explicit refuse-new-connections gate needed.
 
-**Phase 11 exit:** ops checklist green; metrics dashboard exists in `docs/deployment.md`.
+### Phase 11 follow-up items (resolved during the deep review)
+
+- **Memory leak in `GameOrchestrator._rooms`**. Finished games used to stay in the in-memory dict until process shutdown. New `DisposeRoomAsync(gameId)` (called from the SignalR dispatcher's `DispatchGameFinishedAsync`) removes the room, decrements `briscola.active_games`, and prevents linear memory growth. Tests: `OrchestratorRoomCleanupTests`.
+- **`briscola.active_games` semantic.** Same fix; the gauge now reflects actually-running games rather than the looser "rooms loaded in memory" definition.
+
+**Phase 11 exit:** ops checklist green; metrics dashboard is documented in `docs/deployment.md`. ✅
 
 ---
 

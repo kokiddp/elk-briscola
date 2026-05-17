@@ -42,19 +42,22 @@ public sealed partial class GameEventDispatcher : BackgroundService
     private readonly IHubContext<LobbyHub, ILobbyClient> _lobby;
     private readonly ILogger<GameEventDispatcher> _logger;
     private readonly Briscola.Application.Telemetry.BriscolaMetrics _metrics;
+    private readonly Briscola.Application.Orchestration.GameOrchestrator _orchestrator;
 
     public GameEventDispatcher(
         IGameEventBus bus,
         IHubContext<GameHub, IGameClient> hub,
         IHubContext<LobbyHub, ILobbyClient> lobby,
         ILogger<GameEventDispatcher> logger,
-        Briscola.Application.Telemetry.BriscolaMetrics metrics)
+        Briscola.Application.Telemetry.BriscolaMetrics metrics,
+        Briscola.Application.Orchestration.GameOrchestrator orchestrator)
     {
         _bus = bus;
         _hub = hub;
         _lobby = lobby;
         _logger = logger;
         _metrics = metrics;
+        _orchestrator = orchestrator;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -124,6 +127,12 @@ public sealed partial class GameEventDispatcher : BackgroundService
             .GameFinished(new GameFinishedDto(ToDto(evt.Outcome), evt.SeatScores, evt.Reason.ToString()))
             .ConfigureAwait(false);
         await LobbyGroup().GameEnded(evt.GameId).ConfigureAwait(false);
+
+        // Free the room from the in-memory orchestrator dict. Without this,
+        // every finished game stayed in _rooms until process exit, leaking
+        // memory + skewing briscola.active_games into "loaded rooms" rather
+        // than "actually-running games".
+        await _orchestrator.DisposeRoomAsync(evt.GameId).ConfigureAwait(false);
     }
 
     private static GameSummaryDto ToSummaryDto(GameRecord record) =>

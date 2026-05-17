@@ -89,6 +89,22 @@ public sealed class GameOrchestrator(
     public bool TryGetRoom(Guid gameId, out GameRoom? room) =>
         _rooms.TryGetValue(gameId, out room);
 
+    /// <summary>
+    /// Removes the room for <paramref name="gameId"/> from the active set,
+    /// disposes it, and decrements <c>briscola.active_games</c>. Idempotent
+    /// — calling twice on the same id is a no-op. Used by the SignalR
+    /// dispatcher to free finished games eagerly so memory doesn't grow
+    /// linearly with games-played.
+    /// </summary>
+    public async ValueTask DisposeRoomAsync(Guid gameId)
+    {
+        if (_rooms.TryRemove(gameId, out GameRoom? room))
+        {
+            await room.DisposeAsync().ConfigureAwait(false);
+            metrics.ActiveGames.Add(-1);
+        }
+    }
+
     public async ValueTask DisposeAsync()
     {
         foreach (GameRoom room in _rooms.Values)
