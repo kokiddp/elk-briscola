@@ -141,7 +141,19 @@ builder.Services.AddValidatorsFromAssembly(Assembly.GetExecutingAssembly());
 
 // 9) SignalR + the hosted GameEventDispatcher that bridges
 //    IGameEventBus → IHubContext<GameHub, IGameClient>.
-builder.Services.AddSignalR();
+//
+//    The JsonHubProtocol ships with default System.Text.Json options,
+//    which means enums fly as numeric ids. The MVC layer uses
+//    JsonStringEnumConverter + camelCase (step 8 above) and the AsyncAPI
+//    spec advertises strings — keep the hub wire format aligned so the
+//    Angular client decodes one shape, not two.
+builder.Services
+    .AddSignalR()
+    .AddJsonProtocol(options =>
+    {
+        options.PayloadSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+        options.PayloadSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
+    });
 builder.Services.AddHostedService<Briscola.Api.Hubs.GameEventDispatcher>();
 
 // 10) Card-set catalog (loaded from wwwroot/card-sets at startup; empty until Phase 9).

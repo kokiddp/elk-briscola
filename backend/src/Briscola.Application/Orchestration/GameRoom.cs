@@ -489,9 +489,11 @@ public sealed class GameRoom : IAsyncDisposable
     private RedactedStateForUser SnapshotForUser(Guid userId, ImmutableArray<Card>? myPozzo = null)
     {
         ImmutableArray<Card>? myHand = null;
+        int? mySeatIndex = null;
         if (_userIdToSeat.TryGetValue(userId, out int seat))
         {
             myHand = _state.Hands[seat];
+            mySeatIndex = seat;
         }
 
         return new RedactedStateForUser(
@@ -510,7 +512,8 @@ public sealed class GameRoom : IAsyncDisposable
             myPozzo,
             _state.CurrentTrick,
             _state.SeatScores,
-            _state.Outcome);
+            _state.Outcome,
+            mySeatIndex);
     }
 
     private async Task RejectAsync(Guid targetUserId, InvalidMoveCode code, CancellationToken ct)

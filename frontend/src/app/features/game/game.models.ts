@@ -48,6 +48,10 @@ export interface RedactedStateForUser {
   currentTrick: PlayedCard[];
   seatScores: number[];
   outcome: GameOutcome | null;
+  /** Calling player's seat. `null` for spectators. Optional in TS to stay
+   *  forward-compatible with older snapshots; servers post-Phase-8-review
+   *  always populate it. */
+  mySeatIndex?: number | null;
 }
 
 export interface GameChatMessage {

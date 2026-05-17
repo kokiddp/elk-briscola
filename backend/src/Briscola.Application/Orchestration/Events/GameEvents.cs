@@ -116,4 +116,5 @@ public sealed record RedactedStateForUser(
     ImmutableArray<Card>? MyPozzo,
     ImmutableArray<PlayedCard> CurrentTrick,
     ImmutableArray<int> SeatScores,
-    GameOutcome? Outcome);
+    GameOutcome? Outcome,
+    int? MySeatIndex);

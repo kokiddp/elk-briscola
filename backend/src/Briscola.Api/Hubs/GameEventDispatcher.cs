@@ -158,5 +158,6 @@ public sealed partial class GameEventDispatcher : BackgroundService
             snapshot.MyPozzo?.Select(ToDto).ToImmutableArray(),
             snapshot.CurrentTrick.Select(p => new PlayedCardDto(p.SeatIndex, ToDto(p.Card))).ToImmutableArray(),
             snapshot.SeatScores,
-            snapshot.Outcome is null ? null : ToDto(snapshot.Outcome));
+            snapshot.Outcome is null ? null : ToDto(snapshot.Outcome),
+            snapshot.MySeatIndex);
 }

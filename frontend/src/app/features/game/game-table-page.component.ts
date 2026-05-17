@@ -127,7 +127,16 @@ export class GameTablePageComponent implements OnInit, OnDestroy {
         return;
       }
       const s = this.state();
-      if (!s || !s.myHand) {
+      if (!s) {
+        return;
+      }
+      // Preferred path: the server tells us our seat directly.
+      if (typeof s.mySeatIndex === 'number') {
+        this.latchedSeat.set(s.mySeatIndex);
+        return;
+      }
+      // Fallback path (older servers / spectators may omit mySeatIndex).
+      if (!s.myHand) {
         return;
       }
       const target = s.myHand.length;

@@ -36,7 +36,8 @@ public sealed record RedactedStateForUserDto(
     ImmutableArray<CardDto>? MyPozzo,
     ImmutableArray<PlayedCardDto> CurrentTrick,
     ImmutableArray<int> SeatScores,
-    GameOutcomeDto? Outcome);
+    GameOutcomeDto? Outcome,
+    int? MySeatIndex);
 
 [ExcludeFromCodeCoverage]
 public sealed record PlayedCardDto(int SeatIndex, CardDto Card);

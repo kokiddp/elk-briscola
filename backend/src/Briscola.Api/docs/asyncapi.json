@@ -473,7 +473,12 @@
           },
           "currentTrick": { "type": "array", "items": { "$ref": "#/components/schemas/PlayedCard" } },
           "seatScores": { "type": "array", "items": { "type": "integer" } },
-          "outcome": { "anyOf": [{ "$ref": "#/components/schemas/GameOutcome" }, { "type": "null" }] }
+          "outcome": { "anyOf": [{ "$ref": "#/components/schemas/GameOutcome" }, { "type": "null" }] },
+          "mySeatIndex": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Calling player's seat index. Null on the spectator + broadcast variants."
+          }
         }
       },
       "GameSummaryDto": {
