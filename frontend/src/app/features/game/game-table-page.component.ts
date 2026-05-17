@@ -67,6 +67,18 @@ export class GameTablePageComponent implements OnInit, OnDestroy {
   readonly isSpectator = this.game.isSpectator;
 
   /**
+   * MyHand is visible only when the snapshot includes our hand (server-side
+   * redaction sets myHand to null for spectators) and the page is not in
+   * spectator mode. Two independent signals — server visibility and client
+   * intent — must agree before the cards render.
+   */
+  readonly canSeeMyHand = computed(() => {
+    if (this.isSpectator()) return false;
+    const s = this.state();
+    return s !== null && s.myHand !== null;
+  });
+
+  /**
    * v1 seat resolution. Latched once: the first snapshot that lets us derive
    * a unique seat (exactly one seat in `handCountsBySeat` matches the visible
    * hand length) sticks. Hand sizes drift in and out of alignment between

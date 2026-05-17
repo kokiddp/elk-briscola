@@ -78,7 +78,7 @@
       />
     </div>
 
-    @if (!isSpectator()) {
+    @if (canSeeMyHand()) {
       <div
         class="my-hand-zone flex items-center justify-center rounded-xl bg-white/5 p-3 ring-1 ring-inset ring-white/10"
         data-testid="my-hand-zone"

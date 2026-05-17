@@ -267,6 +267,36 @@ describe('GameTablePageComponent — lifecycle', () => {
   });
 });
 
+describe('GameTablePageComponent — MyHand visibility rule', () => {
+  it('hides MyHand when the snapshot has a null myHand (server redaction)', async () => {
+    // Server has redacted our hand even though we are not in spectator mode
+    // (e.g. snapshot replayed to a non-participant). The component MUST NOT
+    // render MyHand on this signal alone.
+    const redacted: RedactedStateForUser = { ...SNAPSHOT_2P, myHand: null };
+    await setup({ state: redacted, spectator: false });
+    expect(screen.queryByTestId('my-hand-zone')).toBeNull();
+    expect(screen.queryAllByTestId('hand-card')).toHaveLength(0);
+  });
+
+  it('renders MyHand even with an empty hand array (just played the last card)', async () => {
+    // Empty hand is a normal late-game state — different from null which
+    // signals server-side redaction. The component should still show the
+    // (empty) hand zone so the layout doesn't reflow.
+    const empty: RedactedStateForUser = { ...SNAPSHOT_2P, myHand: [] };
+    await setup({ state: empty, spectator: false });
+    expect(screen.getByTestId('my-hand-zone')).toBeInTheDocument();
+    expect(screen.queryAllByTestId('hand-card')).toHaveLength(0);
+  });
+
+  it('keeps MyHand hidden even when the snapshot carries a hand if the page is in spectator mode', async () => {
+    // Defense in depth: the route says spectator, so even a misbehaving
+    // server snapshot with our hand attached must NOT render the cards.
+    await setup({ state: SNAPSHOT_2P, spectator: true });
+    expect(screen.queryByTestId('my-hand-zone')).toBeNull();
+    expect(screen.getByTestId('spectator-banner')).toBeInTheDocument();
+  });
+});
+
 describe('GameTablePageComponent — spectator mode', () => {
   it('hides MyHand and shows the spectator banner when isSpectator is true', async () => {
     await setup({ state: SNAPSHOT_2P, spectator: true });
