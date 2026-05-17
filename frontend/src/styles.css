@@ -1,6 +1,15 @@
 @import 'tailwindcss';
 
 /**
+ * Tell Tailwind v4 where to scan for utility classes. Going through the
+ * `@import` directive alone, Tailwind defaults to scanning the CWD,
+ * which misses our `src/app` templates because the Angular CLI invokes
+ * PostCSS from the project root. The explicit @source globs make the
+ * scan deterministic.
+ */
+@source "./app/**/*.{html,ts}";
+
+/**
  * Project-wide tokens. Tailwind v4's `@theme` block extends the default
  * design tokens — the variables below surface as `bg-brand-500`,
  * `text-table-800`, etc. The palette is muted-green felt + warm wood;
@@ -42,9 +51,7 @@ body {
 
 /**
  * Honor `prefers-reduced-motion` across every component, including the
- * Angular animations engine. By collapsing all transition + animation
- * durations to a frame we keep the `:enter` / `:leave` flows working
- * without any visible motion.
+ * Angular animations engine.
  */
 @media (prefers-reduced-motion: reduce) {
   *,
