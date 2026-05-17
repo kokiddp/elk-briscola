@@ -87,3 +87,31 @@ public sealed record RankingRecord(
     int Draws,
     int GamesPlayed,
     DateTimeOffset UpdatedAt);
+
+/// <summary>
+/// Row of a paginated player history. Each row is one Finished game the
+/// user was seated at, plus the result envelope and the user's own seat.
+/// Display-name resolution is the API layer's job — this record stays
+/// at the persistence boundary.
+/// </summary>
+[ExcludeFromCodeCoverage]
+public sealed record MatchHistoryRow(
+    Guid GameId,
+    GameMode Mode,
+    string Name,
+    DateTimeOffset? StartedAt,
+    DateTimeOffset? EndedAt,
+    int MySeatIndex,
+    ImmutableArray<Guid?> SeatUserIds,
+    GameOutcomeKind OutcomeKind,
+    int? WinnerKey,
+    string SeatScoresJson,
+    string? TeamScoresJson,
+    EndedReason Reason);
+
+[ExcludeFromCodeCoverage]
+public sealed record PagedResult<T>(
+    IReadOnlyList<T> Items,
+    int Page,
+    int PageSize,
+    long TotalCount);

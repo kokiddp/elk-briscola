@@ -20,4 +20,15 @@ public interface IGameRepository
     /// rows on the unique <c>(GameId, MoveIndex)</c> index.
     /// </summary>
     Task<int> GetNextMoveIndexAsync(Guid gameId, CancellationToken ct);
+
+    /// <summary>
+    /// Paginated history of Finished games the given user was seated at,
+    /// newest first. Returns the total count so the UI can render a pager.
+    /// Page is 1-based.
+    /// </summary>
+    Task<PagedResult<MatchHistoryRow>> ListHistoryForUserAsync(
+        Guid userId,
+        int page,
+        int pageSize,
+        CancellationToken ct);
 }

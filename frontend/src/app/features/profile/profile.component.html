@@ -1,5 +1,5 @@
-<section class="mx-auto w-full max-w-5xl px-4 py-8">
-  <header class="mb-8">
+<section class="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-8">
+  <header>
     <h1 class="font-display text-3xl font-semibold text-stone-900">
       {{ 'profile.title' | t }}
     </h1>
@@ -7,6 +7,154 @@
       {{ 'profile.greeting' | t: { name: displayName() } }}
     </p>
   </header>
+
+  @if (ranking(); as r) {
+    <section
+      class="rounded-2xl border border-stone-200 bg-white p-6 shadow-sm"
+      aria-labelledby="ranking-heading"
+    >
+      <h2 id="ranking-heading" class="font-display text-xl font-semibold text-stone-900">
+        {{ 'profile.ranking.title' | t }}
+      </h2>
+      <p class="mb-4 text-sm text-stone-500">{{ 'profile.ranking.hint' | t }}</p>
+      <dl class="grid grid-cols-2 gap-3 sm:grid-cols-5" data-testid="ranking-grid">
+        <div class="rounded-lg bg-brand-50 p-3 text-center" data-testid="ranking-elo">
+          <dt class="text-xs font-medium uppercase tracking-wide text-brand-700">
+            {{ 'profile.ranking.elo' | t }}
+          </dt>
+          <dd class="mt-1 font-display text-2xl font-semibold text-brand-700">
+            {{ r.elo }}
+          </dd>
+        </div>
+        <div class="rounded-lg bg-stone-50 p-3 text-center">
+          <dt class="text-xs font-medium uppercase tracking-wide text-stone-600">
+            {{ 'profile.ranking.wins' | t }}
+          </dt>
+          <dd class="mt-1 font-display text-2xl font-semibold text-emerald-700">
+            {{ r.wins }}
+          </dd>
+        </div>
+        <div class="rounded-lg bg-stone-50 p-3 text-center">
+          <dt class="text-xs font-medium uppercase tracking-wide text-stone-600">
+            {{ 'profile.ranking.losses' | t }}
+          </dt>
+          <dd class="mt-1 font-display text-2xl font-semibold text-rose-700">
+            {{ r.losses }}
+          </dd>
+        </div>
+        <div class="rounded-lg bg-stone-50 p-3 text-center">
+          <dt class="text-xs font-medium uppercase tracking-wide text-stone-600">
+            {{ 'profile.ranking.draws' | t }}
+          </dt>
+          <dd class="mt-1 font-display text-2xl font-semibold text-stone-700">
+            {{ r.draws }}
+          </dd>
+        </div>
+        <div class="rounded-lg bg-stone-50 p-3 text-center">
+          <dt class="text-xs font-medium uppercase tracking-wide text-stone-600">
+            {{ 'profile.ranking.games' | t }}
+          </dt>
+          <dd class="mt-1 font-display text-2xl font-semibold text-stone-700">
+            {{ r.gamesPlayed }}
+          </dd>
+        </div>
+      </dl>
+    </section>
+  }
+
+  <section
+    class="rounded-2xl border border-stone-200 bg-white p-6 shadow-sm"
+    aria-labelledby="history-heading"
+  >
+    <div class="mb-4 flex items-baseline justify-between gap-4">
+      <div>
+        <h2 id="history-heading" class="font-display text-xl font-semibold text-stone-900">
+          {{ 'profile.history.title' | t }}
+        </h2>
+        <p class="text-sm text-stone-500">{{ 'profile.history.hint' | t }}</p>
+      </div>
+      @if (historyPage(); as p) {
+        @if (totalPages() > 0) {
+          <span class="text-xs text-stone-500" data-testid="history-page-label">
+            {{ 'profile.history.pageOf' | t: { page: p.page, total: totalPages() } }}
+          </span>
+        }
+      }
+    </div>
+
+    @if (historyLoading() && !historyPage()) {
+      <p class="text-sm italic text-stone-400">{{ 'profile.history.loading' | t }}</p>
+    } @else if (historyPage(); as p) {
+      @if (p.items.length === 0) {
+        <p class="text-sm italic text-stone-400" data-testid="history-empty">
+          {{ 'profile.history.empty' | t }}
+        </p>
+      } @else {
+        <ul class="flex flex-col gap-2" data-testid="history-list">
+          @for (entry of p.items; track trackByGameId($index, entry)) {
+            <li
+              class="grid grid-cols-[auto_1fr_auto_auto] items-center gap-3 rounded-md bg-stone-50 px-3 py-2 ring-1 ring-inset ring-stone-200"
+              data-testid="history-row"
+              [attr.data-result]="resultFor(entry)"
+            >
+              <span
+                [class]="
+                  'rounded-full px-2 py-0.5 text-xs font-semibold ' +
+                  (resultFor(entry) === 'win'
+                    ? 'bg-emerald-100 text-emerald-800'
+                    : resultFor(entry) === 'loss'
+                      ? 'bg-rose-100 text-rose-800'
+                      : 'bg-stone-200 text-stone-700')
+                "
+                data-testid="history-result"
+              >
+                {{ 'profile.history.result.' + resultFor(entry) | t }}
+              </span>
+              <span class="flex flex-col">
+                <span class="font-medium text-stone-900">{{ entry.name }}</span>
+                <small class="text-xs text-stone-500">
+                  {{ modeLabel(entry.mode) }} ·
+                  {{ reasonLabel(entry.reason) }}
+                </small>
+              </span>
+              <span
+                class="font-mono text-sm tabular-nums text-stone-700"
+                data-testid="history-score"
+              >
+                {{ myScore(entry) }} – {{ opponentScore(entry) }}
+              </span>
+              <time class="text-xs text-stone-500">
+                {{ formatDate(entry.endedAt ?? entry.startedAt) }}
+              </time>
+            </li>
+          }
+        </ul>
+
+        @if (totalPages() > 1) {
+          <div class="mt-4 flex items-center justify-end gap-2">
+            <button
+              type="button"
+              [disabled]="!hasPrev() || historyLoading()"
+              (click)="loadHistory(p.page - 1)"
+              data-testid="history-prev"
+              class="rounded-md border border-stone-300 bg-white px-3 py-1.5 text-xs font-medium text-stone-700 shadow-sm transition hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {{ 'profile.history.prev' | t }}
+            </button>
+            <button
+              type="button"
+              [disabled]="!hasNext() || historyLoading()"
+              (click)="loadHistory(p.page + 1)"
+              data-testid="history-next"
+              class="rounded-md border border-stone-300 bg-white px-3 py-1.5 text-xs font-medium text-stone-700 shadow-sm transition hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {{ 'profile.history.next' | t }}
+            </button>
+          </div>
+        }
+      }
+    }
+  </section>
 
   <section
     class="rounded-2xl border border-stone-200 bg-white p-6 shadow-sm"

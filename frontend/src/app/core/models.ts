@@ -39,3 +39,31 @@ export interface ChangePasswordRequest {
   currentPassword: string;
   newPassword: string;
 }
+
+export type GameMode = 'TwoPlayer' | 'FourPlayerTeams';
+
+export type MatchOutcomeKind = 'Win' | 'Draw';
+
+export type MatchReason = 'Normal' | 'ForfeitDisconnect' | 'ForfeitIdle';
+
+export interface MatchHistoryEntry {
+  gameId: string;
+  mode: GameMode;
+  name: string;
+  startedAt: string | null;
+  endedAt: string | null;
+  mySeatIndex: number;
+  seatUserIds: (string | null)[];
+  outcomeKind: MatchOutcomeKind;
+  winnerKey: number | null;
+  seatScores: number[];
+  teamScores: number[] | null;
+  reason: MatchReason;
+}
+
+export interface MatchHistoryPage {
+  items: MatchHistoryEntry[];
+  page: number;
+  pageSize: number;
+  totalCount: number;
+}

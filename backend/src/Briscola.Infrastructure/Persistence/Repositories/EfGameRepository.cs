@@ -163,6 +163,86 @@ public sealed class EfGameRepository(BriscolaDbContext db) : IGameRepository
         return (max ?? -1) + 1;
     }
 
+    public async Task<PagedResult<MatchHistoryRow>> ListHistoryForUserAsync(
+        Guid userId,
+        int page,
+        int pageSize,
+        CancellationToken ct)
+    {
+        // Defensive clamps — controllers also validate, but a missized
+        // page from a test or a stale client shouldn't blow up.
+        int clampedPage = page < 1 ? 1 : page;
+        int clampedSize = pageSize < 1 ? 1 : (pageSize > 100 ? 100 : pageSize);
+
+        // Identify all Finished games the user was seated at.
+        IQueryable<GameEntity> baseQuery = db.Games.AsNoTracking()
+            .Where(g => g.Status == GameStatus.Finished)
+            .Where(g => g.Seats.Any(s => s.UserId == userId));
+
+        long total = await baseQuery.LongCountAsync(ct).ConfigureAwait(false);
+
+        var rows = await baseQuery
+            .Include(g => g.Seats)
+            .OrderByDescending(g => g.EndedAt ?? g.StartedAt ?? g.CreatedAt)
+            .Skip((clampedPage - 1) * clampedSize)
+            .Take(clampedSize)
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+
+        // Batch-load matching results so we don't N+1.
+        Guid[] gameIds = rows.Select(g => g.Id).ToArray();
+        Dictionary<Guid, GameResultEntity> resultsById = await db.GameResults.AsNoTracking()
+            .Where(r => gameIds.Contains(r.GameId))
+            .ToDictionaryAsync(r => r.GameId, ct)
+            .ConfigureAwait(false);
+
+        List<MatchHistoryRow> items = new(rows.Count);
+        foreach (GameEntity g in rows)
+        {
+            GameSeatEntity? mySeat = g.Seats.FirstOrDefault(s => s.UserId == userId);
+            if (mySeat is null)
+            {
+                continue;
+            }
+
+            int totalSeats = g.Seats.Count == 0
+                ? PlayerCount(g.Mode)
+                : Math.Max(g.Seats.Max(s => s.SeatIndex) + 1, PlayerCount(g.Mode));
+            Guid?[] seatUserIds = new Guid?[totalSeats];
+            foreach (GameSeatEntity s in g.Seats)
+            {
+                if (s.SeatIndex >= 0 && s.SeatIndex < totalSeats)
+                {
+                    seatUserIds[s.SeatIndex] = s.UserId;
+                }
+            }
+
+            if (!resultsById.TryGetValue(g.Id, out GameResultEntity? result))
+            {
+                // Finished without a result row would be a bug, but we'd rather
+                // hide the entry than throw. The grafana dashboard catches
+                // orphans separately.
+                continue;
+            }
+
+            items.Add(new MatchHistoryRow(
+                g.Id,
+                g.Mode,
+                g.Name,
+                g.StartedAt,
+                g.EndedAt,
+                mySeat.SeatIndex,
+                [.. seatUserIds],
+                result.Kind,
+                result.WinnerKey,
+                result.SeatScoresJson,
+                result.TeamScoresJson,
+                result.Reason));
+        }
+
+        return new PagedResult<MatchHistoryRow>(items, clampedPage, clampedSize, total);
+    }
+
     private static GameRecord ToRecord(GameEntity e)
     {
         // Project seats into a positional ImmutableArray<Guid?>. If a seat

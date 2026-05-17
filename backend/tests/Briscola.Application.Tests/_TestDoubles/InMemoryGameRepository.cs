@@ -97,4 +97,20 @@ internal sealed class InMemoryGameRepository : IGameRepository
             return Task.FromResult(max + 1);
         }
     }
+
+    public Task<PagedResult<MatchHistoryRow>> ListHistoryForUserAsync(
+        Guid userId,
+        int page,
+        int pageSize,
+        CancellationToken ct)
+    {
+        // The test double is used by Application-layer tests that don't
+        // exercise history. Return an empty page so any consumer at least
+        // compiles + observes deterministic, non-throwing behaviour.
+        return Task.FromResult(new PagedResult<MatchHistoryRow>(
+            Array.Empty<MatchHistoryRow>(),
+            page < 1 ? 1 : page,
+            pageSize < 1 ? 1 : pageSize,
+            0));
+    }
 }

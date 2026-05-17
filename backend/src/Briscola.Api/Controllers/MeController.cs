@@ -1,4 +1,7 @@
+using System.Collections.Immutable;
+using System.Text.Json;
 using Briscola.Api.Dtos;
+using Briscola.Application.History;
 using Briscola.Application.Persistence;
 using Briscola.Application.Ports;
 using Briscola.Infrastructure.Persistence.Entities;
@@ -21,11 +24,16 @@ public sealed class MeController : ControllerBase
 {
     private readonly UserManager<ApplicationUser> _users;
     private readonly IRankingRepository _rankings;
+    private readonly MatchHistoryService _history;
 
-    public MeController(UserManager<ApplicationUser> users, IRankingRepository rankings)
+    public MeController(
+        UserManager<ApplicationUser> users,
+        IRankingRepository rankings,
+        MatchHistoryService history)
     {
         _users = users;
         _rankings = rankings;
+        _history = history;
     }
 
     /// <summary>Get the authenticated user's profile + current ranking.</summary>
@@ -117,6 +125,40 @@ public sealed class MeController : ControllerBase
         return Ok(ToDto(ranking));
     }
 
+    /// <summary>Paginated history of Finished games this user was seated at.</summary>
+    /// <remarks>
+    /// Newest game first. <paramref name="page"/> is 1-based;
+    /// <paramref name="size"/> is clamped to <c>[1, 100]</c> with a default of
+    /// <see cref="MatchHistoryService.DefaultPageSize"/>. Total count is
+    /// returned so the UI can render a pager without a second request.
+    /// </remarks>
+    /// <response code="200">Page of match-history entries.</response>
+    /// <response code="401">Bearer token missing or invalid.</response>
+    [HttpGet("history")]
+    [ProducesResponseType(typeof(MatchHistoryPageDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> GetHistory(
+        [FromQuery] int page = 1,
+        [FromQuery] int size = MatchHistoryService.DefaultPageSize,
+        CancellationToken ct = default)
+    {
+        ApplicationUser? user = await _users.GetUserAsync(User).ConfigureAwait(false);
+        if (user is null)
+        {
+            return Unauthorized();
+        }
+
+        PagedResult<MatchHistoryRow> result = await _history
+            .ListForUserAsync(user.Id, page, size, ct)
+            .ConfigureAwait(false);
+
+        return Ok(new MatchHistoryPageDto(
+            [.. result.Items.Select(ToDto)],
+            result.Page,
+            result.PageSize,
+            result.TotalCount));
+    }
+
     private static MeResponse ToResponse(ApplicationUser user, RankingRecord ranking) =>
         new(
             user.Id,
@@ -128,4 +170,39 @@ public sealed class MeController : ControllerBase
 
     private static RankingDto ToDto(RankingRecord r) =>
         new(r.Elo, r.Wins, r.Losses, r.Draws, r.GamesPlayed, r.UpdatedAt);
+
+    private static MatchHistoryEntryDto ToDto(MatchHistoryRow row)
+    {
+        ImmutableArray<int> seatScores = DeserializeScores(row.SeatScoresJson);
+        ImmutableArray<int>? teamScores = row.TeamScoresJson is null
+            ? null
+            : DeserializeScores(row.TeamScoresJson);
+
+        return new MatchHistoryEntryDto(
+            row.GameId,
+            row.Mode,
+            row.Name,
+            row.StartedAt,
+            row.EndedAt,
+            row.MySeatIndex,
+            row.SeatUserIds,
+            row.OutcomeKind.ToString(),
+            row.WinnerKey,
+            seatScores,
+            teamScores,
+            row.Reason.ToString());
+    }
+
+    private static ImmutableArray<int> DeserializeScores(string json)
+    {
+        try
+        {
+            int[]? arr = JsonSerializer.Deserialize<int[]>(json);
+            return arr is null ? ImmutableArray<int>.Empty : [.. arr];
+        }
+        catch (JsonException)
+        {
+            return ImmutableArray<int>.Empty;
+        }
+    }
 }

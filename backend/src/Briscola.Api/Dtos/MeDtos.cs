@@ -24,3 +24,25 @@ public sealed record RankingDto(
     int Draws,
     int GamesPlayed,
     DateTimeOffset UpdatedAt);
+
+[ExcludeFromCodeCoverage]
+public sealed record MatchHistoryEntryDto(
+    Guid GameId,
+    Briscola.Domain.Primitives.GameMode Mode,
+    string Name,
+    DateTimeOffset? StartedAt,
+    DateTimeOffset? EndedAt,
+    int MySeatIndex,
+    System.Collections.Immutable.ImmutableArray<Guid?> SeatUserIds,
+    string OutcomeKind,
+    int? WinnerKey,
+    System.Collections.Immutable.ImmutableArray<int> SeatScores,
+    System.Collections.Immutable.ImmutableArray<int>? TeamScores,
+    string Reason);
+
+[ExcludeFromCodeCoverage]
+public sealed record MatchHistoryPageDto(
+    System.Collections.Generic.IReadOnlyList<MatchHistoryEntryDto> Items,
+    int Page,
+    int PageSize,
+    long TotalCount);
