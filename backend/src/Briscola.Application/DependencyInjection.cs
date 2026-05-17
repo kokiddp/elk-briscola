@@ -31,6 +31,7 @@ public static class DependencyInjection
         services.AddScoped<RankingService>();
         services.AddScoped<MatchHistoryService>();
         services.AddHostedService<OpenLobbyJanitor>();
+        services.AddHostedService<GracefulShutdownHostedService>();
         return services;
     }
 }
