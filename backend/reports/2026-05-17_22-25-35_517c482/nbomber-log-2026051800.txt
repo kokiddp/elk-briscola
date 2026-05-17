@@ -1,0 +1,16 @@
+2026-05-18 00:25:35.495 +02:00 [INF] [ThreadId:1] NBomber 6.4.0 started a new session: 2026-05-17_22-25-35_517c482
+2026-05-18 00:25:35.540 +02:00 [INF] [ThreadId:1] NBomber started as single node
+2026-05-18 00:25:35.543 +02:00 [INF] [ThreadId:1] License validation....
+2026-05-18 00:25:35.543 +02:00 [WRN] [ThreadId:1] THIS VERSION IS FREE ONLY FOR PERSONAL USE. You can't use it for an organization.
+2026-05-18 00:25:35.556 +02:00 [INF] [ThreadId:1] Reports folder: /home/koki/elk-briscola/backend/tools/Briscola.StressTest/bin/Release/net10.0/reports/2026-05-17_22-25-35_517c482
+2026-05-18 00:25:35.556 +02:00 [INF] [ThreadId:1] Plugins: no plugins were loaded
+2026-05-18 00:25:35.557 +02:00 [INF] [ThreadId:1] Reporting sinks: no reporting sinks were loaded
+2026-05-18 00:25:35.557 +02:00 [INF] [ThreadId:1] Starting init...
+2026-05-18 00:25:35.563 +02:00 [INF] [ThreadId:1] Target scenarios: two_player_game
+2026-05-18 00:25:35.564 +02:00 [INF] [ThreadId:1] Init finished
+2026-05-18 00:25:35.578 +02:00 [INF] [ThreadId:1] Starting bombing...
+2026-05-18 00:25:37.619 +02:00 [WRN] [ThreadId:5] Stopping test early: Stopping test because of too many fails. Scenario 'two_player_game' contains '6056' fails.
+2026-05-18 00:25:37.626 +02:00 [INF] [ThreadId:16] Waiting on scenarios completion...
+2026-05-18 00:25:40.625 +02:00 [INF] [ThreadId:17] Calculating final statistics...
+2026-05-18 00:25:40.898 +02:00 [INF] [ThreadId:17] Reports saved in folder: /home/koki/elk-briscola/backend/reports/2026-05-17_22-25-35_517c482
+2026-05-18 00:25:40.899 +02:00 [WRN] [ThreadId:17] THIS VERSION IS FREE ONLY FOR PERSONAL USE. You can't use it for an organization.
