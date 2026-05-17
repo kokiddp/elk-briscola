@@ -51,17 +51,32 @@ public sealed class BriscolaMetricsTests
         TestGameFactory factory = new();
         using BriscolaMetrics metrics = new();
 
+        // Pin the listener to OUR metrics instance's specific instrument.
+        // The MeterListener is process-wide: any sibling test that builds
+        // a fresh BriscolaMetrics (and emits Add(1)) would otherwise poison
+        // the counter we're inspecting. We capture the Instrument reference
+        // in InstrumentPublished and compare by identity in the measurement
+        // callback so cross-test bleed-through is zero.
+        Instrument? ourActiveGames = null;
         int active = 0;
         using MeterListener listener = new();
         listener.InstrumentPublished = (inst, l) =>
         {
             if (inst.Meter.Name == BriscolaMetrics.MeterName &&
-                inst.Name == "briscola.active_games")
+                inst.Name == "briscola.active_games" &&
+                ReferenceEquals(inst, metrics.ActiveGames))
             {
+                ourActiveGames = inst;
                 l.EnableMeasurementEvents(inst);
             }
         };
-        listener.SetMeasurementEventCallback<int>((_, m, _, _) => active += m);
+        listener.SetMeasurementEventCallback<int>((inst, m, _, _) =>
+        {
+            if (ReferenceEquals(inst, ourActiveGames))
+            {
+                Interlocked.Add(ref active, m);
+            }
+        });
         listener.Start();
 
         GameOrchestrator orch = new(
@@ -71,13 +86,12 @@ public sealed class BriscolaMetricsTests
             metrics);
 
         // Seed a Running game and hydrate.
-        (_, Persistence.GameRecord record, _) = await factory.CreateRunningRoomAsync();
+        _ = await factory.CreateRunningRoomAsync();
         await orch.HydrateAsync(CancellationToken.None);
         active.Should().Be(1);
 
         await orch.DisposeAsync();
         active.Should().Be(0);
-        _ = record;
     }
 
     [Fact]
