@@ -3,6 +3,7 @@ using Briscola.Application.Orchestration.Commands;
 using Briscola.Application.Orchestration.Timers;
 using Briscola.Application.Persistence;
 using Briscola.Application.Ports;
+using Briscola.Application.Telemetry;
 using Briscola.Domain.Engine;
 using Briscola.Domain.Primitives;
 using Microsoft.Extensions.Options;
@@ -16,7 +17,8 @@ public sealed class GameOrchestrator(
     IGameEventBus eventBus,
     IClock clock,
     ITimerService timers,
-    IOptions<Configuration.GameOptions> options) : IAsyncDisposable
+    IOptions<Configuration.GameOptions> options,
+    BriscolaMetrics metrics) : IAsyncDisposable
 {
     private readonly ConcurrentDictionary<Guid, GameRoom> _rooms = new();
 
@@ -50,7 +52,11 @@ public sealed class GameOrchestrator(
             // (Phase 2 follow-up: hydrate orphan task).
             GameRoom candidate = GameRoom.FromRecord(
                 record, gamesFactory, stateCodec, engine, eventBus, clock, timers, options);
-            if (!_rooms.TryAdd(record.Id, candidate))
+            if (_rooms.TryAdd(record.Id, candidate))
+            {
+                metrics.ActiveGames.Add(1);
+            }
+            else
             {
                 await candidate.DisposeAsync().ConfigureAwait(false);
             }
@@ -88,6 +94,7 @@ public sealed class GameOrchestrator(
         foreach (GameRoom room in _rooms.Values)
         {
             await room.DisposeAsync().ConfigureAwait(false);
+            metrics.ActiveGames.Add(-1);
         }
 
         _rooms.Clear();
@@ -108,6 +115,7 @@ public sealed class GameOrchestrator(
             record, gamesFactory, stateCodec, engine, eventBus, clock, timers, options);
         if (_rooms.TryAdd(gameId, candidate))
         {
+            metrics.ActiveGames.Add(1);
             return candidate;
         }
 

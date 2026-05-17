@@ -52,6 +52,7 @@ public sealed class GameHub : Hub<IGameClient>
     private readonly IGameRepository _games;
     private readonly IChatRepository _chat;
     private readonly IClock _clock;
+    private readonly Briscola.Application.Telemetry.BriscolaMetrics _metrics;
 
     public GameHub(
         GameOrchestrator orchestrator,
@@ -59,7 +60,8 @@ public sealed class GameHub : Hub<IGameClient>
         IGameRepository games,
         IChatRepository chat,
         IClock clock,
-        IOptions<HubRateLimitOptions> rateLimits)
+        IOptions<HubRateLimitOptions> rateLimits,
+        Briscola.Application.Telemetry.BriscolaMetrics metrics)
     {
         ArgumentNullException.ThrowIfNull(rateLimits);
         _orchestrator = orchestrator;
@@ -68,6 +70,13 @@ public sealed class GameHub : Hub<IGameClient>
         _chat = chat;
         _clock = clock;
         _rateLimits = rateLimits.Value;
+        _metrics = metrics;
+    }
+
+    public override async Task OnConnectedAsync()
+    {
+        _metrics.ConnectedPlayers.Add(1);
+        await base.OnConnectedAsync().ConfigureAwait(false);
     }
 
     public static string GameGroup(Guid gameId) => $"{GameGroupPrefix}{gameId}";
@@ -291,6 +300,7 @@ public sealed class GameHub : Hub<IGameClient>
             }
         }
 
+        _metrics.ConnectedPlayers.Add(-1);
         await base.OnDisconnectedAsync(exception).ConfigureAwait(false);
     }
 

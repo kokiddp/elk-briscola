@@ -52,10 +52,15 @@ internal sealed class PostgresContainerPool : IDisposable
         }
 
         // Switch the database in the connection string but keep host /
-        // port / credentials.
+        // port / credentials. Cap Npgsql's per-fixture connection pool
+        // (default = 100) — combined with the postgres container's bumped
+        // max_connections=400 above, this gives ~25 fixtures × 10 = 250
+        // connections of headroom.
         NpgsqlConnectionStringBuilder b = new(_adminConnectionString)
         {
             Database = dbName,
+            MaxPoolSize = 10,
+            MinPoolSize = 0,
         };
         return b.ConnectionString;
     }
@@ -75,10 +80,15 @@ internal sealed class PostgresContainerPool : IDisposable
                 return;
             }
 
+            // Pass `-c max_connections=400` to postgres so parallel test
+            // fixtures (each with its own Npgsql pool) don't exhaust the
+            // default cap of 100. The postgres docker-entrypoint forwards
+            // args starting with "-" to the postgres binary.
             PostgreSqlContainer c = new PostgreSqlBuilder("postgres:17.2-alpine")
                 .WithDatabase("postgres")
                 .WithUsername("briscola")
                 .WithPassword("briscola-test")
+                .WithCommand("-c", "max_connections=400")
                 .Build();
 
             await c.StartAsync(ct).ConfigureAwait(false);

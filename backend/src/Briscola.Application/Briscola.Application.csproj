@@ -10,6 +10,7 @@
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.0" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.0" />
     <PackageReference Include="Microsoft.Extensions.Options" Version="10.0.0" />
+    <PackageReference Include="OpenTelemetry.Api" Version="1.15.3" />
     <ProjectReference Include="..\Briscola.Domain\Briscola.Domain.csproj" />
   </ItemGroup>
 

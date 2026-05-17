@@ -41,17 +41,20 @@ public sealed partial class GameEventDispatcher : BackgroundService
     private readonly IHubContext<GameHub, IGameClient> _hub;
     private readonly IHubContext<LobbyHub, ILobbyClient> _lobby;
     private readonly ILogger<GameEventDispatcher> _logger;
+    private readonly Briscola.Application.Telemetry.BriscolaMetrics _metrics;
 
     public GameEventDispatcher(
         IGameEventBus bus,
         IHubContext<GameHub, IGameClient> hub,
         IHubContext<LobbyHub, ILobbyClient> lobby,
-        ILogger<GameEventDispatcher> logger)
+        ILogger<GameEventDispatcher> logger,
+        Briscola.Application.Telemetry.BriscolaMetrics metrics)
     {
         _bus = bus;
         _hub = hub;
         _lobby = lobby;
         _logger = logger;
+        _metrics = metrics;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -79,8 +82,7 @@ public sealed partial class GameEventDispatcher : BackgroundService
             _hub.Clients.Group(GameHub.SpectatorGroup(s.GameId)).StateUpdated(ToDto(s.Snapshot)),
         StateUpdatedEvent s =>
             _hub.Clients.User(s.TargetUserId!.Value.ToString()).StateUpdated(ToDto(s.Snapshot)),
-        CardPlayedEvent c =>
-            BroadcastGroups(c.GameId).CardPlayed(new CardPlayedDto(c.SeatIndex, ToDto(c.Card))),
+        CardPlayedEvent c => DispatchCardPlayedAsync(c),
         TrickResolvedEvent t =>
             BroadcastGroups(t.GameId).TrickResolved(new TrickResolvedDto(t.WinnerSeat, t.NewSeatScores)),
         CardsDrawnEvent d => DispatchCardsDrawnAsync(d),
@@ -108,6 +110,13 @@ public sealed partial class GameEventDispatcher : BackgroundService
     };
 
     private ILobbyClient LobbyGroup() => _lobby.Clients.Group(LobbyHub.OpenLobbyGroup);
+
+    private Task DispatchCardPlayedAsync(CardPlayedEvent evt)
+    {
+        _metrics.MovesTotal.Add(1);
+        return BroadcastGroups(evt.GameId)
+            .CardPlayed(new CardPlayedDto(evt.SeatIndex, ToDto(evt.Card)));
+    }
 
     private async Task DispatchGameFinishedAsync(GameFinishedEvent evt)
     {

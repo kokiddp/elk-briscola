@@ -321,7 +321,8 @@ public sealed class LobbyServiceTests
                 bus,
                 Clock,
                 timers,
-                Options.Create(new GameOptions()));
+                Options.Create(new GameOptions()),
+                new Briscola.Application.Telemetry.BriscolaMetrics());
             Service = new LobbyService(
                 Games,
                 new FakePasswordHasher(),

@@ -8,6 +8,7 @@ using Briscola.Application.Orchestration;
 using Briscola.Application.Orchestration.Timers;
 using Briscola.Application.Ports;
 using Briscola.Application.Ranking;
+using Briscola.Application.Telemetry;
 using Briscola.Domain.Engine;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -24,6 +25,7 @@ public static class DependencyInjection
         services.AddSingleton<ITimerService, SystemTimerService>();
         services.AddSingleton<IRandomSourceFactory, SystemRandomSourceFactory>();
         services.AddSingleton<IBriscolaEngine, BriscolaEngine>();
+        services.AddSingleton<BriscolaMetrics>();
         services.AddSingleton<GameOrchestrator>();
         services.AddScoped<LobbyService>();
         services.AddScoped<RankingService>();

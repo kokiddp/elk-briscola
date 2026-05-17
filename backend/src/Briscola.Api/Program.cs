@@ -18,6 +18,8 @@ using Briscola.Infrastructure.Logging;
 using Briscola.Infrastructure.Persistence;
 using FluentValidation;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Resources;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -40,6 +42,32 @@ builder.Services.Configure<HubRateLimitOptions>(builder.Configuration.GetSection
 //    SerilogSetup encodes the dev-vs-prod sinks.
 builder.Host.UseSerilog((ctx, lc) =>
     SerilogSetup.Configure(lc, ctx.HostingEnvironment, ctx.Configuration));
+
+// 2b) OpenTelemetry metrics. Console exporter in dev (so `dotnet run` shows
+//      counter ticks live), OTLP exporter when OTEL_EXPORTER_OTLP_ENDPOINT
+//      is set — the standard env var the OTel SDK picks up automatically.
+// Custom Meter "Briscola" (Briscola.Application.Telemetry.BriscolaMetrics)
+// emits briscola.active_games / connected_players / moves_total.
+builder.Services.AddOpenTelemetry()
+    .ConfigureResource(r => r
+        .AddService(serviceName: "elk-briscola-api",
+                    serviceVersion: typeof(Program).Assembly.GetName().Version?.ToString() ?? "0.0.0"))
+    .WithMetrics(m =>
+    {
+        m.AddMeter(Briscola.Application.Telemetry.BriscolaMetrics.MeterName)
+         .AddAspNetCoreInstrumentation()
+         .AddRuntimeInstrumentation();
+
+        if (builder.Environment.IsDevelopment() &&
+            string.IsNullOrEmpty(Environment.GetEnvironmentVariable("OTEL_EXPORTER_OTLP_ENDPOINT")))
+        {
+            m.AddConsoleExporter();
+        }
+        else
+        {
+            m.AddOtlpExporter();
+        }
+    });
 
 // 3) Application + Infrastructure DI modules (DbContext, Identity, JwtIssuer,
 //    repositories, BriscolaEngine, GameOrchestrator, hosted janitor, etc.).

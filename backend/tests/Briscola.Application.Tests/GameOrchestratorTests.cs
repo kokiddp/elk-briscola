@@ -24,7 +24,8 @@ public sealed class GameOrchestratorTests
             bus,
             factory.Clock,
             factory.Timers,
-            Options.Create(new GameOptions()));
+            Options.Create(new GameOptions()),
+            new Briscola.Application.Telemetry.BriscolaMetrics());
 
         await orchestrator.HydrateAsync(CancellationToken.None);
         await orchestrator.EnqueueAsync(
@@ -88,5 +89,6 @@ public sealed class GameOrchestratorTests
             bus,
             factory.Clock,
             factory.Timers,
-            Options.Create(new GameOptions()));
+            Options.Create(new GameOptions()),
+            new Briscola.Application.Telemetry.BriscolaMetrics());
 }
