@@ -3,3 +3,6 @@ node_modules/
 coverage/
 .angular/
 package-lock.json
+# Phase 13 E2E artifacts — checked in by the CI uploader, not by humans.
+playwright-report/
+test-results/

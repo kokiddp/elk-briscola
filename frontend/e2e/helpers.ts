@@ -38,6 +38,18 @@ export async function newPlayer(browser: Browser): Promise<{ ctx: BrowserContext
 }
 
 /**
+ * Logs in an existing user. Lands on /home. Used by the reconnect spec
+ * after the original context is torn down.
+ */
+export async function loginAndLand(page: Page, user: TestUser): Promise<void> {
+  await page.goto('/login');
+  await page.getByTestId('usernameOrEmail').fill(user.username);
+  await page.getByTestId('password').fill(user.password);
+  await page.getByTestId('submit').click();
+  await expect(page).toHaveURL(/\/(home|lobby)$/, { timeout: 15_000 });
+}
+
+/**
  * Registers the user and lands on /home (the post-auth landing route).
  * Reuses the existing register form — we do NOT go through login because
  * register auto-authenticates the new user.
@@ -122,7 +134,12 @@ export async function playToCompletion(
 
 async function anyEndDialog(pages: Page[]): Promise<boolean> {
   for (const p of pages) {
-    if (await p.getByTestId('end-game-dialog').isVisible().catch(() => false)) {
+    if (
+      await p
+        .getByTestId('end-game-dialog')
+        .isVisible()
+        .catch(() => false)
+    ) {
       return true;
     }
   }

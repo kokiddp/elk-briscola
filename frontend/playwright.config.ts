@@ -26,10 +26,7 @@ export default defineConfig({
   // two players); more parallelism just contends for the api's auth
   // rate-limit window.
   workers: process.env.CI ? 1 : 2,
-  reporter: [
-    ['list'],
-    ['html', { outputFolder: 'playwright-report', open: 'never' }],
-  ],
+  reporter: [['list'], ['html', { outputFolder: 'playwright-report', open: 'never' }]],
   use: {
     baseURL: process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:8080',
     trace: 'retain-on-failure',
