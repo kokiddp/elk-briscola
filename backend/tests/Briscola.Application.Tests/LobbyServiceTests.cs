@@ -278,23 +278,34 @@ public sealed class LobbyServiceTests
     }
 
     [Fact]
-    public async Task Open_lobby_janitor_abandons_expired_games()
+    public async Task Open_lobby_janitor_abandons_expired_games_and_publishes_lobby_ended()
     {
         TestFixture fixture = new();
         GameRecord created = await fixture.Service.CreateAsync(
             new CreateGameRequest(GameMode.TwoPlayer, "old", IsPrivate: false, Password: null),
             Guid.NewGuid(),
             CancellationToken.None);
+        int eventsBeforeJanitor = fixture.Bus.Events.Count;
         fixture.Clock.Advance(TimeSpan.FromMinutes(61));
         OpenLobbyJanitor janitor = new(
             fixture.GamesFactory,
             fixture.Clock,
-            Options.Create(new GameOptions { OpenLobbyTtlMinutes = 60 }));
+            Options.Create(new GameOptions { OpenLobbyTtlMinutes = 60 }),
+            fixture.Bus);
 
         await janitor.RunOnceAsync(CancellationToken.None);
 
         GameRecord? after = await fixture.Games.GetAsync(created.Id, CancellationToken.None);
         after!.Status.Should().Be(GameStatus.Abandoned);
+
+        // The dispatcher routes LobbyGameEndedEvent → ILobbyClient.GameEnded
+        // → SPA removes the row + clears the creator's pending banner.
+        Briscola.Application.Orchestration.Events.LobbyGameEndedEvent endedEvent =
+            fixture.Bus.Events
+                .Skip(eventsBeforeJanitor)
+                .OfType<Briscola.Application.Orchestration.Events.LobbyGameEndedEvent>()
+                .Single();
+        endedEvent.GameId.Should().Be(created.Id);
     }
 
     private sealed class TestFixture
@@ -306,13 +317,15 @@ public sealed class LobbyServiceTests
         public InMemoryGameStateCodec Codec { get; } = new();
         public LobbyService Service { get; }
 
+        public RecordingGameEventBus Bus { get; } = new();
+
         public TestFixture()
         {
             InMemoryRankingRepository rankings = new(Clock.UtcNow);
             RankingService ranking = new(rankings, Clock);
             GamesFactory = new InMemoryGameRepositoryFactory(Games, ranking);
             IBriscolaEngine engine = new BriscolaEngine();
-            RecordingGameEventBus bus = new();
+            RecordingGameEventBus bus = Bus;
             FakeTimerService timers = new(Clock);
             GameOrchestrator orchestrator = new(
                 GamesFactory,

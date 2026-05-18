@@ -26,6 +26,7 @@ export class LobbyService {
   private readonly chatLogSig = signal<readonly LobbyChatMessage[]>([]);
   private readonly connectionStateSig = signal<HubConnectionState>(HubConnectionState.Disconnected);
   private readonly lastStartedGameIdSig = signal<string | null>(null);
+  private readonly lastEndedGameIdSig = signal<string | null>(null);
 
   private connection: HubConnection | null = null;
   private connectPromise: Promise<void> | null = null;
@@ -37,9 +38,18 @@ export class LobbyService {
   /** Last game id we saw transition Open → Running. Components watch this
    *  to auto-route into the table when their pending game starts. */
   readonly lastStartedGameId = computed(() => this.lastStartedGameIdSig());
+  /** Last game id the server announced as ended (running finish OR the
+   *  open-lobby janitor abandoned an unfilled game). The lobby component
+   *  uses this to clear the creator's pending banner + toast them when
+   *  their game gets reaped for being empty. */
+  readonly lastEndedGameId = computed(() => this.lastEndedGameIdSig());
 
   clearLastStartedGameId(): void {
     this.lastStartedGameIdSig.set(null);
+  }
+
+  clearLastEndedGameId(): void {
+    this.lastEndedGameIdSig.set(null);
   }
 
   async connect(): Promise<void> {
@@ -184,7 +194,13 @@ export class LobbyService {
   }
 
   private onGameEnded(gameId: string): void {
+    // The same event fires for natural finishes (Running → Finished) and
+    // for the OpenLobbyJanitor's abandon path on unfilled Open games.
+    // Wipe both lists; the LobbyComponent decides what to surface to
+    // the user based on whether the id matches its pending game.
+    this.removeOpen(gameId);
     this.removeRunning(gameId);
+    this.lastEndedGameIdSig.set(gameId);
   }
 
   private onChatMessage(message: LobbyChatMessage): void {

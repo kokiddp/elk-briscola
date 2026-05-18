@@ -1,8 +1,9 @@
+using System.Diagnostics.CodeAnalysis;
 using Briscola.Application.Configuration;
+using Briscola.Application.Orchestration.Events;
 using Briscola.Application.Persistence;
 using Briscola.Application.Ports;
 using Briscola.Domain.Primitives;
-using System.Diagnostics.CodeAnalysis;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 
@@ -11,7 +12,8 @@ namespace Briscola.Application.Background;
 public sealed class OpenLobbyJanitor(
     IGameRepositoryFactory gamesFactory,
     IClock clock,
-    IOptions<GameOptions> options) : BackgroundService
+    IOptions<GameOptions> options,
+    IGameEventBus eventBus) : BackgroundService
 {
     [ExcludeFromCodeCoverage]
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -34,7 +36,18 @@ public sealed class OpenLobbyJanitor(
 
         foreach (GameRecord record in records.Where(r => r.CreatedAt < cutoff))
         {
-            await games.UpdateAsync(record with { Status = GameStatus.Abandoned, EndedAt = now }, ct)
+            GameRecord abandoned = record with { Status = GameStatus.Abandoned, EndedAt = now };
+            bool updated = await games.UpdateAsync(abandoned, ct).ConfigureAwait(false);
+            if (!updated)
+            {
+                continue;
+            }
+
+            // Tell the lobby SignalR group the game is gone so the SPA
+            // can drop it from the open list + clear the creator's
+            // pending banner. The dispatcher already wires LobbyGameEnded
+            // → ILobbyClient.GameEnded(gameId).
+            await eventBus.PublishAsync(new LobbyGameEndedEvent(record.Id, now), ct)
                 .ConfigureAwait(false);
         }
     }

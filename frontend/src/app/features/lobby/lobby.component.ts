@@ -52,6 +52,25 @@ export class LobbyComponent implements OnInit, OnDestroy {
         void this.router.navigateByUrl(`/game/${started}`);
       }
     });
+
+    // Open games that nobody joins get abandoned by the OpenLobbyJanitor
+    // after the configured TTL. The server fires a gameEnded event
+    // and the LobbyService surfaces it via lastEndedGameId. If the
+    // abandoned id is OUR pending game, drop the banner + toast the
+    // user — without this, the pending banner would hang there forever.
+    effect(() => {
+      const ended = this.lobby.lastEndedGameId();
+      const pending = this.pendingGameId();
+      if (ended && ended === pending) {
+        this.pendingGameId.set(null);
+        this.lobby.clearLastEndedGameId();
+        this.toast.info(this.i18n.t('lobby.errors.openGameAbandoned'));
+      } else if (ended) {
+        // Not ours — clear the signal so a future gameEnded for the
+        // same id (we'd be very surprised) re-triggers the effect.
+        this.lobby.clearLastEndedGameId();
+      }
+    });
   }
 
   async ngOnInit(): Promise<void> {

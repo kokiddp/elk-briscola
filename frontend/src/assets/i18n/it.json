@@ -94,6 +94,7 @@
   "lobby.errors.connectFailed": "Impossibile connettersi alla lobby.",
   "lobby.errors.createFailed": "Impossibile creare la partita.",
   "lobby.errors.joinFailed": "Impossibile entrare nella partita.",
+  "lobby.errors.openGameAbandoned": "La tua partita aperta è scaduta senza abbastanza giocatori ed è stata annullata.",
   "game.connecting": "Connessione al tavolo…",
   "game.opponent": "Avversario (posto {seat})",
   "game.partner": "Compagno",

@@ -94,6 +94,7 @@
   "lobby.errors.connectFailed": "Could not connect to the lobby.",
   "lobby.errors.createFailed": "Could not create the game.",
   "lobby.errors.joinFailed": "Could not join the game.",
+  "lobby.errors.openGameAbandoned": "Your open game timed out without enough players and was cancelled.",
   "game.connecting": "Connecting to the table…",
   "game.opponent": "Opponent (seat {seat})",
   "game.partner": "Partner",
