@@ -37,6 +37,7 @@ function makeLobby(
   );
   const clearLastStartedGameId = vi.fn(() => lastStartedSig.set(null));
   const clearLastEndedGameId = vi.fn(() => lastEndedSig.set(null));
+  const pendingSig = signal<GameSummary | null>(null);
   const svc = {
     openGames: () => openSig(),
     runningGames: () => runningSig(),
@@ -45,11 +46,14 @@ function makeLobby(
     clearLastStartedGameId,
     lastEndedGameId: () => lastEndedSig(),
     clearLastEndedGameId,
+    pendingGame: () => pendingSig(),
+    pendingGameId: () => pendingSig()?.id ?? null,
+    hasPendingGame: () => pendingSig() !== null,
     connect: () => Promise.resolve(),
     disconnect: () => Promise.resolve(),
     createGame,
     joinGame,
-    leaveGame: () => Promise.resolve(),
+    leaveGame: vi.fn(() => Promise.resolve()),
     sendChat: () => Promise.resolve(),
   } as unknown as LobbyService;
   return {

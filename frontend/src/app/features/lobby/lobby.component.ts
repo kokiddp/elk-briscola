@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit, computed, effect, inject, signal } from '@angular/core';
+import { Component, OnInit, effect, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { ErrorToastService } from '../../core/error-toast.service';
 import { I18nService } from '../../core/i18n.service';
@@ -15,7 +15,7 @@ import { LobbyService } from './lobby.service';
   templateUrl: './lobby.component.html',
   styleUrl: './lobby.component.scss',
 })
-export class LobbyComponent implements OnInit, OnDestroy {
+export class LobbyComponent implements OnInit {
   private readonly lobby = inject(LobbyService);
   private readonly router = inject(Router);
   private readonly toast = inject(ErrorToastService);
@@ -27,62 +27,49 @@ export class LobbyComponent implements OnInit, OnDestroy {
   readonly dialogSubmitting = signal(false);
   readonly joiningId = signal<string | null>(null);
   /**
-   * Game we're currently waiting in (created or joined into an Open seat).
-   * GameHub's JoinGame requires the game to be Running, so we hold the
-   * route here until the lobby pushes gameStarted/gameUpdated(Running).
+   * Whether the user is sitting in an open game. Read straight from
+   * the LobbyService's signal, which is derived from the openGames
+   * list + the auth'd user id — so the state survives a page refresh
+   * and is correct from any route.
    */
-  readonly pendingGameId = signal<string | null>(null);
-  readonly pendingGame = computed<GameSummary | null>(() => {
-    const id = this.pendingGameId();
-    if (!id) return null;
-    return this.openGames().find((g) => g.id === id) ?? null;
-  });
-  /** Whether the user is currently sitting in any open game (their own
-   *  creation or one they joined). Drives the create + join UX gates. */
-  readonly hasPendingGame = computed(() => this.pendingGameId() !== null);
+  readonly pendingGame = this.lobby.pendingGame;
+  readonly pendingGameId = this.lobby.pendingGameId;
+  readonly hasPendingGame = this.lobby.hasPendingGame;
+  /** Cancel-in-flight flag — drives the disabled state on the cancel
+   *  button so a double-click can't fire two leaveGame requests. */
+  readonly cancelling = signal(false);
 
   constructor() {
-    // Auto-route once our pending game transitions to Running.
-    effect(() => {
-      const started = this.lobby.lastStartedGameId();
-      const pending = this.pendingGameId();
-      if (started && started === pending) {
-        this.pendingGameId.set(null);
-        this.lobby.clearLastStartedGameId();
-        void this.router.navigateByUrl(`/game/${started}`);
-      }
-    });
-
-    // Open games that nobody joins get abandoned by the OpenLobbyJanitor
-    // after the configured TTL. The server fires a gameEnded event
-    // and the LobbyService surfaces it via lastEndedGameId. If the
-    // abandoned id is OUR pending game, drop the banner + toast the
-    // user — without this, the pending banner would hang there forever.
+    // Abandoned-pending-game toast: when the server reaps our open game
+    // for being unfilled, surface the i18n'd notice. The LobbyService
+    // already wipes the row from the open list, so the pending banner
+    // disappears on its own.
     effect(() => {
       const ended = this.lobby.lastEndedGameId();
+      if (!ended) {
+        return;
+      }
+      // We see the ended id BEFORE the openGames signal updates (the
+      // dispatcher publishes the event before the SignalR client
+      // removes the row), so we can still inspect what just disappeared.
       const pending = this.pendingGameId();
-      if (ended && ended === pending) {
-        this.pendingGameId.set(null);
-        this.lobby.clearLastEndedGameId();
+      this.lobby.clearLastEndedGameId();
+      if (ended === pending) {
         this.toast.info(this.i18n.t('lobby.errors.openGameAbandoned'));
-      } else if (ended) {
-        // Not ours — clear the signal so a future gameEnded for the
-        // same id (we'd be very surprised) re-triggers the effect.
-        this.lobby.clearLastEndedGameId();
       }
     });
   }
 
   async ngOnInit(): Promise<void> {
+    // Connection is owned by the LobbyService at the app-singleton
+    // level (auto-connects on login, stays up across navigations).
+    // We still try connect() here so a hot-loaded /lobby works even
+    // before the auth effect fires.
     try {
       await this.lobby.connect();
     } catch {
       this.toast.error(this.i18n.t('lobby.errors.connectFailed'));
     }
-  }
-
-  ngOnDestroy(): void {
-    void this.lobby.disconnect();
   }
 
   openCreateDialog(): void {
@@ -106,11 +93,10 @@ export class LobbyComponent implements OnInit, OnDestroy {
       this.dialogOpen.set(false);
       if (detail.status === 'Running') {
         await this.router.navigateByUrl(`/game/${detail.id}`);
-      } else {
-        // Stay on the lobby; the effect above will route us in once another
-        // player fills the last seat and the lobby pushes gameStarted.
-        this.pendingGameId.set(detail.id);
       }
+      // Else: stay on /lobby. The pendingGame computed picks this up
+      // once the create response is reflected in the open list (either
+      // via SignalR gameCreated or the refreshLists round-trip).
     } catch {
       this.toast.error(this.i18n.t('lobby.errors.createFailed'));
     } finally {
@@ -138,14 +124,33 @@ export class LobbyComponent implements OnInit, OnDestroy {
       const detail = await this.lobby.joinGame(game.id, password);
       if (detail.status === 'Running') {
         await this.router.navigateByUrl(`/game/${game.id}`);
-      } else {
-        // Joined a 4p game still waiting on more seats.
-        this.pendingGameId.set(game.id);
       }
     } catch {
       this.toast.error(this.i18n.t('lobby.errors.joinFailed'));
     } finally {
       this.joiningId.set(null);
+    }
+  }
+
+  /**
+   * Creator-side cancel for an open game that hasn't started yet.
+   * Server-side this is a `LeaveAsync` — the seat clears, the game
+   * empties, and (when the creator was the only one seated) the open
+   * list view drops to zero occupants. The OpenLobbyJanitor will reap
+   * the empty record on its next tick.
+   */
+  async onCancelPending(): Promise<void> {
+    const id = this.pendingGameId();
+    if (!id || this.cancelling()) {
+      return;
+    }
+    this.cancelling.set(true);
+    try {
+      await this.lobby.leaveGame(id);
+    } catch {
+      this.toast.error(this.i18n.t('lobby.errors.cancelFailed'));
+    } finally {
+      this.cancelling.set(false);
     }
   }
 

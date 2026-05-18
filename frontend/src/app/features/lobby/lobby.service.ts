@@ -1,5 +1,6 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { computed, inject, Injectable, signal } from '@angular/core';
+import { computed, effect, inject, Injectable, signal } from '@angular/core';
+import { Router } from '@angular/router';
 import { HubConnection, HubConnectionState } from '@microsoft/signalr';
 import { firstValueFrom } from 'rxjs';
 import { AuthService } from '../../core/auth.service';
@@ -20,6 +21,52 @@ const CHAT_BACKLOG_MAX = 200;
 export class LobbyService {
   private readonly http = inject(HttpClient);
   private readonly auth = inject(AuthService);
+  private readonly router = inject(Router);
+
+  constructor() {
+    // Auto-connect to the LobbyHub whenever a user is authenticated.
+    // The connection lives at the SPA-singleton level so pending-game
+    // pushes (gameStarted, gameEnded) reach the user even if they
+    // navigated away from /lobby to /profile / /home. Disconnects
+    // explicitly on logout.
+    effect(() => {
+      const me = this.auth.currentUser();
+      if (me) {
+        // Best-effort — failures land via the existing error path.
+        void this.connect().catch(() => undefined);
+      } else if (this.connection) {
+        void this.disconnect();
+      }
+    });
+
+    // Stash the most recently observed pendingGameId. The auto-route
+    // effect below needs it because onGameStarted removes the game
+    // from openGames *before* lastStartedGameId fires — at the moment
+    // the effect runs, the computed pendingGameId has already gone to
+    // null and the comparison would lose the race.
+    effect(() => {
+      const id = this.pendingGameId();
+      if (id) {
+        this.lastSeenPendingGameId = id;
+      }
+    });
+
+    // Global auto-route: whenever the user's pending game transitions
+    // to Running, navigate them into the table from wherever they are.
+    effect(() => {
+      const started = this.lastStartedGameIdSig();
+      if (!started) {
+        return;
+      }
+      if (started === this.lastSeenPendingGameId) {
+        this.lastSeenPendingGameId = null;
+        this.lastStartedGameIdSig.set(null);
+        void this.router.navigateByUrl(`/game/${started}`);
+      }
+    });
+  }
+
+  private lastSeenPendingGameId: string | null = null;
 
   private readonly openGamesSig = signal<readonly GameSummary[]>([]);
   private readonly runningGamesSig = signal<readonly GameSummary[]>([]);
@@ -43,6 +90,26 @@ export class LobbyService {
    *  uses this to clear the creator's pending banner + toast them when
    *  their game gets reaped for being empty. */
   readonly lastEndedGameId = computed(() => this.lastEndedGameIdSig());
+
+  /**
+   * The open game (if any) that the current user is already seated at.
+   * Derived directly from the openGames list + the auth'd user id, so
+   * it survives navigating away from /lobby and refreshing the page:
+   * on next connect() the open list re-loads from the server and the
+   * computed fires again.
+   *
+   * Becomes `null` once the game transitions to Running (it drops out
+   * of openGames) or is abandoned (same).
+   */
+  readonly pendingGame = computed<GameSummary | null>(() => {
+    const me = this.auth.currentUser()?.id;
+    if (!me) return null;
+    return (
+      this.openGamesSig().find((g) => (g.seatPlayers ?? []).some((p) => p?.userId === me)) ?? null
+    );
+  });
+  readonly pendingGameId = computed<string | null>(() => this.pendingGame()?.id ?? null);
+  readonly hasPendingGame = computed<boolean>(() => this.pendingGameId() !== null);
 
   clearLastStartedGameId(): void {
     this.lastStartedGameIdSig.set(null);
