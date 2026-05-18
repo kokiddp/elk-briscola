@@ -19,29 +19,35 @@ public sealed class RankingService(IRankingRepository rankings, IClock clock)
 
     private const int DefaultElo = 1500;
 
-    public async Task ApplyResultAsync(GameRecord game, GameResultRecord result, CancellationToken ct)
+    /// <summary>
+    /// Applies the post-game Elo deltas. Returns the updated
+    /// <see cref="RankingRecord"/>s — one per affected user, in seat-index
+    /// order — so callers can publish them downstream (e.g. via SignalR)
+    /// without a second round-trip to read what they just wrote. Returns
+    /// an empty list when the game has already been processed (idempotent
+    /// on <c>result.GameId</c>).
+    /// </summary>
+    public async Task<IReadOnlyList<RankingRecord>> ApplyResultAsync(
+        GameRecord game, GameResultRecord result, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(game);
         ArgumentNullException.ThrowIfNull(result);
 
         if (await rankings.HasProcessedGameAsync(result.GameId, ct).ConfigureAwait(false))
         {
-            return;
+            return [];
         }
 
-        if (game.Mode == GameMode.TwoPlayer)
-        {
-            await ApplyTwoPlayerAsync(game, result, ct).ConfigureAwait(false);
-        }
-        else
-        {
-            await ApplyFourPlayerAsync(game, result, ct).ConfigureAwait(false);
-        }
+        IReadOnlyList<RankingRecord> updated = game.Mode == GameMode.TwoPlayer
+            ? await ApplyTwoPlayerAsync(game, result, ct).ConfigureAwait(false)
+            : await ApplyFourPlayerAsync(game, result, ct).ConfigureAwait(false);
 
         await rankings.MarkProcessedGameAsync(result.GameId, ct).ConfigureAwait(false);
+        return updated;
     }
 
-    private async Task ApplyTwoPlayerAsync(GameRecord game, GameResultRecord result, CancellationToken ct)
+    private async Task<IReadOnlyList<RankingRecord>> ApplyTwoPlayerAsync(
+        GameRecord game, GameResultRecord result, CancellationToken ct)
     {
         Guid playerZero = RequiredUser(game, 0);
         Guid playerOne = RequiredUser(game, 1);
@@ -51,31 +57,42 @@ public sealed class RankingService(IRankingRepository rankings, IClock clock)
         double scoreA = ScoreFor(result, sideKey: 0);
         int delta = Delta(a.Elo, b.Elo, scoreA);
 
-        await rankings.UpdateAsync(Updated(a, delta, scoreA), ct).ConfigureAwait(false);
-        await rankings.UpdateAsync(Updated(b, -delta, 1 - scoreA), ct).ConfigureAwait(false);
+        RankingRecord nextA = Updated(a, delta, scoreA);
+        RankingRecord nextB = Updated(b, -delta, 1 - scoreA);
+        await rankings.UpdateAsync(nextA, ct).ConfigureAwait(false);
+        await rankings.UpdateAsync(nextB, ct).ConfigureAwait(false);
+        return [nextA, nextB];
     }
 
-    private async Task ApplyFourPlayerAsync(GameRecord game, GameResultRecord result, CancellationToken ct)
+    private async Task<IReadOnlyList<RankingRecord>> ApplyFourPlayerAsync(
+        GameRecord game, GameResultRecord result, CancellationToken ct)
     {
-        Guid[] teamZero = [RequiredUser(game, 0), RequiredUser(game, 2)];
-        Guid[] teamOne = [RequiredUser(game, 1), RequiredUser(game, 3)];
-        RankingRecord[] zeroRecords = await LoadManyAsync(teamZero, ct).ConfigureAwait(false);
-        RankingRecord[] oneRecords = await LoadManyAsync(teamOne, ct).ConfigureAwait(false);
-
-        double zeroAverage = zeroRecords.Average(static r => r.Elo);
-        double oneAverage = oneRecords.Average(static r => r.Elo);
+        // Seats are 0..3 in order; teams are {0,2} and {1,3}. We collect
+        // results in seat order so the caller can correlate with
+        // game.SeatUserIds[i] without a separate lookup.
+        Guid[] seatUsers = [
+            RequiredUser(game, 0),
+            RequiredUser(game, 1),
+            RequiredUser(game, 2),
+            RequiredUser(game, 3),
+        ];
+        RankingRecord[] current = await LoadManyAsync(seatUsers, ct).ConfigureAwait(false);
+        double zeroAverage = (current[0].Elo + current[2].Elo) / 2.0;
+        double oneAverage = (current[1].Elo + current[3].Elo) / 2.0;
         double scoreZero = ScoreFor(result, sideKey: 0);
         int delta = Delta(zeroAverage, oneAverage, scoreZero);
 
-        foreach (RankingRecord record in zeroRecords)
-        {
-            await rankings.UpdateAsync(Updated(record, delta, scoreZero), ct).ConfigureAwait(false);
-        }
+        RankingRecord[] next = new RankingRecord[4];
+        next[0] = Updated(current[0], delta, scoreZero);
+        next[2] = Updated(current[2], delta, scoreZero);
+        next[1] = Updated(current[1], -delta, 1 - scoreZero);
+        next[3] = Updated(current[3], -delta, 1 - scoreZero);
 
-        foreach (RankingRecord record in oneRecords)
+        foreach (RankingRecord r in next)
         {
-            await rankings.UpdateAsync(Updated(record, -delta, 1 - scoreZero), ct).ConfigureAwait(false);
+            await rankings.UpdateAsync(r, ct).ConfigureAwait(false);
         }
+        return next;
     }
 
     private async Task<RankingRecord[]> LoadManyAsync(Guid[] userIds, CancellationToken ct)

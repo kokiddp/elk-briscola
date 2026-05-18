@@ -42,5 +42,21 @@ public sealed class GameFinishAppliesRankingTests
         delta.Should().BeGreaterThan(0);
         Math.Abs(seatOneAfter.Elo - 1500).Should().Be(delta);
         (seatZeroAfter.Elo + seatOneAfter.Elo).Should().Be(3000);
+
+        // The room must publish one RankingUpdatedEvent per affected
+        // player BEFORE the GameFinishedEvent so the SPA can patch its
+        // cached /me snapshot while still on the hub connection.
+        IReadOnlyList<RankingUpdatedEvent> rankingEvents =
+            factory.Bus.Events.OfType<RankingUpdatedEvent>().ToList();
+        rankingEvents.Should().HaveCount(2);
+        rankingEvents.Select(e => e.TargetUserId).Should().BeEquivalentTo([users[0], users[1]]);
+        rankingEvents.Should().OnlyContain(e =>
+            e.Ranking.Elo == (e.TargetUserId == users[0] ? seatZeroAfter.Elo : seatOneAfter.Elo));
+
+        // Ordering contract: ranking updates land before the finished
+        // signal so the client's reducer applies them in causal order.
+        int finishedIndex = factory.Bus.Events.ToList().FindIndex(e => e is GameFinishedEvent);
+        int firstRankingIndex = factory.Bus.Events.ToList().FindIndex(e => e is RankingUpdatedEvent);
+        firstRankingIndex.Should().BeLessThan(finishedIndex);
     }
 }

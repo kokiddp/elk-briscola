@@ -100,6 +100,21 @@ public sealed record IdleWarningEvent(
     DateTimeOffset ForfeitDeadlineUtc) : IGameEvent;
 
 /// <summary>
+/// Emitted after <c>RankingService.ApplyResultAsync</c> updates a single
+/// player's ranking. The dispatcher routes one of these to the affected
+/// user over their personal SignalR connection so the SPA can patch its
+/// cached <c>/me</c> snapshot without polling. Carries the full
+/// <c>RankingRecord</c> (Elo, W/L/D, games played) so the client doesn't
+/// need a separate REST round-trip.
+/// </summary>
+[ExcludeFromCodeCoverage]
+public sealed record RankingUpdatedEvent(
+    Guid GameId,
+    DateTimeOffset At,
+    Guid TargetUserId,
+    RankingRecord Ranking) : IGameEvent;
+
+/// <summary>
 /// Lifecycle telemetry for the lobby UI: created/seat-fill/started/ended.
 /// The hub dispatcher fans these to the <c>lobby:open</c> SignalR group.
 /// </summary>

@@ -421,6 +421,7 @@ public sealed class GameRoom : IAsyncDisposable
         }
 
         GameResultRecord resultRecord = ToResultRecord(_state, reason);
+        IReadOnlyList<Persistence.RankingRecord> updatedRankings;
         await using (IGameRepositoryScope scope = _gamesFactory.Create())
         {
             await scope.Repository.SaveResultAsync(resultRecord, ct).ConfigureAwait(false);
@@ -428,7 +429,19 @@ public sealed class GameRoom : IAsyncDisposable
             // the EF DbContext / unit-of-work with the result persistence.
             // ApplyResultAsync is idempotent on result.GameId, so retries
             // after a partial failure don't double-count.
-            await scope.Ranking.ApplyResultAsync(_record, resultRecord, ct).ConfigureAwait(false);
+            updatedRankings = await scope.Ranking
+                .ApplyResultAsync(_record, resultRecord, ct).ConfigureAwait(false);
+        }
+
+        // Fan out the per-player ranking updates BEFORE the GameFinished
+        // event so the SPA's cached /me snapshot is patched while the
+        // hub connection still exists (the end-game dialog typically
+        // navigates the user away shortly after GameFinished lands).
+        foreach (Persistence.RankingRecord ranking in updatedRankings)
+        {
+            await _eventBus.PublishAsync(
+                new RankingUpdatedEvent(_state.GameId, now, ranking.UserId, ranking),
+                ct).ConfigureAwait(false);
         }
 
         await _eventBus.PublishAsync(

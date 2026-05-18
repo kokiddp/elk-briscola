@@ -34,4 +34,11 @@ public interface IGameClient
     Task ChatMessage(GameChatMessageDto message);
 
     Task InvalidMove(string code);
+
+    /// <summary>
+    /// Real-time ranking push. Sent on the user's personal connection
+    /// right after <see cref="GameFinishedDto"/> so the SPA can patch
+    /// its cached <c>/me</c> snapshot without polling.
+    /// </summary>
+    Task RankingUpdated(RankingDto ranking);
 }

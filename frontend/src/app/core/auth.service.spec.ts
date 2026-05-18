@@ -250,3 +250,46 @@ describe('AuthService.refreshMe', () => {
     expect(auth.currentUser()).toEqual(before);
   });
 });
+
+describe('AuthService.applyRanking', () => {
+  beforeEach(() => localStorage.clear());
+
+  it('patches the cached user ranking in place', async () => {
+    const { auth, ctrl } = setup();
+    await loginWith(auth, ctrl);
+    expect(auth.currentUser()?.ranking.elo).toBe(1000);
+
+    auth.applyRanking({
+      elo: 1521,
+      wins: 1,
+      losses: 0,
+      draws: 0,
+      gamesPlayed: 1,
+      updatedAt: '2026-05-18T16:00:00Z',
+    });
+
+    expect(auth.currentUser()?.ranking).toEqual({
+      elo: 1521,
+      wins: 1,
+      losses: 0,
+      draws: 0,
+      gamesPlayed: 1,
+      updatedAt: '2026-05-18T16:00:00Z',
+    });
+    // The rest of the user payload is untouched.
+    expect(auth.currentUser()?.username).toBe('alice');
+  });
+
+  it('is a no-op when no user is cached (e.g. logged out)', () => {
+    const { auth } = setup();
+    auth.applyRanking({
+      elo: 9999,
+      wins: 9,
+      losses: 9,
+      draws: 9,
+      gamesPlayed: 9,
+      updatedAt: '',
+    });
+    expect(auth.currentUser()).toBeNull();
+  });
+});

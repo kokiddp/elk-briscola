@@ -1,6 +1,7 @@
 import { computed, inject, Injectable, signal } from '@angular/core';
 import { HubConnection, HubConnectionState } from '@microsoft/signalr';
 import { AuthService } from '../../core/auth.service';
+import type { MeResponse } from '../../core/models';
 import { createHubConnection } from '../../core/signalr-client';
 import {
   Card,
@@ -237,6 +238,11 @@ export class GameService {
     conn.on('chatMessage', (message: GameChatMessage) => this.appendChat(message));
 
     conn.on('invalidMove', (code: InvalidMoveCode) => this.lastInvalidMoveSig.set(code));
+
+    // Real-time Elo / W / L / D push — fires once per affected player
+    // right after GameFinished. The dispatcher targets the user's
+    // personal connection so we never receive opponents' rankings.
+    conn.on('rankingUpdated', (ranking: MeResponse['ranking']) => this.auth.applyRanking(ranking));
 
     conn.onreconnecting(() => this.connectionStateSig.set(HubConnectionState.Reconnecting));
     conn.onreconnected(async () => {

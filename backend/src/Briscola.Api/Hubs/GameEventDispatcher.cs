@@ -92,6 +92,15 @@ public sealed partial class GameEventDispatcher : BackgroundService
         PhaseChangedEvent p =>
             BroadcastGroups(p.GameId).PhaseChanged(p.NewPhase.ToString()),
         GameFinishedEvent f => DispatchGameFinishedAsync(f),
+        RankingUpdatedEvent ru =>
+            _hub.Clients.User(ru.TargetUserId.ToString())
+                .RankingUpdated(new RankingDto(
+                    ru.Ranking.Elo,
+                    ru.Ranking.Wins,
+                    ru.Ranking.Losses,
+                    ru.Ranking.Draws,
+                    ru.Ranking.GamesPlayed,
+                    ru.Ranking.UpdatedAt)),
         PlayerDisconnectedEvent pd =>
             BroadcastGroups(pd.GameId).PlayerDisconnected(pd.SeatIndex, pd.GraceDeadlineUtc),
         PlayerReconnectedEvent pr =>

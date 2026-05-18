@@ -134,6 +134,20 @@ export class AuthService {
   }
 
   /**
+   * Patches the cached <c>currentUser().ranking</c> in place. Called by
+   * the SignalR `RankingUpdated` push so the profile widget updates in
+   * real time after a game finishes — no polling, no /me round-trip.
+   * No-op when there's no cached user (the user logged out mid-game).
+   */
+  applyRanking(ranking: MeResponse['ranking']): void {
+    const current = this.user();
+    if (!current) {
+      return;
+    }
+    this.user.set({ ...current, ranking });
+  }
+
+  /**
    * Forces a fresh GET /me + replaces the cached user snapshot. Use after
    * server-side changes that affect the cached payload — most notably
    * after a game finishes (Elo + W/L/D in the ranking widget would
