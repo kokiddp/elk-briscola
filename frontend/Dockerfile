@@ -32,4 +32,4 @@ EXPOSE 80
 # nginx:alpine already configures a curl-less HEALTHCHECK via the entry
 # point, but we want our own probe so docker-compose can wait on it.
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD wget --quiet --tries=1 --spider http://localhost/ || exit 1
+    CMD ["wget", "--quiet", "--tries=1", "--spider", "http://localhost/"]

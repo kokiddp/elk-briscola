@@ -39,11 +39,29 @@ RUN dotnet publish src/Briscola.Api/Briscola.Api.csproj \
         --output /app/publish \
     && rm -rf /app/publish/*.pdb
 
-# Stage 2 — runtime. The chiseled-extra image is a slim distroless-style
-# ASP.NET runtime that already ships curl (HEALTHCHECK) + ICU + tzdata,
-# and runs as a non-root user (uid 1654) by default. No apt install needed.
+# Stage 2 — runtime. We pull curl from the SDK image (where apt resolves
+# cleanly) and copy the binary + transitive .so deps into the chiseled
+# runtime. The chiseled-extra image otherwise has no shell, package
+# manager, or curl, so the HEALTHCHECK couldn't probe /healthz.
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS curl-stage
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends curl \
+ && rm -rf /var/lib/apt/lists/*
+# Stage out only what curl depends on (resolved from `ldd` at SDK build
+# time). The chiseled runtime is Ubuntu noble like the SDK, so libc /
+# libssl / nss layouts match.
+RUN mkdir -p /opt/curl /opt/curl/usr/bin /opt/curl/lib /opt/curl/lib64 \
+ && cp /usr/bin/curl /opt/curl/usr/bin/ \
+ && cp -L $(ldd /usr/bin/curl | awk '/=> \//{print $3}') /opt/curl/lib/ \
+ && cp -L /lib64/ld-linux-x86-64.so.2 /opt/curl/lib64/
+
 FROM mcr.microsoft.com/dotnet/aspnet:10.0-noble-chiseled-extra AS runtime
 WORKDIR /app
+
+# Drop curl + its dependencies into the chiseled rootfs.
+COPY --from=curl-stage /opt/curl/usr/bin/curl /usr/bin/curl
+COPY --from=curl-stage /opt/curl/lib/ /lib/x86_64-linux-gnu/
+COPY --from=curl-stage /opt/curl/lib64/ld-linux-x86-64.so.2 /lib64/ld-linux-x86-64.so.2
 
 COPY --from=build /app/publish ./
 
@@ -56,6 +74,6 @@ ENV ASPNETCORE_URLS=http://+:8080 \
 EXPOSE 8080
 
 HEALTHCHECK --interval=30s --timeout=3s --start-period=15s --retries=3 \
-    CMD curl -fsS http://localhost:8080/healthz || exit 1
+    CMD ["curl", "-fsS", "http://localhost:8080/healthz"]
 
 ENTRYPOINT ["dotnet", "Briscola.Api.dll"]

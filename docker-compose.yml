@@ -1,0 +1,78 @@
+# elk-briscola — full production-shape stack.
+#
+# Usage:
+#   cp .env.example .env
+#   # edit .env: set POSTGRES_PASSWORD, JWT_SIGNING_KEY (base64, >=32 bytes)
+#   docker compose up --build
+#
+# Ingress: the frontend nginx container is the only port exposed. It
+# reverse-proxies /api/* and /hubs/* to the api service over the
+# docker-compose-managed bridge network.
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: briscola
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: briscola
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "briscola", "-d", "briscola"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: ghcr.io/${GHCR_NAMESPACE:-elk-briscola}/api:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
+      ConnectionStrings__Provider: Postgres
+      ConnectionStrings__Default: "Host=postgres;Port=5432;Username=briscola;Password=${POSTGRES_PASSWORD:?};Database=briscola"
+      Authentication__Jwt__SigningKey: ${JWT_SIGNING_KEY:?set JWT_SIGNING_KEY in .env (base64, >=32 bytes)}
+      Authentication__Jwt__Issuer: ${JWT_ISSUER:-briscola}
+      Authentication__Jwt__Audience: ${JWT_AUDIENCE:-briscola}
+      Cors__AllowedOrigins__0: ${ALLOWED_ORIGIN:-http://localhost:8080}
+      Migrations__RunOnStartup: "true"
+      # Optional: opt the OTel SDK out of the in-process console exporter
+      # by setting OTEL_EXPORTER_OTLP_ENDPOINT to point at a collector.
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      # exec-form (no shell) because the chiseled-extra runtime has no
+      # /bin/sh. Mirrors the HEALTHCHECK in the Dockerfile.
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/healthz"]
+      interval: 30s
+      timeout: 3s
+      start_period: 15s
+      retries: 3
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    image: ghcr.io/${GHCR_NAMESPACE:-elk-briscola}/frontend:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "${FRONTEND_HOST_PORT:-8080}:80"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/"]
+      interval: 30s
+      timeout: 3s
+      start_period: 5s
+      retries: 3
+
+volumes:
+  pgdata: {}
