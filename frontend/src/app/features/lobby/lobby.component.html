@@ -9,8 +9,10 @@
     <button
       type="button"
       (click)="openCreateDialog()"
+      [disabled]="hasPendingGame()"
+      [attr.title]="hasPendingGame() ? ('lobby.alreadyInGame' | t) : null"
       data-testid="create-game"
-      class="inline-flex h-10 items-center gap-2 rounded-md bg-brand-600 px-4 text-sm font-semibold text-white shadow transition hover:bg-brand-700"
+      class="inline-flex h-10 items-center gap-2 rounded-md bg-brand-600 px-4 text-sm font-semibold text-white shadow transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
     >
       <span aria-hidden="true">+</span>
       {{ 'lobby.createButton' | t }}
@@ -59,19 +61,34 @@
                 <span class="font-mono text-xs tabular-nums text-stone-500" data-testid="seats">
                   {{ game.occupiedSeats }} / {{ game.totalSeats }}
                 </span>
-                <button
-                  type="button"
-                  (click)="onJoin(game)"
-                  [disabled]="joiningId() !== null"
-                  data-testid="join-button"
-                  class="inline-flex h-8 items-center justify-center rounded-md bg-brand-600 px-3 text-xs font-semibold text-white shadow-sm transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  @if (joiningId() === game.id) {
-                    {{ 'lobby.joining' | t }}
-                  } @else {
-                    {{ 'lobby.join' | t }}
-                  }
-                </button>
+                @if (pendingGameId() === game.id) {
+                  <!-- The creator (or someone who joined and is still
+                       waiting for the table to fill) sees a passive
+                       "Waiting…" label instead of a Join button — clicking
+                       Join on your own seat is server-side a no-op but
+                       confusing UX. -->
+                  <span
+                    class="inline-flex h-8 items-center justify-center rounded-md bg-warm-100 px-3 text-xs font-medium text-amber-900"
+                    data-testid="waiting-label"
+                  >
+                    {{ 'lobby.waiting' | t }}
+                  </span>
+                } @else {
+                  <button
+                    type="button"
+                    (click)="onJoin(game)"
+                    [disabled]="joiningId() !== null || hasPendingGame()"
+                    [attr.title]="hasPendingGame() ? ('lobby.alreadyInGame' | t) : null"
+                    data-testid="join-button"
+                    class="inline-flex h-8 items-center justify-center rounded-md bg-brand-600 px-3 text-xs font-semibold text-white shadow-sm transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    @if (joiningId() === game.id) {
+                      {{ 'lobby.joining' | t }}
+                    } @else {
+                      {{ 'lobby.join' | t }}
+                    }
+                  </button>
+                }
               </li>
             }
           </ul>

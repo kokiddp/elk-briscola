@@ -72,6 +72,8 @@
   "lobby.waitingForPlayers": "In attesa di {total} giocatori — {filled} di {total} al tavolo. Il tavolo si aprirà appena saranno tutti dentro.",
   "lobby.join": "Entra",
   "lobby.joining": "Entrando…",
+  "lobby.waiting": "In attesa…",
+  "lobby.alreadyInGame": "Sei già in una partita — esci dal tavolo prima.",
   "lobby.mode.twoPlayer": "2 giocatori",
   "lobby.mode.fourPlayerTeams": "4 giocatori (squadre)",
   "lobby.join.passwordPrompt": "Inserisci la password della partita:",

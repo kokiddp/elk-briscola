@@ -37,6 +37,9 @@ export class LobbyComponent implements OnInit, OnDestroy {
     if (!id) return null;
     return this.openGames().find((g) => g.id === id) ?? null;
   });
+  /** Whether the user is currently sitting in any open game (their own
+   *  creation or one they joined). Drives the create + join UX gates. */
+  readonly hasPendingGame = computed(() => this.pendingGameId() !== null);
 
   constructor() {
     // Auto-route once our pending game transitions to Running.

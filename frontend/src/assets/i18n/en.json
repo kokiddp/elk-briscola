@@ -72,6 +72,8 @@
   "lobby.waitingForPlayers": "Waiting for {total} players — {filled} of {total} seated. The table will open as soon as everyone joins.",
   "lobby.join": "Join",
   "lobby.joining": "Joining…",
+  "lobby.waiting": "Waiting…",
+  "lobby.alreadyInGame": "You're already in a game — leave the lobby seat first.",
   "lobby.mode.twoPlayer": "2 players",
   "lobby.mode.fourPlayerTeams": "4 players (teams)",
   "lobby.join.passwordPrompt": "Enter the game password:",
