@@ -55,6 +55,15 @@ RUN mkdir -p /opt/curl /opt/curl/usr/bin /opt/curl/lib /opt/curl/lib64 \
  && cp -L $(ldd /usr/bin/curl | awk '/=> \//{print $3}') /opt/curl/lib/ \
  && cp -L /lib64/ld-linux-x86-64.so.2 /opt/curl/lib64/
 
+# Build-time smoke check: invoke the staged curl via the dynamic linker
+# against ONLY the staged libs. If any transitive .so is missing the
+# `ldd` resolution would emit one of them blank or the loader fails
+# below — either way the build halts, instead of producing an image
+# whose HEALTHCHECK fails at deploy time. Mirrors what the runtime
+# image's HEALTHCHECK does, with the same restricted library search.
+RUN /opt/curl/lib64/ld-linux-x86-64.so.2 --library-path /opt/curl/lib \
+        /opt/curl/usr/bin/curl --version
+
 FROM mcr.microsoft.com/dotnet/aspnet:10.0-noble-chiseled-extra AS runtime
 WORKDIR /app
 

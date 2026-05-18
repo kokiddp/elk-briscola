@@ -1992,6 +1992,17 @@ test('two players play a 2p game to completion', async ({ browser }) => {
 - **Reconnect mid-game probe.** First draft watched the trick-zone DOM for a played card. Cleaner: drive plays via best-effort `card.click()` on each page and assert Alice's hand size dropped below the initial 3 — proves the engine accepted at least one move on her side, so we're genuinely mid-game before tearing the context down.
 - **Prettier ignored Playwright artifact dirs.** `playwright-report/` and `test-results/` are now in both `.prettierignore` and `frontend/.dockerignore`, so the local format gate doesn't trip and the docker build context stays small.
 
+### Phase 12 + 13 deep-review (post-merge) fixes
+
+- **`release.yml` was building `linux/amd64,linux/arm64` without `docker/setup-qemu-action`.** GitHub's amd64 runners can't cross-build arm64 without QEMU. Without the setup step, the arm64 build would silently skip (old `build-push-action`) or hard-fail (newer). Added an explicit `setup-qemu-action@v3 (platforms: arm64)` step before `setup-buildx-action`.
+- **Backend Dockerfile now verifies the curl splice at build time.** If `ldd` ever fails to resolve a transitive `.so` (e.g. after a base-image refresh), the HEALTHCHECK in the chiseled runtime would fail at deploy time. New `RUN /opt/curl/lib64/ld-linux-x86-64.so.2 --library-path /opt/curl/lib /opt/curl/usr/bin/curl --version` in the curl-stage halts the build instead.
+- **nginx WebSocket map.** Hardcoding `proxy_set_header Connection "upgrade"` on `/hubs/` would have injected an Upgrade header on every request — including SignalR's long-polling fallback transport, which then gets routed to a wedged WebSocket path. Replaced with the canonical `map $http_upgrade $connection_upgrade { default upgrade; '' close; }` pattern and `Connection $connection_upgrade`.
+- **`docker-compose.dev.yml` was pinned to `postgres:17.2-alpine` while prod was at `postgres:17-alpine`.** Aligned both to the minor-floating tag so dev tracks prod's patch refreshes automatically.
+- **`docker compose config --quiet` precheck** added to `e2e.yml` so a typo or missing required env var fails the workflow before the image builds.
+- **E2E surface widened.** Two new specs:
+  - `lobby-chat.spec.ts`: two users in the lobby see each other's chat messages via the LobbyHub fan-out.
+  - `spectator.spec.ts`: a third user lands on `/game/:id/spectate`, the table renders briscola + trick + scoreboard zones + the spectator-banner, MyHand is NOT rendered, the chat input is disabled, and scoreboard updates flow through the spectator group as plays land. Documents a real product gap: the spectator view doesn't render opponent slots today (the rotation is keyed off `mySeatIndex`, which is null for non-seated viewers); the test sidesteps that and treats the gap as a known follow-up for v1.1.
+
 **Phase 13 exit:** 3 specs / 3 pass in 32 s locally; CI workflow boots the compose stack, runs them, uploads the report on every push/PR. ✅
 
 ---

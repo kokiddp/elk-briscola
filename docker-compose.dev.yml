@@ -13,7 +13,7 @@
 
 services:
   postgres:
-    image: postgres:17.2-alpine
+    image: postgres:17-alpine
     container_name: briscola-dev-postgres
     restart: unless-stopped
     environment:

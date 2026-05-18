@@ -77,6 +77,12 @@ jobs:
             echo "ALLOWED_ORIGIN=http://localhost:8080"
           } > .env
 
+      - name: Validate docker-compose.yml
+        # `docker compose config` parses the file + substitutes env vars
+        # without booting anything. Catches typos / missing required vars
+        # before we pay the image-build cost.
+        run: docker compose config --quiet
+
       - name: Build + start compose stack
         run: docker compose up -d --build --wait --wait-timeout 180
 
