@@ -31,16 +31,19 @@ const PIACENTINE: CardSetManifest = {
 };
 
 function authStub(): AuthService {
+  const me: MeResponse = {
+    id: 'u1',
+    username: 'alice',
+    displayName: 'Alice',
+    email: 'a@a',
+    activeCardSetId: 'placeholder',
+    ranking: { elo: 1000, wins: 0, losses: 0, draws: 0, gamesPlayed: 0, updatedAt: '' },
+  };
   return {
-    currentUser: () =>
-      ({
-        id: 'u1',
-        username: 'alice',
-        displayName: 'Alice',
-        email: 'a@a',
-        activeCardSetId: 'placeholder',
-        ranking: { elo: 1000, wins: 0, losses: 0, draws: 0, gamesPlayed: 0, updatedAt: '' },
-      }) as MeResponse,
+    currentUser: () => me,
+    // ProfileComponent.ngOnInit refreshes /me on mount so the ranking
+    // widget doesn't lag behind. Stub returns the cached value.
+    refreshMe: () => Promise.resolve(me),
   } as unknown as AuthService;
 }
 

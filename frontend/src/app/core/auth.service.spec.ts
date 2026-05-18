@@ -218,3 +218,35 @@ describe('AuthService persisted refresh token hydration', () => {
     expect(localStorage.getItem(REFRESH_TOKEN_STORAGE_KEY)).toBeNull();
   });
 });
+
+describe('AuthService.refreshMe', () => {
+  beforeEach(() => localStorage.clear());
+
+  it('replaces the cached user with a fresh /me snapshot', async () => {
+    const { auth, ctrl } = setup();
+    await loginWith(auth, ctrl);
+    expect(auth.currentUser()?.ranking.elo).toBe(1000);
+
+    const p = auth.refreshMe();
+    ctrl.expectOne('/api/v1/me').flush(
+      meResponse({
+        ranking: { elo: 1532, wins: 1, losses: 0, draws: 0, gamesPlayed: 1, updatedAt: '' },
+      }),
+    );
+    await p;
+    expect(auth.currentUser()?.ranking.elo).toBe(1532);
+    expect(auth.currentUser()?.ranking.wins).toBe(1);
+  });
+
+  it('leaves the stale snapshot in place when the request fails', async () => {
+    const { auth, ctrl } = setup();
+    await loginWith(auth, ctrl);
+
+    const before = auth.currentUser();
+    const p = auth.refreshMe();
+    ctrl.expectOne('/api/v1/me').error(new ProgressEvent('error'), { status: 500 });
+    const result = await p;
+    expect(result).toEqual(before);
+    expect(auth.currentUser()).toEqual(before);
+  });
+});

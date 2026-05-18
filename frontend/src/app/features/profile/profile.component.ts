@@ -45,6 +45,11 @@ export class ProfileComponent implements OnInit {
   });
 
   ngOnInit(): void {
+    // Pull a fresh /me snapshot so the ranking widget reflects the result
+    // of any games finished since login. The AuthService cache is filled
+    // once on login/refresh and isn't auto-invalidated, so without this
+    // the Elo / W / L / D counters can lag by an entire session.
+    void this.auth.refreshMe();
     void this.loadHistory(1);
   }
 

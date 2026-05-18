@@ -133,6 +133,26 @@ export class AuthService {
     return this.http.get<MeResponse>(`${API_PREFIX}/me`).pipe(tap((me) => this.user.set(me)));
   }
 
+  /**
+   * Forces a fresh GET /me + replaces the cached user snapshot. Use after
+   * server-side changes that affect the cached payload — most notably
+   * after a game finishes (Elo + W/L/D in the ranking widget would
+   * otherwise stay stuck on whatever was cached at login time).
+   *
+   * Never throws — a network failure swallows the refresh and leaves the
+   * stale snapshot in place. Callers are signal subscribers that re-read
+   * on the next mount anyway.
+   */
+  async refreshMe(): Promise<MeResponse | null> {
+    try {
+      const me = await firstValueFrom(this.http.get<MeResponse>(`${API_PREFIX}/me`));
+      this.user.set(me);
+      return me;
+    } catch {
+      return this.user();
+    }
+  }
+
   private async loadMe(): Promise<void> {
     const me = await firstValueFrom(this.http.get<MeResponse>(`${API_PREFIX}/me`));
     this.user.set(me);
