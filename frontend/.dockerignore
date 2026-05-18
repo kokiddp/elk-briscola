@@ -2,6 +2,8 @@ node_modules/
 dist/
 coverage/
 test-results/
+playwright-report/
+e2e/
 .angular/
 .vscode/
 .idea/

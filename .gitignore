@@ -20,6 +20,9 @@ coverage/
 # Phase 11.5 stress harness drops a per-run report folder next to the
 # tool. Keep it out of source control — local artifact only.
 backend/reports/
+# Phase 13 Playwright reports + artifacts.
+frontend/playwright-report/
+frontend/test-results/
 *.coverage
 *.coveragexml
 .dotnet/
