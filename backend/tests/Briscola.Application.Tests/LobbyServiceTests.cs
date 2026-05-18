@@ -331,7 +331,8 @@ public sealed class LobbyServiceTests
                 new FakeRandomSourceFactory(),
                 Clock,
                 orchestrator,
-                bus);
+                bus,
+                new FakePlayerDirectory());
         }
     }
 }

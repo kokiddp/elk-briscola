@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using Briscola.Api.Dtos;
 using Briscola.Application.Lobby;
 using Briscola.Application.Persistence;
@@ -137,7 +138,19 @@ public sealed class GamesController : ControllerBase
     }
 
     private static GameSummaryDto ToSummary(GameSummary s) =>
-        new(s.Id, s.Mode, s.Name, s.Status, s.OccupiedSeats, s.TotalSeats, s.IsPrivate, s.CreatedAt, s.StartedAt);
+        new(
+            s.Id,
+            s.Mode,
+            s.Name,
+            s.Status,
+            s.OccupiedSeats,
+            s.TotalSeats,
+            s.IsPrivate,
+            s.CreatedAt,
+            s.StartedAt,
+            s.SeatPlayers
+                .Select(p => p is null ? null : new PlayerInfoDto(p.UserId, p.DisplayName, p.Elo))
+                .ToImmutableArray());
 
     private static GameDetailDto ToDetail(GameRecord record) =>
         new(

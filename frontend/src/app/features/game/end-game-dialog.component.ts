@@ -1,10 +1,11 @@
 import { Component, computed, input, output } from '@angular/core';
 import { I18nPipe } from '../../shared/i18n.pipe';
-import { GameFinishedEvent, GameMode } from './game.models';
+import { GameFinishedEvent, GameMode, PlayerInfo } from './game.models';
 
 interface ScoreRow {
   label: string;
   score: number;
+  elo: number | null;
 }
 
 @Component({
@@ -18,6 +19,10 @@ export class EndGameDialogComponent {
   readonly result = input.required<GameFinishedEvent>();
   readonly mode = input.required<GameMode>();
   readonly mySeat = input<number | null>(null);
+  /** Per-seat names + Elos pulled from the final snapshot. The Elo
+   *  values are post-game (the rankingUpdated push fires before
+   *  GameFinished, see GameRoom.SaveFinishedAsync). */
+  readonly seatPlayers = input<(PlayerInfo | null)[]>([]);
 
   readonly backToLobby = output();
 
@@ -49,13 +54,33 @@ export class EndGameDialogComponent {
 
   readonly rows = computed<ScoreRow[]>(() => {
     const scores = this.result().seatScores;
+    const players = this.seatPlayers();
+    const nameOf = (i: number): string => players[i]?.displayName ?? `Seat ${i}`;
+    const eloOf = (i: number): number | null => players[i]?.elo ?? null;
     if (this.mode() === 'FourPlayerTeams') {
+      // Team labels = the two seats on the team, comma-separated.
       return [
-        { label: 'Team A', score: (scores[0] ?? 0) + (scores[2] ?? 0) },
-        { label: 'Team B', score: (scores[1] ?? 0) + (scores[3] ?? 0) },
+        {
+          label: [nameOf(0), nameOf(2)].join(' + '),
+          score: (scores[0] ?? 0) + (scores[2] ?? 0),
+          // Show the team's average post-game Elo; null if either seat
+          // doesn't have a player entry.
+          elo:
+            eloOf(0) !== null && eloOf(2) !== null
+              ? Math.round(((eloOf(0) ?? 0) + (eloOf(2) ?? 0)) / 2)
+              : null,
+        },
+        {
+          label: [nameOf(1), nameOf(3)].join(' + '),
+          score: (scores[1] ?? 0) + (scores[3] ?? 0),
+          elo:
+            eloOf(1) !== null && eloOf(3) !== null
+              ? Math.round(((eloOf(1) ?? 0) + (eloOf(3) ?? 0)) / 2)
+              : null,
+        },
       ];
     }
-    return scores.map((s, i) => ({ label: `Seat ${i}`, score: s }));
+    return scores.map((s, i) => ({ label: nameOf(i), score: s, elo: eloOf(i) }));
   });
 
   onBack(): void {

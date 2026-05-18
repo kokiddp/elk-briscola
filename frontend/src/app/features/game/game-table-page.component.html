@@ -30,6 +30,8 @@
           <bri-opponent-area
             [seatIndex]="slot.seatIndex"
             [cardCount]="opponentCountFor(slot.seatIndex)"
+            [displayName]="playerFor(slot.seatIndex)?.displayName ?? ''"
+            [elo]="playerFor(slot.seatIndex)?.elo ?? null"
             [isPartner]="slot.isPartner"
             [isActive]="state()!.nextToPlaySeat === slot.seatIndex"
             [isDisconnected]="disconnectedSeats().has(slot.seatIndex)"
@@ -45,6 +47,8 @@
           <bri-opponent-area
             [seatIndex]="slot.seatIndex"
             [cardCount]="opponentCountFor(slot.seatIndex)"
+            [displayName]="playerFor(slot.seatIndex)?.displayName ?? ''"
+            [elo]="playerFor(slot.seatIndex)?.elo ?? null"
             [isActive]="state()!.nextToPlaySeat === slot.seatIndex"
             [isDisconnected]="disconnectedSeats().has(slot.seatIndex)"
           />
@@ -115,6 +119,7 @@
         [result]="result"
         [mode]="state()!.mode"
         [mySeat]="mySeatIndex()"
+        [seatPlayers]="state()!.seatPlayers ?? []"
         (backToLobby)="onBackToLobby()"
       />
     }

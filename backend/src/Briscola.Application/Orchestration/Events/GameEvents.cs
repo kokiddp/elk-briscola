@@ -1,6 +1,8 @@
 using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
+using Briscola.Application.Lobby;
 using Briscola.Application.Persistence;
+using Briscola.Application.Ports;
 using Briscola.Domain.Errors;
 using Briscola.Domain.Primitives;
 using Briscola.Domain.State;
@@ -118,11 +120,14 @@ public sealed record RankingUpdatedEvent(
 /// Lifecycle telemetry for the lobby UI: created/seat-fill/started/ended.
 /// The hub dispatcher fans these to the <c>lobby:open</c> SignalR group.
 /// </summary>
+// Lobby summary events now carry the pre-enriched GameSummary
+// (with per-seat display names + Elos) so the dispatcher doesn't
+// need its own scoped IPlayerDirectory lookup on every push.
 [ExcludeFromCodeCoverage]
-public sealed record LobbyGameCreatedEvent(Guid GameId, DateTimeOffset At, GameRecord Record) : IGameEvent;
+public sealed record LobbyGameCreatedEvent(Guid GameId, DateTimeOffset At, GameSummary Summary) : IGameEvent;
 
 [ExcludeFromCodeCoverage]
-public sealed record LobbyGameUpdatedEvent(Guid GameId, DateTimeOffset At, GameRecord Record) : IGameEvent;
+public sealed record LobbyGameUpdatedEvent(Guid GameId, DateTimeOffset At, GameSummary Summary) : IGameEvent;
 
 [ExcludeFromCodeCoverage]
 public sealed record LobbyGameStartedEvent(Guid GameId, DateTimeOffset At) : IGameEvent;

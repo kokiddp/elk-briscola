@@ -49,13 +49,24 @@
                 >
                   {{ modeLabel(game.mode) }}
                 </span>
-                <span class="truncate font-medium text-stone-900" data-testid="game-row-label">
+                <span class="flex flex-wrap items-center gap-1.5" data-testid="game-row-label">
                   @if (game.isPrivate) {
                     <span
                       class="rounded-full bg-warm-400/20 px-2 py-0.5 text-xs font-medium text-amber-800"
                     >
                       {{ 'lobby.private' | t }}
                     </span>
+                  }
+                  @for (p of game.seatPlayers ?? []; track $index) {
+                    @if (p) {
+                      <span
+                        class="inline-flex items-center gap-1 rounded-md bg-white px-2 py-0.5 text-xs ring-1 ring-inset ring-stone-200"
+                        data-testid="seat-player"
+                      >
+                        <span class="font-medium text-stone-900">{{ p.displayName }}</span>
+                        <span class="font-mono tabular-nums text-stone-500">{{ p.elo }}</span>
+                      </span>
+                    }
                   }
                 </span>
                 <span class="font-mono text-xs tabular-nums text-stone-500" data-testid="seats">

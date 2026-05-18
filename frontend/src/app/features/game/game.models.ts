@@ -31,6 +31,12 @@ export interface GameOutcome {
   winnerKey: number | null;
 }
 
+export interface PlayerInfo {
+  userId: string;
+  displayName: string;
+  elo: number;
+}
+
 export interface RedactedStateForUser {
   gameId: string;
   mode: GameMode;
@@ -52,6 +58,11 @@ export interface RedactedStateForUser {
    *  forward-compatible with older snapshots; servers post-Phase-8-review
    *  always populate it. */
   mySeatIndex?: number | null;
+  /** Positional, one entry per seat — display name + current Elo for
+   *  each occupied seat, or null where the seat is empty. Refreshed
+   *  on every snapshot the server pushes, and patched in-place on
+   *  ranking-updated events as games finish. */
+  seatPlayers?: (PlayerInfo | null)[];
 }
 
 export interface GameChatMessage {

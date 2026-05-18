@@ -13,6 +13,7 @@ export class OpponentAreaComponent {
   readonly seatIndex = input.required<number>();
   readonly cardCount = input.required<number>();
   readonly displayName = input<string>('');
+  readonly elo = input<number | null>(null);
   readonly isPartner = input(false);
   readonly isActive = input(false);
   readonly isDisconnected = input(false);

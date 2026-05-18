@@ -17,8 +17,15 @@
     <table class="mx-auto border-collapse text-sm" data-testid="end-scores">
       <tbody>
         @for (row of rows(); track row.label) {
-          <tr>
-            <th scope="row" class="pr-4 text-left font-medium">{{ row.label }}</th>
+          <tr data-testid="end-score-row">
+            <th scope="row" class="pr-4 text-left font-medium">
+              {{ row.label }}
+              @if (row.elo !== null) {
+                <span class="ml-1 text-xs font-mono tabular-nums text-stone-400">
+                  ({{ row.elo }})
+                </span>
+              }
+            </th>
             <td class="pl-4 text-right font-semibold tabular-nums">{{ row.score }}</td>
           </tr>
         }

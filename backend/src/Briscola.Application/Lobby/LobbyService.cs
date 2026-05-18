@@ -18,7 +18,8 @@ public sealed class LobbyService(
     IRandomSourceFactory randomSourceFactory,
     IClock clock,
     GameOrchestrator orchestrator,
-    IGameEventBus eventBus)
+    IGameEventBus eventBus,
+    IPlayerDirectory players)
 {
     private const int MaxJoinRetries = 3;
 
@@ -61,8 +62,9 @@ public sealed class LobbyService(
             Version: 0);
 
         await games.CreateAsync(record, ct).ConfigureAwait(false);
+        GameSummary summary = await BuildSummaryAsync(record, ct).ConfigureAwait(false);
         await eventBus.PublishAsync(
-            new LobbyGameCreatedEvent(record.Id, now, record), ct).ConfigureAwait(false);
+            new LobbyGameCreatedEvent(record.Id, now, summary), ct).ConfigureAwait(false);
         return record;
     }
 
@@ -70,7 +72,18 @@ public sealed class LobbyService(
     {
         IReadOnlyList<GameRecord> records =
             await games.ListByStatusAsync(status, take: 100, ct).ConfigureAwait(false);
-        return records.Select(ToSummary).ToArray();
+
+        // One round-trip to resolve display names + current Elo for every
+        // seated player across every visible game. The directory dedups
+        // ids internally, so even with overlapping rosters we issue one
+        // SELECT per ListAsync call.
+        IEnumerable<Guid> allSeatedIds = records
+            .SelectMany(r => r.SeatUserIds)
+            .OfType<Guid>();
+        IReadOnlyDictionary<Guid, PlayerInfo> directory =
+            await players.GetAsync(allSeatedIds, ct).ConfigureAwait(false);
+
+        return records.Select(r => ToSummary(r, directory)).ToArray();
     }
 
     public async Task<GameRecord> JoinAsync(
@@ -112,8 +125,9 @@ public sealed class LobbyService(
             }
 
             DateTimeOffset now = clock.UtcNow;
+            GameSummary updatedSummary = await BuildSummaryAsync(saved, ct).ConfigureAwait(false);
             await eventBus.PublishAsync(
-                new LobbyGameUpdatedEvent(saved.Id, now, saved), ct).ConfigureAwait(false);
+                new LobbyGameUpdatedEvent(saved.Id, now, updatedSummary), ct).ConfigureAwait(false);
             if (transitioningToRunning)
             {
                 await eventBus.PublishAsync(
@@ -148,13 +162,27 @@ public sealed class LobbyService(
             if (updated)
             {
                 GameRecord saved = desired with { Version = desired.Version + 1 };
+                GameSummary updatedSummary = await BuildSummaryAsync(saved, ct).ConfigureAwait(false);
                 await eventBus.PublishAsync(
-                    new LobbyGameUpdatedEvent(saved.Id, clock.UtcNow, saved), ct).ConfigureAwait(false);
+                    new LobbyGameUpdatedEvent(saved.Id, clock.UtcNow, updatedSummary), ct).ConfigureAwait(false);
                 return;
             }
         }
 
         throw new ConcurrencyConflictException($"Game {gameId} could not be left after retries.");
+    }
+
+    /// <summary>
+    /// Builds a single-game summary enriched with display names + Elo.
+    /// One DB round-trip per call. Use the bulk path in
+    /// <see cref="ListAsync"/> when summarising many games at once.
+    /// </summary>
+    private async Task<GameSummary> BuildSummaryAsync(GameRecord record, CancellationToken ct)
+    {
+        IEnumerable<Guid> seated = record.SeatUserIds.OfType<Guid>();
+        IReadOnlyDictionary<Guid, PlayerInfo> directory =
+            await players.GetAsync(seated, ct).ConfigureAwait(false);
+        return ToSummary(record, directory);
     }
 
     private async Task<GameRecord> LoadOpenGameAsync(Guid gameId, CancellationToken ct)
@@ -217,7 +245,9 @@ public sealed class LobbyService(
         return seat;
     }
 
-    private static GameSummary ToSummary(GameRecord record) =>
+    private static GameSummary ToSummary(
+        GameRecord record,
+        IReadOnlyDictionary<Guid, PlayerInfo> directory) =>
         new(
             record.Id,
             record.Mode,
@@ -227,7 +257,12 @@ public sealed class LobbyService(
             record.SeatUserIds.Length,
             record.IsPrivate,
             record.CreatedAt,
-            record.StartedAt);
+            record.StartedAt,
+            record.SeatUserIds
+                .Select(id => id is { } uid && directory.TryGetValue(uid, out PlayerInfo? info)
+                    ? info
+                    : null)
+                .ToImmutableArray());
 
     private static int PlayerCount(GameMode mode) => mode switch
     {

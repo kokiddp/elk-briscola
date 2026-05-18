@@ -20,6 +20,9 @@ public sealed record CreateGameRequestDto(
 public sealed record JoinGameRequestDto(string? Password);
 
 [ExcludeFromCodeCoverage]
+public sealed record PlayerInfoDto(Guid UserId, string DisplayName, int Elo);
+
+[ExcludeFromCodeCoverage]
 public sealed record GameSummaryDto(
     Guid Id,
     GameMode Mode,
@@ -29,7 +32,10 @@ public sealed record GameSummaryDto(
     int TotalSeats,
     bool IsPrivate,
     DateTimeOffset CreatedAt,
-    DateTimeOffset? StartedAt);
+    DateTimeOffset? StartedAt,
+    // Positional, one entry per seat. Null where the seat is still
+    // empty. The SPA renders display names + Elos on the lobby card.
+    ImmutableArray<PlayerInfoDto?> SeatPlayers);
 
 [ExcludeFromCodeCoverage]
 public sealed record GameDetailDto(

@@ -80,13 +80,15 @@ export async function createTwoPlayerGame(page: Page): Promise<void> {
 }
 
 /**
- * The second player clicks Join on the (only) open game. Game names
- * are no longer rendered, so we just pick the first row in the open
- * list — tests use isolated, single-game scenarios.
+ * The second player clicks Join on the most-recently-created open game.
+ * Backend orders by CreatedAt ASC, so `.last()` is the newest entry —
+ * which is what we want when a test creates a fresh game on the
+ * persistent compose DB that may carry leftover open games from prior
+ * runs.
  */
 export async function joinOpenGame(page: Page): Promise<void> {
   await page.goto('/lobby');
-  await page.locator('[data-testid="open-list"] li').first().getByTestId('join-button').click();
+  await page.locator('[data-testid="open-list"] li').last().getByTestId('join-button').click();
   await expect(page).toHaveURL(/\/game\/[0-9a-f-]+$/, { timeout: 15_000 });
 }
 

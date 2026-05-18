@@ -133,6 +133,10 @@ export class GameTablePageComponent implements OnInit, OnDestroy {
   readonly opponentCountFor = (seatIndex: number): number =>
     this.state()?.handCountsBySeat[seatIndex] ?? 0;
 
+  /** Per-seat display name + Elo from the snapshot, or null. Used by
+   *  the opponent area + the end-game dialog. */
+  readonly playerFor = (seatIndex: number) => this.state()?.seatPlayers?.[seatIndex] ?? null;
+
   constructor() {
     // Latch mySeat the first time we can identify it unambiguously.
     effect(() => {

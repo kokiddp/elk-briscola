@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using Briscola.Api.Dtos;
+using Briscola.Application.Lobby;
 using Briscola.Application.Orchestration.Events;
 using Briscola.Application.Persistence;
 using Briscola.Application.Ports;
@@ -43,6 +44,13 @@ public sealed partial class GameEventDispatcher : BackgroundService
     private readonly ILogger<GameEventDispatcher> _logger;
     private readonly Briscola.Application.Telemetry.BriscolaMetrics _metrics;
     private readonly Briscola.Application.Orchestration.GameOrchestrator _orchestrator;
+    private readonly Microsoft.Extensions.DependencyInjection.IServiceScopeFactory _scopes;
+
+    // Per-game cache of the positional [seat → display-name + Elo] map.
+    // Populated lazily on the first JoinedEvent / StateUpdatedEvent for a
+    // game (one DB round-trip via IPlayerDirectory) and refreshed on
+    // RankingUpdatedEvent. Evicted when the game finishes.
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<Guid, ImmutableArray<PlayerInfoDto?>> _seatPlayersByGame = new();
 
     public GameEventDispatcher(
         IGameEventBus bus,
@@ -50,7 +58,8 @@ public sealed partial class GameEventDispatcher : BackgroundService
         IHubContext<LobbyHub, ILobbyClient> lobby,
         ILogger<GameEventDispatcher> logger,
         Briscola.Application.Telemetry.BriscolaMetrics metrics,
-        Briscola.Application.Orchestration.GameOrchestrator orchestrator)
+        Briscola.Application.Orchestration.GameOrchestrator orchestrator,
+        Microsoft.Extensions.DependencyInjection.IServiceScopeFactory scopes)
     {
         _bus = bus;
         _hub = hub;
@@ -58,6 +67,7 @@ public sealed partial class GameEventDispatcher : BackgroundService
         _logger = logger;
         _metrics = metrics;
         _orchestrator = orchestrator;
+        _scopes = scopes;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -79,12 +89,8 @@ public sealed partial class GameEventDispatcher : BackgroundService
 
     private Task DispatchAsync(IGameEvent evt) => evt switch
     {
-        JoinedEvent j =>
-            _hub.Clients.User(j.TargetUserId.ToString()).Joined(ToDto(j.Snapshot)),
-        StateUpdatedEvent { TargetUserId: null } s =>
-            _hub.Clients.Group(GameHub.SpectatorGroup(s.GameId)).StateUpdated(ToDto(s.Snapshot)),
-        StateUpdatedEvent s =>
-            _hub.Clients.User(s.TargetUserId!.Value.ToString()).StateUpdated(ToDto(s.Snapshot)),
+        JoinedEvent j => DispatchJoinedAsync(j),
+        StateUpdatedEvent s => DispatchStateUpdatedAsync(s),
         CardPlayedEvent c => DispatchCardPlayedAsync(c),
         TrickResolvedEvent t =>
             BroadcastGroups(t.GameId).TrickResolved(new TrickResolvedDto(t.WinnerSeat, t.NewSeatScores)),
@@ -92,15 +98,7 @@ public sealed partial class GameEventDispatcher : BackgroundService
         PhaseChangedEvent p =>
             BroadcastGroups(p.GameId).PhaseChanged(p.NewPhase.ToString()),
         GameFinishedEvent f => DispatchGameFinishedAsync(f),
-        RankingUpdatedEvent ru =>
-            _hub.Clients.User(ru.TargetUserId.ToString())
-                .RankingUpdated(new RankingDto(
-                    ru.Ranking.Elo,
-                    ru.Ranking.Wins,
-                    ru.Ranking.Losses,
-                    ru.Ranking.Draws,
-                    ru.Ranking.GamesPlayed,
-                    ru.Ranking.UpdatedAt)),
+        RankingUpdatedEvent ru => DispatchRankingUpdatedAsync(ru),
         PlayerDisconnectedEvent pd =>
             BroadcastGroups(pd.GameId).PlayerDisconnected(pd.SeatIndex, pd.GraceDeadlineUtc),
         PlayerReconnectedEvent pr =>
@@ -111,9 +109,9 @@ public sealed partial class GameEventDispatcher : BackgroundService
             _hub.Clients.User(im.TargetUserId.ToString()).InvalidMove(im.Code.ToString()),
         ChatMessageEvent => Task.CompletedTask, // chat is broadcast directly by GameHub.SendChat
         LobbyGameCreatedEvent lc =>
-            LobbyGroup().GameCreated(ToSummaryDto(lc.Record)),
+            LobbyGroup().GameCreated(ToSummaryDto(lc.Summary)),
         LobbyGameUpdatedEvent lu =>
-            LobbyGroup().GameUpdated(ToSummaryDto(lu.Record)),
+            LobbyGroup().GameUpdated(ToSummaryDto(lu.Summary)),
         LobbyGameStartedEvent ls =>
             LobbyGroup().GameStarted(ls.GameId),
         LobbyGameEndedEvent le =>
@@ -123,11 +121,69 @@ public sealed partial class GameEventDispatcher : BackgroundService
 
     private ILobbyClient LobbyGroup() => _lobby.Clients.Group(LobbyHub.OpenLobbyGroup);
 
+    private async Task DispatchJoinedAsync(JoinedEvent evt)
+    {
+        ImmutableArray<PlayerInfoDto?> seatPlayers = await ResolveSeatPlayersAsync(evt.GameId).ConfigureAwait(false);
+        await _hub.Clients
+            .User(evt.TargetUserId.ToString())
+            .Joined(ToDto(evt.Snapshot, seatPlayers))
+            .ConfigureAwait(false);
+    }
+
+    private async Task DispatchStateUpdatedAsync(StateUpdatedEvent evt)
+    {
+        ImmutableArray<PlayerInfoDto?> seatPlayers = await ResolveSeatPlayersAsync(evt.GameId).ConfigureAwait(false);
+        RedactedStateForUserDto dto = ToDto(evt.Snapshot, seatPlayers);
+        if (evt.TargetUserId is null)
+        {
+            await _hub.Clients.Group(GameHub.SpectatorGroup(evt.GameId))
+                .StateUpdated(dto).ConfigureAwait(false);
+        }
+        else
+        {
+            await _hub.Clients.User(evt.TargetUserId.Value.ToString())
+                .StateUpdated(dto).ConfigureAwait(false);
+        }
+    }
+
     private Task DispatchCardPlayedAsync(CardPlayedEvent evt)
     {
         _metrics.MovesTotal.Add(1);
         return BroadcastGroups(evt.GameId)
             .CardPlayed(new CardPlayedDto(evt.SeatIndex, ToDto(evt.Card)));
+    }
+
+    /// <summary>
+    /// Lazily resolves + caches the per-game seat-players list. First call
+    /// for a game opens a scope, loads the GameRecord + display names + Elos
+    /// via IPlayerDirectory. Subsequent calls return the cached array.
+    /// </summary>
+    private async Task<ImmutableArray<PlayerInfoDto?>> ResolveSeatPlayersAsync(Guid gameId)
+    {
+        if (_seatPlayersByGame.TryGetValue(gameId, out ImmutableArray<PlayerInfoDto?> cached))
+        {
+            return cached;
+        }
+
+        using Microsoft.Extensions.DependencyInjection.IServiceScope scope = _scopes.CreateScope();
+        IGameRepository repo = scope.ServiceProvider
+            .GetRequiredService<IGameRepository>();
+        IPlayerDirectory dir = scope.ServiceProvider
+            .GetRequiredService<IPlayerDirectory>();
+        GameRecord? record = await repo.GetAsync(gameId, CancellationToken.None).ConfigureAwait(false);
+        if (record is null)
+        {
+            return ImmutableArray<PlayerInfoDto?>.Empty;
+        }
+        IReadOnlyDictionary<Guid, PlayerInfo> map =
+            await dir.GetAsync(record.SeatUserIds.OfType<Guid>(), CancellationToken.None)
+                .ConfigureAwait(false);
+        ImmutableArray<PlayerInfoDto?> built = record.SeatUserIds
+            .Select(id => id is { } uid && map.TryGetValue(uid, out PlayerInfo? p)
+                ? new PlayerInfoDto(p.UserId, p.DisplayName, p.Elo)
+                : null)
+            .ToImmutableArray();
+        return _seatPlayersByGame.GetOrAdd(gameId, built);
     }
 
     private async Task DispatchGameFinishedAsync(GameFinishedEvent evt)
@@ -137,24 +193,56 @@ public sealed partial class GameEventDispatcher : BackgroundService
             .ConfigureAwait(false);
         await LobbyGroup().GameEnded(evt.GameId).ConfigureAwait(false);
 
-        // Free the room from the in-memory orchestrator dict. Without this,
-        // every finished game stayed in _rooms until process exit, leaking
-        // memory + skewing briscola.active_games into "loaded rooms" rather
-        // than "actually-running games".
+        // Free the room from the in-memory orchestrator dict + the
+        // seat-players cache. Without this, every finished game stayed in
+        // _rooms until process exit, leaking memory + skewing
+        // briscola.active_games into "loaded rooms" rather than
+        // "actually-running games".
+        _seatPlayersByGame.TryRemove(evt.GameId, out _);
         await _orchestrator.DisposeRoomAsync(evt.GameId).ConfigureAwait(false);
     }
 
-    private static GameSummaryDto ToSummaryDto(GameRecord record) =>
+    private Task DispatchRankingUpdatedAsync(RankingUpdatedEvent evt)
+    {
+        // Patch the per-seat Elo in the cache so the next snapshot for
+        // this game reflects the freshly-updated ranking on the player
+        // whose entry just changed.
+        _seatPlayersByGame.AddOrUpdate(
+            evt.GameId,
+            // No cache yet — leave it empty; next snapshot will populate.
+            _ => ImmutableArray<PlayerInfoDto?>.Empty,
+            (_, existing) => existing.Length == 0
+                ? existing
+                : existing
+                    .Select(p => p is not null && p.UserId == evt.TargetUserId
+                        ? new PlayerInfoDto(p.UserId, p.DisplayName, evt.Ranking.Elo)
+                        : p)
+                    .ToImmutableArray());
+
+        return _hub.Clients.User(evt.TargetUserId.ToString())
+            .RankingUpdated(new RankingDto(
+                evt.Ranking.Elo,
+                evt.Ranking.Wins,
+                evt.Ranking.Losses,
+                evt.Ranking.Draws,
+                evt.Ranking.GamesPlayed,
+                evt.Ranking.UpdatedAt));
+    }
+
+    private static GameSummaryDto ToSummaryDto(GameSummary s) =>
         new(
-            record.Id,
-            record.Mode,
-            record.Name,
-            record.Status,
-            record.SeatUserIds.Count(static id => id.HasValue),
-            record.SeatUserIds.Length,
-            record.IsPrivate,
-            record.CreatedAt,
-            record.StartedAt);
+            s.Id,
+            s.Mode,
+            s.Name,
+            s.Status,
+            s.OccupiedSeats,
+            s.TotalSeats,
+            s.IsPrivate,
+            s.CreatedAt,
+            s.StartedAt,
+            s.SeatPlayers
+                .Select(p => p is null ? null : new PlayerInfoDto(p.UserId, p.DisplayName, p.Elo))
+                .ToImmutableArray());
 
     /// <summary>
     /// Returns a client proxy that fans broadcasts to both the players'
@@ -196,9 +284,18 @@ public sealed partial class GameEventDispatcher : BackgroundService
     /// initial-state DTO without duplicating the mapping. Kept internal
     /// — only the hub bridge consumes it.
     /// </summary>
-    internal static RedactedStateForUserDto ToWireDto(RedactedStateForUser snapshot) => ToDto(snapshot);
+    /// <summary>
+    /// Called by GameHub.SpectateGame to deliver the initial-state DTO
+    /// without going through the dispatcher's per-snapshot enrichment.
+    /// Spectators don't need seat-players right at the first frame —
+    /// the next StateUpdated will fill them in.
+    /// </summary>
+    internal static RedactedStateForUserDto ToWireDto(RedactedStateForUser snapshot) =>
+        ToDto(snapshot, ImmutableArray<PlayerInfoDto?>.Empty);
 
-    private static RedactedStateForUserDto ToDto(RedactedStateForUser snapshot) =>
+    private static RedactedStateForUserDto ToDto(
+        RedactedStateForUser snapshot,
+        ImmutableArray<PlayerInfoDto?> seatPlayers) =>
         new(
             snapshot.GameId,
             snapshot.Mode,
@@ -216,5 +313,6 @@ public sealed partial class GameEventDispatcher : BackgroundService
             snapshot.CurrentTrick.Select(p => new PlayedCardDto(p.SeatIndex, ToDto(p.Card))).ToImmutableArray(),
             snapshot.SeatScores,
             snapshot.Outcome is null ? null : ToDto(snapshot.Outcome),
-            snapshot.MySeatIndex);
+            snapshot.MySeatIndex,
+            seatPlayers);
 }

@@ -2,6 +2,12 @@ export type GameMode = 'TwoPlayer' | 'FourPlayerTeams';
 
 export type GameStatus = 'Open' | 'Running' | 'Finished' | 'Abandoned';
 
+export interface PlayerInfo {
+  userId: string;
+  displayName: string;
+  elo: number;
+}
+
 // Wire shape — the server still carries `name` for backwards
 // compatibility but the UI no longer reads it. Marked optional so a
 // future server with the column dropped doesn't break decoding.
@@ -15,6 +21,9 @@ export interface GameSummary {
   isPrivate: boolean;
   createdAt: string;
   startedAt: string | null;
+  /** Positional — one entry per seat, null where empty. The lobby
+   *  card renders display names + Elos for occupied seats. */
+  seatPlayers?: (PlayerInfo | null)[];
 }
 
 export interface CreateGameRequest {

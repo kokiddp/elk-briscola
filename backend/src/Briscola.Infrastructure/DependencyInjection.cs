@@ -95,6 +95,7 @@ public static class DependencyInjection
         services.AddScoped<IGameRepository, EfGameRepository>();
         services.AddScoped<IChatRepository, EfChatRepository>();
         services.AddScoped<IRankingRepository, EfRankingRepository>();
+        services.AddScoped<IPlayerDirectory, EfPlayerDirectory>();
 
         // Singleton-friendly factory: callers that outlive a request
         // scope (GameOrchestrator, GameRoom, OpenLobbyJanitor) take

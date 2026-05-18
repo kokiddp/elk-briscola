@@ -15,6 +15,14 @@
     @if (isPartner()) {
       <span class="text-base" data-testid="partner-chip" aria-label="partner">🤝</span>
     }
+    @if (elo() !== null) {
+      <span
+        class="rounded-full bg-black/35 px-2 py-0.5 text-xs font-mono tabular-nums"
+        data-testid="opponent-elo"
+      >
+        {{ elo() }}
+      </span>
+    }
     <span
       class="rounded-full bg-black/35 px-2 py-0.5 text-xs tabular-nums"
       data-testid="card-count"

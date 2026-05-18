@@ -37,7 +37,11 @@ public sealed record RedactedStateForUserDto(
     ImmutableArray<PlayedCardDto> CurrentTrick,
     ImmutableArray<int> SeatScores,
     GameOutcomeDto? Outcome,
-    int? MySeatIndex);
+    int? MySeatIndex,
+    // Per-seat display name + Elo so the table / opponent area / end-
+    // game dialog all render the same identity strings. Null entry =
+    // seat empty (post-game-finish disconnect, mid-disconnect grace).
+    ImmutableArray<PlayerInfoDto?> SeatPlayers);
 
 [ExcludeFromCodeCoverage]
 public sealed record PlayedCardDto(int SeatIndex, CardDto Card);
