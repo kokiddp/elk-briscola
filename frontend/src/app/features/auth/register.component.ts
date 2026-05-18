@@ -45,7 +45,8 @@ export class RegisterComponent {
         displayName: displayName === '' ? null : displayName,
       });
       await this.auth.login({ usernameOrEmail: username, password });
-      await this.router.navigateByUrl('/home');
+      // Match the login flow — straight to the lobby.
+      await this.router.navigateByUrl('/lobby');
     } catch (err: unknown) {
       this.errorMessage.set(this.extractErrorMessage(err));
     } finally {

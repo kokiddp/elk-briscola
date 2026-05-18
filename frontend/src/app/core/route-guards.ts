@@ -21,5 +21,8 @@ export const authGuard: CanActivateFn = async () => {
 export const guestGuard: CanActivateFn = () => {
   const auth = inject(AuthService);
   const router = inject(Router);
-  return auth.isAuthenticated() ? router.parseUrl('/home') : true;
+  // Authenticated users hitting /login or /register are bounced to the
+  // lobby — same destination as the login form's post-submit nav, so
+  // there's no "land on /home, blink, redirect to /lobby" jitter.
+  return auth.isAuthenticated() ? router.parseUrl('/lobby') : true;
 };

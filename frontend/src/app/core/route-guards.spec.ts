@@ -96,7 +96,7 @@ describe('guestGuard', () => {
     expect(result).toBe(true);
   });
 
-  it('redirects authenticated callers to /home', async () => {
+  it('redirects authenticated callers to /lobby', async () => {
     const injector = Injector.create({
       providers: [
         { provide: AuthService, useValue: makeAuth({ isAuthenticated: true }) },
@@ -104,6 +104,6 @@ describe('guestGuard', () => {
       ],
     });
     const result = await run(injector, () => guestGuard({} as never, {} as never));
-    expect(result).toEqual(expect.objectContaining({ tag: 'urltree', s: '/home' }));
+    expect(result).toEqual(expect.objectContaining({ tag: 'urltree', s: '/lobby' }));
   });
 });

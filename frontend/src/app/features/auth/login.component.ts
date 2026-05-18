@@ -35,7 +35,9 @@ export class LoginComponent {
     this.errorMessage.set(null);
     try {
       await this.auth.login(this.form.getRawValue());
-      await this.router.navigateByUrl('/home');
+      // Users want to play, not read the splash — drop them straight
+      // into the lobby once they're authenticated.
+      await this.router.navigateByUrl('/lobby');
     } catch (err: unknown) {
       this.errorMessage.set(this.extractErrorMessage(err));
     } finally {
