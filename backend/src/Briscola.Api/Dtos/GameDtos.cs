@@ -7,7 +7,12 @@ namespace Briscola.Api.Dtos;
 [ExcludeFromCodeCoverage]
 public sealed record CreateGameRequestDto(
     GameMode Mode,
-    string Name,
+    // Name is now optional; the UI doesn't collect one. Older clients
+    // and integration tests still send a string, so the wire stays
+    // backwards-compatible. Server-side, an empty/null value is
+    // replaced by an empty placeholder so the GameRecord.Name column
+    // (non-null) is satisfied without forcing a migration.
+    string? Name,
     bool IsPrivate,
     string? Password);
 

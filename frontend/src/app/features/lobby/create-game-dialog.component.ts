@@ -20,7 +20,6 @@ export class CreateGameDialogComponent {
 
   readonly form = this.fb.nonNullable.group({
     mode: ['TwoPlayer' as GameMode, [Validators.required]],
-    name: ['', [Validators.required, Validators.maxLength(64)]],
     isPrivate: [false],
     password: [''],
   });
@@ -43,10 +42,9 @@ export class CreateGameDialogComponent {
       this.form.markAllAsTouched();
       return;
     }
-    const { mode, name, isPrivate, password } = this.form.getRawValue();
+    const { mode, isPrivate, password } = this.form.getRawValue();
     this.submitted.emit({
       mode,
-      name: name.trim(),
       isPrivate,
       password: isPrivate ? password : null,
     });

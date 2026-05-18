@@ -23,10 +23,7 @@
       role="status"
       data-testid="pending-banner"
     >
-      {{
-        'lobby.waitingForPlayers'
-          | t: { name: p.name, filled: p.occupiedSeats, total: p.totalSeats }
-      }}
+      {{ 'lobby.waitingForPlayers' | t: { filled: p.occupiedSeats, total: p.totalSeats } }}
     </p>
   }
 
@@ -50,11 +47,10 @@
                 >
                   {{ modeLabel(game.mode) }}
                 </span>
-                <span class="truncate font-medium text-stone-900" data-testid="game-name">
-                  {{ game.name }}
+                <span class="truncate font-medium text-stone-900" data-testid="game-row-label">
                   @if (game.isPrivate) {
                     <span
-                      class="ml-1 rounded-full bg-warm-400/20 px-2 py-0.5 text-xs font-medium text-amber-800"
+                      class="rounded-full bg-warm-400/20 px-2 py-0.5 text-xs font-medium text-amber-800"
                     >
                       {{ 'lobby.private' | t }}
                     </span>
@@ -99,7 +95,6 @@
                 >
                   {{ modeLabel(game.mode) }}
                 </span>
-                <span class="truncate font-medium text-stone-900">{{ game.name }}</span>
                 <span class="font-mono text-xs tabular-nums text-stone-500">
                   {{ game.occupiedSeats }} / {{ game.totalSeats }}
                 </span>

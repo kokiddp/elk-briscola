@@ -70,27 +70,23 @@ export async function registerAndLand(page: Page, user: TestUser): Promise<void>
  * Waits for the lobby to redirect into /game/:id (the create flow auto-
  * navigates the creator into the waiting room).
  */
-export async function createTwoPlayerGame(page: Page, gameName: string): Promise<string> {
+export async function createTwoPlayerGame(page: Page): Promise<void> {
   await page.goto('/lobby');
   await page.getByTestId('create-game').click();
-  await page.getByTestId('create-name').fill(gameName);
   await page.getByTestId('create-submit').click();
   // The lobby keeps the user on /lobby until a second seat joins; the
   // creator's pending row carries data-testid="pending-banner".
   await expect(page.getByTestId('pending-banner')).toBeVisible({ timeout: 10_000 });
-  return gameName;
 }
 
 /**
- * Bob clicks the "Join" button on the open game with `gameName`. Both
- * pages auto-navigate to /game/:id once both seats are full.
+ * The second player clicks Join on the (only) open game. Game names
+ * are no longer rendered, so we just pick the first row in the open
+ * list — tests use isolated, single-game scenarios.
  */
-export async function joinOpenGame(page: Page, gameName: string): Promise<void> {
+export async function joinOpenGame(page: Page): Promise<void> {
   await page.goto('/lobby');
-  // The lobby's open list carries one row per open game; find the one
-  // whose game-name matches and click its join button.
-  const row = page.locator('[data-testid="open-list"] li', { hasText: gameName });
-  await row.getByTestId('join-button').click();
+  await page.locator('[data-testid="open-list"] li').first().getByTestId('join-button').click();
   await expect(page).toHaveURL(/\/game\/[0-9a-f-]+$/, { timeout: 15_000 });
 }
 

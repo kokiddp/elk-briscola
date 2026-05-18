@@ -61,7 +61,14 @@ public sealed class GamesController : ControllerBase
     {
         ArgumentNullException.ThrowIfNull(request);
 
-        CreateGameRequest payload = new(request.Mode, request.Name, request.IsPrivate, request.Password);
+        // Game names are no longer collected by the UI. Coalesce
+        // null / empty to "" so the persistence layer's non-null
+        // column stays satisfied without a migration.
+        CreateGameRequest payload = new(
+            request.Mode,
+            request.Name ?? string.Empty,
+            request.IsPrivate,
+            request.Password);
         GameRecord record = await _lobby
             .CreateAsync(payload, _user.UserId, ct)
             .ConfigureAwait(false);

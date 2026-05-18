@@ -69,7 +69,7 @@
   "lobby.empty.open": "Nessuna partita aperta.",
   "lobby.empty.running": "Nessuna partita in corso.",
   "lobby.private": "Privata",
-  "lobby.waitingForPlayers": "In attesa in \"{name}\" — {filled} di {total} giocatori al tavolo. Il tavolo si aprirà appena saranno tutti dentro.",
+  "lobby.waitingForPlayers": "In attesa di {total} giocatori — {filled} di {total} al tavolo. Il tavolo si aprirà appena saranno tutti dentro.",
   "lobby.join": "Entra",
   "lobby.joining": "Entrando…",
   "lobby.mode.twoPlayer": "2 giocatori",

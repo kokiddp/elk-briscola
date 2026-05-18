@@ -124,9 +124,8 @@
                 {{ 'profile.history.result.' + resultFor(entry) | t }}
               </span>
               <span class="flex flex-col">
-                <span class="font-medium text-stone-900">{{ entry.name }}</span>
+                <span class="font-medium text-stone-900">{{ modeLabel(entry.mode) }}</span>
                 <small class="text-xs text-stone-500">
-                  {{ modeLabel(entry.mode) }} ·
                   {{ reasonLabel(entry.reason) }}
                 </small>
               </span>

@@ -49,7 +49,9 @@ export type MatchReason = 'Normal' | 'ForfeitDisconnect' | 'ForfeitIdle';
 export interface MatchHistoryEntry {
   gameId: string;
   mode: GameMode;
-  name: string;
+  // `name` is still emitted by older servers (the column hasn't been
+  // dropped) but the UI no longer reads it. Optional + ignored.
+  name?: string;
   startedAt: string | null;
   endedAt: string | null;
   mySeatIndex: number;

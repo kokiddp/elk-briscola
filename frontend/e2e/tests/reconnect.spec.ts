@@ -26,9 +26,8 @@ test.describe('reconnect', () => {
       await registerAndLand(ctxA1.page, alice);
       await registerAndLand(ctxB.page, bob);
 
-      const gameName = `e2e reconnect ${alice.username} vs ${bob.username}`;
-      await createTwoPlayerGame(ctxA1.page, gameName);
-      await joinOpenGame(ctxB.page, gameName);
+      await createTwoPlayerGame(ctxA1.page);
+      await joinOpenGame(ctxB.page);
 
       gameUrl = await waitForGameStart(ctxA1.page);
       await waitForGameStart(ctxB.page);

@@ -81,17 +81,16 @@ describe('LobbyService', () => {
   it('createGame POSTs the request body and returns the created detail', async () => {
     const promise = svc.createGame({
       mode: 'TwoPlayer',
-      name: 'hello',
       isPrivate: false,
       password: null,
     });
     const req = ctrl.expectOne('/api/v1/games');
     expect(req.request.method).toBe('POST');
-    expect(req.request.body).toMatchObject({ mode: 'TwoPlayer', name: 'hello', isPrivate: false });
+    expect(req.request.body).toMatchObject({ mode: 'TwoPlayer', isPrivate: false });
+    expect(req.request.body).not.toHaveProperty('name');
     req.flush({
       id: 'abc',
       mode: 'TwoPlayer',
-      name: 'hello',
       status: 'Open',
       isPrivate: false,
       createdAt: '2026-05-16T10:00:00Z',

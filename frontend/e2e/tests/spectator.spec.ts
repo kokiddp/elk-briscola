@@ -26,9 +26,8 @@ test.describe('spectator', () => {
       await registerAndLand(ctxB.page, bob);
       await registerAndLand(ctxC.page, carol);
 
-      const gameName = `e2e spectate ${alice.username}`;
-      await createTwoPlayerGame(ctxA.page, gameName);
-      await joinOpenGame(ctxB.page, gameName);
+      await createTwoPlayerGame(ctxA.page);
+      await joinOpenGame(ctxB.page);
 
       const gameUrl = await waitForGameStart(ctxA.page);
       await waitForGameStart(ctxB.page);

@@ -40,9 +40,8 @@ test.describe('real-time ranking push', () => {
       await registerAndLand(ctxA.page, alice);
       await registerAndLand(ctxB.page, bob);
 
-      const gameName = `e2e ranking ${alice.username} vs ${bob.username}`;
-      await createTwoPlayerGame(ctxA.page, gameName);
-      await joinOpenGame(ctxB.page, gameName);
+      await createTwoPlayerGame(ctxA.page);
+      await joinOpenGame(ctxB.page);
 
       await waitForGameStart(ctxA.page);
       await waitForGameStart(ctxB.page);

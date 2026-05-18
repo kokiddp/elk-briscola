@@ -129,7 +129,6 @@ describe('LobbyComponent rendering', () => {
   it('lists open games with mode chip and seat counter', async () => {
     await setup({ open: [OPEN_2P] });
     expect(screen.getByTestId('open-list')).toBeInTheDocument();
-    expect(screen.getByTestId('game-name')).toHaveTextContent('Casual match');
     expect(screen.getByTestId('mode-chip')).toHaveTextContent(/2 players/i);
     expect(screen.getByTestId('seats')).toHaveTextContent('1 / 2');
     expect(screen.getByTestId('join-button')).toBeEnabled();
@@ -139,12 +138,11 @@ describe('LobbyComponent rendering', () => {
 describe('LobbyComponent filter logic', () => {
   it('renders Open and Running games into the two separate lists', async () => {
     await setup({ open: [OPEN_2P], running: [RUNNING_4P] });
-    const openList = screen.getByTestId('open-list');
-    const runningList = screen.getByTestId('running-list');
-    expect(openList).toHaveTextContent('Casual match');
-    expect(openList).not.toHaveTextContent('Team rumble');
-    expect(runningList).toHaveTextContent('Team rumble');
-    expect(runningList).not.toHaveTextContent('Casual match');
+    expect(screen.getByTestId('open-list')).toBeInTheDocument();
+    expect(screen.getByTestId('running-list')).toBeInTheDocument();
+    expect(screen.getAllByTestId('mode-chip')[0]).toHaveTextContent(/2 players/i);
+    // Running list shows its own row.
+    expect(screen.getByTestId('running-list').querySelectorAll('li').length).toBe(1);
   });
 
   it('updates the lists reactively when the service signals change', async () => {
@@ -153,13 +151,13 @@ describe('LobbyComponent filter logic', () => {
 
     setOpen([OPEN_2P]);
     fixture.detectChanges();
-    expect(screen.getByTestId('open-list')).toHaveTextContent('Casual match');
+    expect(screen.getByTestId('open-list').querySelectorAll('li').length).toBe(1);
 
     setRunning([RUNNING_4P]);
     setOpen([]);
     fixture.detectChanges();
     expect(screen.queryByTestId('open-list')).toBeNull();
-    expect(screen.getByTestId('running-list')).toHaveTextContent('Team rumble');
+    expect(screen.getByTestId('running-list').querySelectorAll('li').length).toBe(1);
   });
 });
 

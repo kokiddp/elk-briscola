@@ -30,24 +30,6 @@
       </select>
     </label>
 
-    <label class="flex flex-col gap-1.5">
-      <span class="text-sm font-medium text-stone-700">{{ 'lobby.create.name' | t }}</span>
-      <input
-        type="text"
-        formControlName="name"
-        autocomplete="off"
-        maxlength="64"
-        data-testid="create-name"
-        class="rounded-md border border-stone-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30"
-      />
-      @if (form.controls.name.touched && form.controls.name.errors?.['required']) {
-        <small class="text-xs text-rose-600">{{ 'auth.validation.required' | t }}</small>
-      }
-      @if (form.controls.name.touched && form.controls.name.errors?.['maxlength']) {
-        <small class="text-xs text-rose-600">{{ 'lobby.create.nameTooLong' | t }}</small>
-      }
-    </label>
-
     <label class="flex items-center gap-2">
       <input
         type="checkbox"

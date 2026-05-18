@@ -7,11 +7,14 @@ import { newPlayer, registerAndLand, uniqueUser } from '../helpers';
  * in the nginx ingress, the api routing, or the SPA bootstrap before
  * the heavier 2p / reconnect tests run.
  */
-test('register + land on home', async ({ browser }) => {
+test('register + land on /lobby', async ({ browser }) => {
   const { ctx, page } = await newPlayer(browser);
   try {
     await registerAndLand(page, uniqueUser('smoke'));
-    await expect(page.getByTestId('go-to-lobby')).toBeVisible();
+    await expect(page).toHaveURL(/\/lobby$/);
+    // The create-game CTA proves the lobby UI mounted + the LobbyHub
+    // negotiation completed.
+    await expect(page.getByTestId('create-game')).toBeVisible();
   } finally {
     await ctx.close();
   }

@@ -25,9 +25,8 @@ test.describe('2p golden path', () => {
       await registerAndLand(ctxA.page, alice);
       await registerAndLand(ctxB.page, bob);
 
-      const gameName = `e2e ${alice.username} vs ${bob.username}`;
-      await createTwoPlayerGame(ctxA.page, gameName);
-      await joinOpenGame(ctxB.page, gameName);
+      await createTwoPlayerGame(ctxA.page);
+      await joinOpenGame(ctxB.page);
 
       // Alice's page auto-navigates to /game once the second seat fills.
       await waitForGameStart(ctxA.page);

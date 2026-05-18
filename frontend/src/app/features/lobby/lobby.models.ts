@@ -2,10 +2,13 @@ export type GameMode = 'TwoPlayer' | 'FourPlayerTeams';
 
 export type GameStatus = 'Open' | 'Running' | 'Finished' | 'Abandoned';
 
+// Wire shape — the server still carries `name` for backwards
+// compatibility but the UI no longer reads it. Marked optional so a
+// future server with the column dropped doesn't break decoding.
 export interface GameSummary {
   id: string;
   mode: GameMode;
-  name: string;
+  name?: string;
   status: GameStatus;
   occupiedSeats: number;
   totalSeats: number;
@@ -16,7 +19,6 @@ export interface GameSummary {
 
 export interface CreateGameRequest {
   mode: GameMode;
-  name: string;
   isPrivate: boolean;
   password?: string | null;
 }
@@ -28,7 +30,7 @@ export interface JoinGameRequest {
 export interface GameDetail {
   id: string;
   mode: GameMode;
-  name: string;
+  name?: string;
   status: GameStatus;
   isPrivate: boolean;
   createdAt: string;

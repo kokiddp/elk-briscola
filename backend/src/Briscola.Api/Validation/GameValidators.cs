@@ -7,7 +7,12 @@ public sealed class CreateGameRequestValidator : AbstractValidator<CreateGameReq
 {
     public CreateGameRequestValidator()
     {
-        RuleFor(x => x.Name).NotEmpty().MaximumLength(64);
+        // Game names are an internal-only field — the UI no longer
+        // collects them. Accept null / empty; cap any caller-supplied
+        // value at 64 chars defensively.
+        RuleFor(x => x.Name)
+            .MaximumLength(64)
+            .When(x => !string.IsNullOrEmpty(x.Name));
         RuleFor(x => x.Mode).IsInEnum();
         When(x => x.IsPrivate, () =>
         {
