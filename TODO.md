@@ -1841,7 +1841,7 @@ Walked `docs/security.md` — the checklist now maps each item to the file that 
 
 ## Phase 12 — Containerization & deploy
 
-### Step 12.1 — Backend Dockerfile [S]
+### Step 12.1 — Backend Dockerfile [S] [x]
 
 **Where:** `backend/Dockerfile`
 
@@ -1851,14 +1851,14 @@ Walked `docs/security.md` — the checklist now maps each item to the file that 
   - Alternative if image size matters more than convenience: use `mcr.microsoft.com/dotnet/aspnet:10.0-noble-chiseled-extra` (chiseled image with `curl` pre-installed). Document the choice in `docs/deployment.md`.
 - `wwwroot/card-sets/placeholder/` is included in the publish output via `<Content Include="wwwroot\**\*">` in the csproj.
 
-### Step 12.2 — Frontend Dockerfile [S]
+### Step 12.2 — Frontend Dockerfile [S] [x]
 
 **Where:** `frontend/Dockerfile`
 
 - Stage 1 (`node:22-alpine`): `npm ci`, `ng build --configuration production`.
 - Stage 2 (`nginx:alpine`): copy `dist/elk-briscola/` to `/usr/share/nginx/html`; custom `nginx.conf` for SPA fallback (`try_files $uri $uri/ /index.html`), gzip, long cache on hashed assets, `index.html` no-cache.
 
-### Step 12.3 — `docker-compose.yml` [S]
+### Step 12.3 — `docker-compose.yml` [S] [x]
 
 ```yaml
 services:
@@ -1897,21 +1897,30 @@ volumes: { pgdata: {} }
 
 `.env.example` lists every variable.
 
-### Step 12.4 — `docker-compose.dev.yml` [S]
+### Step 12.4 — `docker-compose.dev.yml` [S] [x]
 
 - Just `postgres`, exposing 5432 to localhost.
 
-### Step 12.5 — `docs/deployment.md` [S]
+### Step 12.5 — `docs/deployment.md` [S] [x]
 
 - Step-by-step prod deploy (env vars, secrets, backup `pg_dump`, restore, migration job, rolling restart procedure).
 - Document the JWT signing-key rotation procedure (overlap window: accept old + new for a while, then drop old).
 
-### Step 12.6 — CI: build & push images on tag [S]
+### Step 12.6 — CI: build & push images on tag [S] [x]
 
-- New workflow `release.yml` triggered on `push: tags: [v*]`.
-- Builds both images, pushes to GHCR with tag `v*` and `latest`.
+- New workflow `release.yml` triggered on `push: tags: [v*]` (+ `workflow_dispatch` for manual runs).
+- Builds both images **multi-arch (linux/amd64 + linux/arm64)** via `docker/build-push-action@v6`.
+- Pushes to `ghcr.io/<owner>/elk-briscola-{api,frontend}` tagged with both `<v*>` and `latest`.
+- GHA cache (`type=gha`, per-service scope) is wired so consecutive tag releases reuse layers.
 
-**Phase 12 exit:** clean machine + Docker → working game in under 10 minutes following the doc.
+### Phase 12 follow-up items (resolved during the deep review)
+
+- **Chiseled runtime + curl HEALTHCHECK.** First attempt used `aspnet:10.0-noble-chiseled-extra` (no curl) — the HEALTHCHECK failed despite the api being healthy. Second attempt switched to standard `aspnet:10.0` and tried `apt install curl` — broke on the t64 ABI transition. Final shape: keep the chiseled runtime, splice in `curl` + its `ldd`-resolved shared libs from the SDK build stage. Image is 229 MB, distroless-shape, working probe.
+- **HEALTHCHECK exec-form.** Chiseled images have no `/bin/sh`, so `CMD curl ...` (shell form) and compose's `CMD-SHELL` both fail with `exec: "/bin/sh": no such file`. Every healthcheck (api Dockerfile, frontend Dockerfile, both compose files) uses the JSON exec form (`["CMD", "curl", ...]`).
+- **nginx reverse-proxy.** The frontend Dockerfile alone only served the SPA; the browser would 404 on `/api/v1/*` and `/hubs/*`. nginx.conf now proxies `/api/*`, `/hubs/*` (with `Upgrade`/`Connection` passthrough + 1 h timeouts for SignalR WebSockets), and `/card-sets/*` to `api:8080` over the compose-managed bridge.
+- **README production-deployment section.** Updated to point at the new compose flow + reference `docs/deployment.md` for the full runbook.
+
+**Phase 12 exit:** clean machine + Docker → working game in under 10 minutes following `docs/deployment.md`. ✅ Verified end-to-end on WSL2 Docker Desktop: `docker compose up -d --build`, register a user via REST, fetch `/me`, see Elo 1500, paginated `/me/history` returns 200.
 
 ---
 

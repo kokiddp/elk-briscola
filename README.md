@@ -902,15 +902,20 @@ cd frontend && npm run e2e
 
 ## Production deployment
 
+The full runbook (architecture diagram, secrets, backups, rolling
+restart, JWT key rotation, troubleshooting) lives in
+[docs/deployment.md](docs/deployment.md). Quick summary:
+
 - **Build artifacts:**
-  - Backend: multi-stage Dockerfile — `dotnet publish -c Release` (framework-dependent) into the official `mcr.microsoft.com/dotnet/aspnet:10.0` runtime image. Non-root user, healthcheck wired to `/healthz`.
-  - Frontend: `ng build --configuration production` → static files served by nginx (alpine), with gzip + long-cache on hashed assets and `index.html` no-cache.
-- **docker-compose.yml** brings up `api`, `frontend` (nginx with proxy_pass to api), and `postgres`.
-- **Configuration via env vars only.** Secrets (`Authentication__Jwt__SigningKey`, DB password) are never in the repo.
-- **Migrations** run on startup behind a feature flag (`Migrations:RunOnStartup=true`). For larger deployments, run them as a separate job.
-- **Observability:** Serilog → stdout (JSON) for container log shipping; `/healthz` and `/readyz` for orchestrators; OpenTelemetry instrumentation (ASP.NET Core + EF Core) ready to ship traces.
-- **Backups:** Postgres dump cron job (documented in `docs/deployment.md`); retention 14 days.
-- **Zero-downtime deploys:** stateful games complicate this — the API persists snapshots after every move, so a rolling restart resumes games on the new instance. Document the procedure.
+  - Backend (`backend/Dockerfile`): multi-stage build; `dotnet publish -c Release` then a chiseled `aspnet:10.0-noble-chiseled-extra` runtime with curl spliced in from the SDK stage for the HEALTHCHECK probe. Non-root by default (uid 1654). ~229 MB.
+  - Frontend (`frontend/Dockerfile`): `npm run build` then `nginx:alpine` with the custom `nginx.conf` — gzip on, long-cache on hashed assets, no-cache on `index.html`, SPA fallback, and reverse-proxy `/api/*`, `/hubs/*`, `/card-sets/*` to the api service. ~54 MB.
+- **docker-compose.yml** ships the full stack: postgres + api + frontend with healthchecks chained via `depends_on:condition:service_healthy`. Only the frontend port is published to the host — the api never exposes a port outside the compose network.
+- **Configuration via env vars only.** Required secrets (`POSTGRES_PASSWORD`, `JWT_SIGNING_KEY`) are documented in `.env.example`; the api fails fast on a missing or short signing key.
+- **Migrations** run on startup behind a feature flag (`Migrations__RunOnStartup=true`, on by default in compose). For larger deployments, run them as a separate job.
+- **Observability:** Serilog → stdout (JSON) for log shipping; `/healthz` and `/readyz` for orchestrators; OpenTelemetry — AspNetCore + Runtime instrumentation + the custom `Briscola` meter (`active_games`, `connected_players`, `moves_total`). OTLP exporter activates when `OTEL_EXPORTER_OTLP_ENDPOINT` is set.
+- **Backups:** `pg_dump -Fc` recipe in `docs/deployment.md`; production cadence recommendation is hourly logical dumps + nightly volume snapshots.
+- **Rolling restart:** `GracefulShutdownHostedService` drains the orchestrator with a 10 s budget; clients reconnect transparently via SignalR's reconnect logic. Procedure documented in `docs/deployment.md`.
+- **Release pipeline:** `.github/workflows/release.yml` triggers on `push: tags: [v*]` and pushes multi-arch (linux/amd64 + linux/arm64) images to `ghcr.io/<owner>/elk-briscola-{api,frontend}` tagged with both `<v*>` and `latest`.
 
 ---
 
