@@ -1,7 +1,21 @@
+# Local-dev support stack. Brings up only Postgres on localhost:5432
+# with the credentials baked into appsettings.Development.json so a
+# `dotnet run --project backend/src/Briscola.Api` (or the Angular dev
+# server's proxy) reaches the DB without any further config.
+#
+# Use this instead of `docker compose up` when you want the
+# backend / frontend to run in-process (dotnet watch, ng serve) and
+# only need a persistent database.
+#
+#   docker compose -f docker-compose.dev.yml up -d
+#   docker compose -f docker-compose.dev.yml down       # keep data
+#   docker compose -f docker-compose.dev.yml down -v    # wipe data
+
 services:
   postgres:
     image: postgres:17.2-alpine
     container_name: briscola-dev-postgres
+    restart: unless-stopped
     environment:
       POSTGRES_USER: briscola
       POSTGRES_PASSWORD: briscola-dev
@@ -11,10 +25,13 @@ services:
     volumes:
       - briscola-dev-pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U briscola -d briscola"]
-      interval: 2s
-      timeout: 2s
-      retries: 20
+      # exec-form so we don't depend on /bin/sh being on PATH in future
+      # image revisions; matches the prod compose's pattern.
+      test: ["CMD", "pg_isready", "-U", "briscola", "-d", "briscola"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
 
 volumes:
-  briscola-dev-pgdata:
+  briscola-dev-pgdata: {}
