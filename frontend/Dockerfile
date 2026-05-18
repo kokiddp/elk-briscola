@@ -31,5 +31,9 @@ EXPOSE 80
 
 # nginx:alpine already configures a curl-less HEALTHCHECK via the entry
 # point, but we want our own probe so docker-compose can wait on it.
+# Use 127.0.0.1, not localhost — busybox wget resolves localhost to ::1
+# first, but nginx in this image binds 0.0.0.0:80 only, so the v6 path
+# gets ECONNREFUSED and flags the container unhealthy despite the SPA
+# serving fine over v4.
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD ["wget", "--quiet", "--tries=1", "--spider", "http://localhost/"]
+    CMD ["wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1/"]
