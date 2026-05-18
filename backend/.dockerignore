@@ -1,0 +1,9 @@
+# Keep the docker context small + reproducible.
+**/bin/
+**/obj/
+**/TestResults/
+**/.vs/
+**/.vscode/
+**/reports/
+*.log
+.DS_Store
