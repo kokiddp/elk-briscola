@@ -84,6 +84,35 @@ public sealed class CardSetCatalogTests : IDisposable
         catalog.All[0].Id.Should().Be("good");
     }
 
+    [Theory]
+    [InlineData("svg")]
+    [InlineData("png")]
+    [InlineData("jpg")]
+    [InlineData("jpeg")]
+    [InlineData("webp")]
+    [InlineData("avif")]
+    public void Loads_manifests_with_any_supported_raster_or_vector_extension(string ext)
+    {
+        // The static-files middleware ships a Content-Type for each of
+        // these; the catalog accepts them without a warning. Verifies
+        // the supported-extensions table is in sync with what the
+        // browser + middleware understand.
+        WriteManifest("custom", new
+        {
+            id = "custom",
+            name = "Custom",
+            license = "Bundled",
+            preview = $"preview.{ext}",
+            fileExtension = ext,
+            filePattern = "{suit}-{rank}.{ext}",
+            back = $"back.{ext}",
+        });
+
+        CardSetCatalog catalog = CardSetCatalog.LoadFromWebRoot(_env);
+        catalog.All.Should().HaveCount(1);
+        catalog.All[0].FileExtension.Should().Be(ext);
+    }
+
     [Fact]
     public void Port_surface_exposes_default_id_and_iteration_order()
     {

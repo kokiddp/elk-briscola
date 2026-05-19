@@ -42,6 +42,19 @@ public sealed partial class CardSetCatalog : ICardSetCatalog
         Message = "Card-set manifest {Path} failed to parse — skipping.")]
     private static partial void LogManifestParseFailed(ILogger logger, Exception ex, string path);
 
+    [LoggerMessage(EventId = 5, Level = LogLevel.Warning,
+        Message = "Card-set manifest {Path} declares an unsupported fileExtension '{Ext}'. Supported: svg, png, jpg, jpeg, webp, avif. Loading anyway, but the browser may refuse to render the assets.")]
+    private static partial void LogUnknownExtension(ILogger logger, string path, string ext);
+
+    /// <summary>
+    /// File formats the static-files middleware ships a Content-Type for
+    /// (see Program.cs) AND that the browser's &lt;img&gt; tag renders.
+    /// Case-insensitive; the manifest carries the bare extension without
+    /// the leading dot.
+    /// </summary>
+    private static readonly HashSet<string> SupportedExtensions =
+        new(StringComparer.OrdinalIgnoreCase) { "svg", "png", "jpg", "jpeg", "webp", "avif" };
+
     private readonly ImmutableArray<CardSetManifestDto> _items;
     private readonly HashSet<string> _idIndex;
     private readonly ImmutableArray<string> _idsView;
@@ -100,6 +113,13 @@ public sealed partial class CardSetCatalog : ICardSetCatalog
                 {
                     if (logger is not null) LogManifestMalformed(logger, manifestPath);
                     continue;
+                }
+
+                if (logger is not null
+                    && !string.IsNullOrWhiteSpace(parsed.FileExtension)
+                    && !SupportedExtensions.Contains(parsed.FileExtension))
+                {
+                    LogUnknownExtension(logger, manifestPath, parsed.FileExtension);
                 }
 
                 items.Add(parsed with { Path = $"/card-sets/{Path.GetFileName(dir)}/" });

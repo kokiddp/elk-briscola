@@ -287,7 +287,21 @@ if (!app.Environment.IsDevelopment() && !disableHttpsRedirect)
     app.UseHttpsRedirection();
 }
 
-app.UseStaticFiles();
+// Card-set assets ship in any of svg/png/jpg/jpeg/webp/avif (see
+// docs/card-sets.md). ASP.NET Core's default provider knows the first
+// four; we add webp + avif explicitly so the static-files middleware
+// stamps the right Content-Type instead of falling back to
+// application/octet-stream — that fallback breaks <img> in some
+// browsers (notably Safari for AVIF).
+{
+    Microsoft.AspNetCore.StaticFiles.FileExtensionContentTypeProvider contentTypes = new();
+    contentTypes.Mappings[".webp"] = "image/webp";
+    contentTypes.Mappings[".avif"] = "image/avif";
+    app.UseStaticFiles(new Microsoft.AspNetCore.Builder.StaticFileOptions
+    {
+        ContentTypeProvider = contentTypes,
+    });
+}
 app.UseRouting();
 app.UseCors(CorsOptions.PolicyName);
 app.UseRateLimiter();

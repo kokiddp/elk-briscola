@@ -46,7 +46,7 @@ ASP.NET Core's static-file middleware serves them at `/card-sets/{setId}/{file}`
 | `name` | yes | Human-readable label shown in the picker. |
 | `license` | yes | Free-form; intended for audit. Include the source for derivative works. |
 | `preview` | yes | Filename of the thumbnail rendered in `/profile`. PNG or SVG. The doc-string for the placeholder picks a 600×280 montage; non-standard sizes are scaled with `aspect-ratio: 600 / 280; object-fit: contain`. |
-| `fileExtension` | yes | Extension applied to `filePattern`'s `{ext}` placeholder. Typically `svg`, `png`, or `webp`. |
+| `fileExtension` | yes | Extension applied to `filePattern`'s `{ext}` placeholder. Supported: `svg`, `png`, `jpg`, `jpeg`, `webp`, `avif`. The static-files middleware stamps the right `Content-Type` for each; unknown extensions log a warning at boot and the browser may refuse to render them. All assets within one set must share the extension; mixing formats requires shipping multiple sets. |
 | `filePattern` | yes | Card-asset filename template. Tokens: `{suit}`, `{rank}`, `{ext}`. The canonical pattern is `{suit}-{rank}.{ext}`. |
 | `back` | yes | Filename of the card-back asset. |
 

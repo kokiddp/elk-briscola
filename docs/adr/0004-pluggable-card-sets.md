@@ -32,6 +32,7 @@ Card sets are a server-hosted plug-in surface.
     "placeholderOnly": false
   }
   ```
+- **Supported asset formats.** `fileExtension` may be any of `svg`, `png`, `jpg`, `jpeg`, `webp`, `avif`. The static-files middleware registers a `Content-Type` for each. The browser's `<img>` element renders all of them natively; no client-side decoder is needed. All assets within one set must share the extension — mixing formats means shipping multiple sets.
 - **Discovery.** `GET /api/v1/card-sets` enumerates `wwwroot/card-sets/*/manifest.json` at boot. Adding a set is a content-only change: drop the folder, restart the API.
 - **Engine isolation.** `Briscola.Domain` knows about suits + ranks only. The Angular `CardComponent` resolves a `(suit, rank)` pair to an asset URL via `CardSetService.assetUrlFor` using the active set's `fileExtension`. A missing file falls back to the `placeholder` set per-card.
 - **Placeholder set.** Always shipped, always available. `manifest.placeholderOnly: true` flags sets that are SVG-only stand-ins (the v1 default).
