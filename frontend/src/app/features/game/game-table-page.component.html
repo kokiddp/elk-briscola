@@ -1,7 +1,8 @@
 <section
-  class="game-table min-h-[calc(100vh-3.5rem)] bg-gradient-to-b from-table-800 to-table-900 text-stone-100"
+  class="game-table h-[calc(100vh-3.5rem)] overflow-hidden bg-gradient-to-b from-table-800 to-table-900 text-stone-100"
   [class.mode-2p]="!is4p()"
   [class.mode-4p]="is4p()"
+  [class.spectator]="isSpectator()"
 >
   @if (!isReady()) {
     <p
@@ -20,44 +21,26 @@
       </div>
     }
 
-    @if (is4p()) {
-      @for (slot of opponentSlots(); track slot.seatIndex; let idx = $index) {
-        <div
-          class="seat opponent flex items-center justify-center rounded-xl bg-white/5 p-3 ring-1 ring-inset ring-white/10"
-          [class]="'opponent-' + idx"
-          data-testid="opponent-slot"
-        >
-          <bri-opponent-area
-            [seatIndex]="slot.seatIndex"
-            [cardCount]="opponentCountFor(slot.seatIndex)"
-            [displayName]="playerFor(slot.seatIndex)?.displayName ?? ''"
-            [elo]="playerFor(slot.seatIndex)?.elo ?? null"
-            [isPartner]="slot.isPartner"
-            [isActive]="state()!.nextToPlaySeat === slot.seatIndex"
-            [isDisconnected]="disconnectedSeats().has(slot.seatIndex)"
-          />
-        </div>
-      }
-    } @else {
-      @for (slot of opponentSlots(); track slot.seatIndex) {
-        <div
-          class="seat opponent opponent-top flex items-center justify-center rounded-xl bg-white/5 p-3 ring-1 ring-inset ring-white/10"
-          data-testid="opponent-slot"
-        >
-          <bri-opponent-area
-            [seatIndex]="slot.seatIndex"
-            [cardCount]="opponentCountFor(slot.seatIndex)"
-            [displayName]="playerFor(slot.seatIndex)?.displayName ?? ''"
-            [elo]="playerFor(slot.seatIndex)?.elo ?? null"
-            [isActive]="state()!.nextToPlaySeat === slot.seatIndex"
-            [isDisconnected]="disconnectedSeats().has(slot.seatIndex)"
-          />
-        </div>
-      }
+    @for (slot of opponentSlots(); track slot.seatIndex) {
+      <div
+        class="seat opponent flex min-h-0 items-center justify-center rounded-xl bg-white/5 p-2 ring-1 ring-inset ring-white/10"
+        [class]="'opponent-' + slot.position"
+        data-testid="opponent-slot"
+      >
+        <bri-opponent-area
+          [seatIndex]="slot.seatIndex"
+          [cardCount]="opponentCountFor(slot.seatIndex)"
+          [displayName]="playerFor(slot.seatIndex)?.displayName ?? ''"
+          [elo]="playerFor(slot.seatIndex)?.elo ?? null"
+          [isPartner]="slot.isPartner"
+          [isActive]="state()!.nextToPlaySeat === slot.seatIndex"
+          [isDisconnected]="disconnectedSeats().has(slot.seatIndex)"
+        />
+      </div>
     }
 
     <div
-      class="briscola-zone flex items-center justify-center gap-3 rounded-xl bg-white/5 p-3 ring-1 ring-inset ring-white/10"
+      class="briscola-zone flex min-h-0 items-center justify-center gap-3 rounded-xl bg-white/5 p-2 ring-1 ring-inset ring-white/10"
       data-testid="briscola-zone"
     >
       <bri-briscola-indicator
@@ -68,13 +51,13 @@
     </div>
 
     <div
-      class="trick-zone flex items-center justify-center rounded-xl bg-white/5 p-3 ring-1 ring-inset ring-white/10"
+      class="trick-zone flex min-h-0 items-center justify-center rounded-xl bg-white/5 p-2 ring-1 ring-inset ring-white/10"
       data-testid="trick-zone"
     >
       <bri-trick-area [plays]="state()!.currentTrick" />
     </div>
 
-    <div class="scoreboard-zone" data-testid="scoreboard-zone">
+    <div class="scoreboard-zone min-h-0" data-testid="scoreboard-zone">
       <bri-scoreboard
         [seatScores]="state()!.seatScores"
         [mode]="state()!.mode"
@@ -84,7 +67,7 @@
 
     @if (canSeeMyHand()) {
       <div
-        class="my-hand-zone flex items-center justify-center rounded-xl bg-white/5 p-3 ring-1 ring-inset ring-white/10"
+        class="my-hand-zone flex min-h-0 items-center justify-center rounded-xl bg-white/5 p-2 ring-1 ring-inset ring-white/10"
         data-testid="my-hand-zone"
       >
         <bri-my-hand
@@ -96,7 +79,7 @@
       </div>
     } @else {
       <div
-        class="my-hand-zone flex items-center justify-center rounded-xl bg-white/10 p-3 ring-1 ring-inset ring-white/10"
+        class="my-hand-zone flex min-h-0 items-center justify-center rounded-xl bg-white/10 p-2 ring-1 ring-inset ring-white/10"
         data-testid="spectator-banner"
       >
         <span class="text-sm uppercase tracking-wider text-stone-200/90">
@@ -105,7 +88,7 @@
       </div>
     }
 
-    <aside class="chat-zone" data-testid="chat-zone">
+    <aside class="chat-zone min-h-0 overflow-hidden" data-testid="chat-zone">
       <bri-chat-panel
         [messages]="chatLog()"
         [tacticalBanner]="state()!.phase === 'LastHand' && is4p()"

@@ -15,9 +15,12 @@ import { ScoreboardComponent } from './scoreboard.component';
 import { StockComponent } from './stock.component';
 import { TrickAreaComponent } from './trick-area.component';
 
+type SeatPosition = 'top' | 'left' | 'right' | 'bottom';
+
 interface OpponentSlot {
   seatIndex: number;
   isPartner: boolean;
+  position: SeatPosition;
 }
 
 const INVALID_MOVE_I18N: Record<InvalidMoveCode, string> = {
@@ -92,12 +95,32 @@ export class GameTablePageComponent implements OnInit, OnDestroy {
 
   readonly opponentSlots = computed<OpponentSlot[]>(() => {
     const s = this.state();
-    const me = this.mySeatIndex();
-    if (!s || me === null) {
+    if (!s) {
       return [];
     }
     const total = s.handCountsBySeat.length;
     if (total <= 1) {
+      return [];
+    }
+    // Spectators have no seat to anchor the rotation to. Show every
+    // seat as an "opponent" slot in a stable layout: 2p → left/right,
+    // 4p → top/left/right/bottom (seat 0 at the bottom, then clockwise).
+    if (this.isSpectator()) {
+      if (s.mode === 'TwoPlayer') {
+        return [
+          { seatIndex: 0, isPartner: false, position: 'left' },
+          { seatIndex: 1, isPartner: false, position: 'right' },
+        ];
+      }
+      return [
+        { seatIndex: 0, isPartner: false, position: 'bottom' },
+        { seatIndex: 1, isPartner: false, position: 'left' },
+        { seatIndex: 2, isPartner: false, position: 'top' },
+        { seatIndex: 3, isPartner: false, position: 'right' },
+      ];
+    }
+    const me = this.mySeatIndex();
+    if (me === null) {
       return [];
     }
     // Rotate so the seat across (partner in 4p) is always the middle slot.
@@ -107,7 +130,9 @@ export class GameTablePageComponent implements OnInit, OnDestroy {
     for (let offset = total - 1; offset >= 1; offset--) {
       const seatIndex = (me + offset) % total;
       const isPartner = s.mode === 'FourPlayerTeams' && seatIndex % 2 === me % 2;
-      slots.push({ seatIndex, isPartner });
+      const position: SeatPosition =
+        s.mode === 'TwoPlayer' ? 'top' : offset === 3 ? 'left' : offset === 2 ? 'top' : 'right';
+      slots.push({ seatIndex, isPartner, position });
     }
     return slots;
   });

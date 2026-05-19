@@ -311,12 +311,15 @@ describe('GameTablePageComponent — spectator mode', () => {
     expect(screen.queryByTestId('spectator-banner')).toBeNull();
   });
 
-  it('still renders the table (opponents, briscola, trick, scoreboard) for spectators', async () => {
+  it('renders both 2p players as opponent slots for spectators (left + right)', async () => {
     await setup({ state: SNAPSHOT_2P, spectator: true });
     expect(screen.getByTestId('briscola-zone')).toBeInTheDocument();
     expect(screen.getByTestId('trick-zone')).toBeInTheDocument();
     expect(screen.getByTestId('scoreboard-zone')).toBeInTheDocument();
-    expect(screen.getAllByTestId('opponent-slot')).toHaveLength(1);
+    const slots = screen.getAllByTestId('opponent-slot');
+    expect(slots).toHaveLength(2);
+    expect(slots[0]?.classList.contains('opponent-left')).toBe(true);
+    expect(slots[1]?.classList.contains('opponent-right')).toBe(true);
   });
 });
 
