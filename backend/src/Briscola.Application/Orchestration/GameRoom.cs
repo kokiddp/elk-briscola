@@ -211,9 +211,9 @@ public sealed class GameRoom : IAsyncDisposable
         }
 
         DateTimeOffset now = _clock.UtcNow;
-        await PersistStateAsync(now, ct).ConfigureAwait(false);
-        await AppendMoveAsync(
+        await PersistStateAndAppendMoveAsync(
             NewMove(seat, MoveType.PlayCard, CardPayload(command.Card), now),
+            now,
             ct).ConfigureAwait(false);
 
         await _eventBus.PublishAsync(
@@ -410,9 +410,9 @@ public sealed class GameRoom : IAsyncDisposable
             Outcome = outcome,
         };
 
-        await PersistStateAsync(now, ct).ConfigureAwait(false);
-        await AppendMoveAsync(
+        await PersistStateAndAppendMoveAsync(
             NewMove(forfeitingSeat, moveType, "{}", now),
+            now,
             ct).ConfigureAwait(false);
         await SaveFinishedAsync(reason, now, ct).ConfigureAwait(false);
         await PublishSnapshotsAsync(now, ct).ConfigureAwait(false);
@@ -454,7 +454,20 @@ public sealed class GameRoom : IAsyncDisposable
             ct).ConfigureAwait(false);
     }
 
-    private async Task PersistStateAsync(DateTimeOffset now, CancellationToken ct)
+    private async Task AppendMoveAsync(MoveRecord move, CancellationToken ct)
+    {
+        await using IGameRepositoryScope scope = _gamesFactory.Create();
+        await scope.Repository.AppendMoveAsync(_state.GameId, move, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Atomic snapshot-bump + move-log append: both rows commit in one
+    /// transaction so a crash between them can't leave the persisted
+    /// snapshot ahead of the move log (replay = ShuffleSeed + GameMoves,
+    /// see ADR 0005). Throws <see cref="GameCommandException"/> on
+    /// optimistic-concurrency loss, same as the old PersistStateAsync.
+    /// </summary>
+    private async Task PersistStateAndAppendMoveAsync(MoveRecord move, DateTimeOffset now, CancellationToken ct)
     {
         GameRecord desired = _record with
         {
@@ -468,7 +481,9 @@ public sealed class GameRoom : IAsyncDisposable
         bool updated;
         await using (IGameRepositoryScope scope = _gamesFactory.Create())
         {
-            updated = await scope.Repository.UpdateAsync(desired, ct).ConfigureAwait(false);
+            updated = await scope.Repository
+                .UpdateAndAppendMoveAsync(desired, move, ct)
+                .ConfigureAwait(false);
         }
 
         if (!updated)
@@ -477,12 +492,6 @@ public sealed class GameRoom : IAsyncDisposable
         }
 
         _record = desired with { Version = desired.Version + 1 };
-    }
-
-    private async Task AppendMoveAsync(MoveRecord move, CancellationToken ct)
-    {
-        await using IGameRepositoryScope scope = _gamesFactory.Create();
-        await scope.Repository.AppendMoveAsync(_state.GameId, move, ct).ConfigureAwait(false);
     }
 
     private async Task PublishSnapshotsAsync(DateTimeOffset now, CancellationToken ct)

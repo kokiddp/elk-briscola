@@ -73,6 +73,29 @@ internal sealed class InMemoryGameRepository : IGameRepository
         }
     }
 
+    public Task<bool> UpdateAndAppendMoveAsync(
+        GameRecord record,
+        MoveRecord move,
+        CancellationToken ct)
+    {
+        lock (_gate)
+        {
+            if (!_games.TryGetValue(record.Id, out GameRecord? current))
+            {
+                return Task.FromResult(false);
+            }
+
+            if (current.Version != record.Version)
+            {
+                return Task.FromResult(false);
+            }
+
+            _games[record.Id] = record with { Version = record.Version + 1 };
+            _moves.Add(move);
+            return Task.FromResult(true);
+        }
+    }
+
     public Task SaveResultAsync(GameResultRecord result, CancellationToken ct)
     {
         lock (_gate)

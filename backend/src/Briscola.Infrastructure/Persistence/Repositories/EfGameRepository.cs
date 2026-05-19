@@ -115,17 +115,100 @@ public sealed class EfGameRepository(BriscolaDbContext db) : IGameRepository
     public async Task AppendMoveAsync(Guid gameId, MoveRecord move, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(move);
-        db.GameMoves.Add(new GameMoveEntity
-        {
-            Id = move.Id,
-            GameId = gameId,
-            MoveIndex = move.MoveIndex,
-            SeatIndex = move.SeatIndex,
-            Type = move.Type,
-            PayloadJson = move.PayloadJson,
-            CreatedAt = move.CreatedAt,
-        });
+        db.GameMoves.Add(NewMoveEntity(gameId, move));
         await db.SaveChangesAsync(ct).ConfigureAwait(false);
+    }
+
+    public async Task<bool> UpdateAndAppendMoveAsync(
+        GameRecord record,
+        MoveRecord move,
+        CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(record);
+        ArgumentNullException.ThrowIfNull(move);
+
+        // Same match-and-bump shape as UpdateAsync, except we also stage
+        // the GameMove insert so both rows commit in one SaveChanges +
+        // one transaction. A crash between the snapshot bump and the
+        // move-log insert can no longer leave the persisted snapshot
+        // ahead of the move log (the replay invariant from ADR 0005).
+        await using var tx = await db.Database.BeginTransactionAsync(ct).ConfigureAwait(false);
+
+        var entity = await db.Games
+            .Include(g => g.Seats)
+            .FirstOrDefaultAsync(g => g.Id == record.Id, ct)
+            .ConfigureAwait(false);
+        if (entity is null || entity.Version != record.Version)
+        {
+            await tx.RollbackAsync(ct).ConfigureAwait(false);
+            return false;
+        }
+
+        ApplyScalarChanges(entity, record);
+        ReplaceSeats(entity, record);
+        db.GameMoves.Add(NewMoveEntity(record.Id, move));
+
+        try
+        {
+            await db.SaveChangesAsync(ct).ConfigureAwait(false);
+            await tx.CommitAsync(ct).ConfigureAwait(false);
+            return true;
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            await tx.RollbackAsync(ct).ConfigureAwait(false);
+            return false;
+        }
+    }
+
+    private static GameMoveEntity NewMoveEntity(Guid gameId, MoveRecord move) => new()
+    {
+        Id = move.Id,
+        GameId = gameId,
+        MoveIndex = move.MoveIndex,
+        SeatIndex = move.SeatIndex,
+        Type = move.Type,
+        PayloadJson = move.PayloadJson,
+        CreatedAt = move.CreatedAt,
+    };
+
+    private static void ApplyScalarChanges(GameEntity entity, GameRecord record)
+    {
+        entity.Mode = record.Mode;
+        entity.Name = record.Name;
+        entity.Status = record.Status;
+        entity.CreatedByUserId = record.CreatedByUserId;
+        entity.CreatedAt = record.CreatedAt;
+        entity.StartedAt = record.StartedAt;
+        entity.EndedAt = record.EndedAt;
+        entity.ShuffleSeed = record.ShuffleSeed;
+        entity.StateSnapshotJson = record.StateSnapshotJson;
+        entity.BriscolaSuit = record.BriscolaSuit;
+        entity.IsPrivate = record.IsPrivate;
+        entity.PasswordHash = record.PasswordHash;
+        entity.Version = record.Version + 1;
+    }
+
+    private static void ReplaceSeats(GameEntity entity, GameRecord record)
+    {
+        for (int seat = 0; seat < record.SeatUserIds.Length; seat++)
+        {
+            var existing = entity.Seats.FirstOrDefault(s => s.SeatIndex == seat);
+            if (existing is null)
+            {
+                entity.Seats.Add(new GameSeatEntity
+                {
+                    GameId = entity.Id,
+                    SeatIndex = seat,
+                    UserId = record.SeatUserIds[seat],
+                    JoinedAt = record.CreatedAt,
+                });
+            }
+            else
+            {
+                existing.UserId = record.SeatUserIds[seat];
+            }
+        }
     }
 
     public async Task SaveResultAsync(GameResultRecord result, CancellationToken ct)

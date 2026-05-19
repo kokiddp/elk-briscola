@@ -10,6 +10,20 @@ public interface IGameRepository
     Task CreateAsync(GameRecord record, CancellationToken ct);
     Task<bool> UpdateAsync(GameRecord record, CancellationToken ct);
     Task AppendMoveAsync(Guid gameId, MoveRecord move, CancellationToken ct);
+
+    /// <summary>
+    /// Atomic combination of <see cref="UpdateAsync(GameRecord, CancellationToken)"/>
+    /// and <see cref="AppendMoveAsync(Guid, MoveRecord, CancellationToken)"/>:
+    /// the snapshot bump and the move-log row commit (or fail) together so a
+    /// crash between them can't leave the persisted snapshot ahead of the
+    /// move log (ADR 0005 — replay = ShuffleSeed + GameMoves; a missing move
+    /// row breaks reproducibility of the snapshot). Returns false on
+    /// optimistic-concurrency loss; never partially persists.
+    /// </summary>
+    Task<bool> UpdateAndAppendMoveAsync(
+        GameRecord record,
+        MoveRecord move,
+        CancellationToken ct);
     Task SaveResultAsync(GameResultRecord result, CancellationToken ct);
 
     /// <summary>
