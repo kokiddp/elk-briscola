@@ -35,6 +35,7 @@
           [isPartner]="slot.isPartner"
           [isActive]="state()!.nextToPlaySeat === slot.seatIndex"
           [isDisconnected]="disconnectedSeats().has(slot.seatIndex)"
+          [idleDeadline]="idleDeadlineFor(slot.seatIndex)"
         />
       </div>
     }
@@ -67,9 +68,18 @@
 
     @if (canSeeMyHand()) {
       <div
-        class="my-hand-zone flex min-h-0 items-center justify-center rounded-xl bg-white/5 p-2 ring-1 ring-inset ring-white/10"
+        class="my-hand-zone relative flex min-h-0 items-center justify-center rounded-xl bg-white/5 p-2 ring-1 ring-inset ring-white/10"
         data-testid="my-hand-zone"
       >
+        @if (myIdleSecondsRemaining() !== null) {
+          <span
+            class="absolute right-2 top-2 rounded-full bg-rose-500/85 px-2.5 py-0.5 text-xs font-mono font-semibold tabular-nums text-white shadow"
+            data-testid="my-idle-timer"
+            aria-label="auto-resign countdown"
+          >
+            ⏱ {{ myIdleSecondsRemaining() }}s
+          </span>
+        }
         <bri-my-hand
           [cards]="state()!.myHand ?? []"
           [legalMoves]="legalMoves()"

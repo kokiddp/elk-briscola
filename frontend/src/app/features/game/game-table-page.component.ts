@@ -63,6 +63,7 @@ export class GameTablePageComponent implements OnInit, OnDestroy {
   readonly chatLog = this.game.chatLog;
   readonly disconnectDeadline = this.game.disconnectDeadline;
   readonly disconnects = this.game.disconnects;
+  readonly idleWarnings = this.game.idleWarnings;
   readonly lastFinished = this.game.lastFinished;
 
   readonly isReady = computed(() => this.state() !== null);
@@ -162,7 +163,44 @@ export class GameTablePageComponent implements OnInit, OnDestroy {
    *  the opponent area + the end-game dialog. */
   readonly playerFor = (seatIndex: number) => this.state()?.seatPlayers?.[seatIndex] ?? null;
 
+  /** Auto-resign deadline for a given seat, or null if the server
+   *  hasn't fired an idleWarning for them yet. */
+  readonly idleDeadlineFor = (seatIndex: number): Date | null =>
+    this.idleWarnings().find((w) => w.seatIndex === seatIndex)?.deadline ?? null;
+
+  /** Auto-resign deadline for the local player, or null. Drives the
+   *  countdown chip that hovers over MyHand when the server is about
+   *  to forfeit us for thinking too long. */
+  readonly myIdleDeadline = computed<Date | null>(() => {
+    const me = this.mySeatIndex();
+    if (me === null) {
+      return null;
+    }
+    return this.idleDeadlineFor(me);
+  });
+
+  private readonly nowSig = signal(Date.now());
+  readonly myIdleSecondsRemaining = computed<number | null>(() => {
+    const dl = this.myIdleDeadline();
+    if (!dl) {
+      return null;
+    }
+    const ms = dl.getTime() - this.nowSig();
+    return Math.max(0, Math.ceil(ms / 1000));
+  });
+
   constructor() {
+    // Tick the local-idle clock every second when there's a deadline to
+    // count down to. Paused otherwise so it doesn't churn the change
+    // detector during normal play.
+    effect((onCleanup) => {
+      if (!this.myIdleDeadline()) {
+        return;
+      }
+      const id = setInterval(() => this.nowSig.set(Date.now()), 1000);
+      onCleanup(() => clearInterval(id));
+    });
+
     // Latch mySeat the first time we can identify it unambiguously.
     effect(() => {
       if (this.latchedSeat() !== null) {

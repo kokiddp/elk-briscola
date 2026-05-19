@@ -18,9 +18,12 @@
   min-height: 0;
 
   // --- Player-perspective layouts -------------------------------------
+  // Top opponent row hugs the cards + the name header (header ~1.5rem +
+  // card 6.75rem + cell padding). Anything shorter than 8.5rem clips
+  // the cards under the sticky nav.
   &.mode-2p:not(.spectator) {
     grid-template-columns: 14rem 1fr 1fr 12rem;
-    grid-template-rows: 6rem 1fr 1fr 9rem;
+    grid-template-rows: 8.5rem 1fr 1fr 9rem;
     grid-template-areas:
       '. opp-top opp-top .'
       'briscola trick trick scoreboard'
@@ -30,7 +33,7 @@
 
   &.mode-4p:not(.spectator) {
     grid-template-columns: 12rem 1fr 1fr 12rem;
-    grid-template-rows: 6rem 1fr 1fr 9rem;
+    grid-template-rows: 8.5rem 1fr 1fr 9rem;
     grid-template-areas:
       '. opp-top opp-top .'
       'opp-left briscola trick opp-right'
@@ -54,7 +57,7 @@
 
   &.mode-4p.spectator {
     grid-template-columns: 12rem 1fr 1fr 12rem;
-    grid-template-rows: 6rem 1fr 1fr 6rem 9rem;
+    grid-template-rows: 8.5rem 1fr 1fr 8.5rem 9rem;
     grid-template-areas:
       '. opp-top opp-top .'
       'opp-left briscola trick opp-right'

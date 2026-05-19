@@ -29,6 +29,15 @@
     >
       {{ cardCount() }}
     </span>
+    @if (idleSecondsRemaining() !== null) {
+      <span
+        class="rounded-full bg-rose-500/80 px-2 py-0.5 text-xs font-mono tabular-nums text-white"
+        data-testid="idle-timer"
+        aria-label="auto-resign countdown"
+      >
+        ⏱ {{ idleSecondsRemaining() }}s
+      </span>
+    }
   </header>
   <div class="flex items-center" data-testid="opponent-stack">
     @for (i of stack(); track i) {

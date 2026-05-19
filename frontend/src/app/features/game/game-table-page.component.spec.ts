@@ -118,6 +118,7 @@ function makeGame(opts: {
     state: () => stateSig(),
     chatLog: () => chatSig(),
     disconnects: () => disconnectsSig(),
+    idleWarnings: () => [] as readonly SeatDisconnect[],
     disconnectDeadline: () => earliest,
     lastFinished: () => finishedSig(),
     lastInvalidMove: () => invalidMoveSig(),
