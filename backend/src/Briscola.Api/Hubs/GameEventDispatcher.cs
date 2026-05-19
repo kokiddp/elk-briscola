@@ -314,5 +314,6 @@ public sealed partial class GameEventDispatcher : BackgroundService
             snapshot.SeatScores,
             snapshot.Outcome is null ? null : ToDto(snapshot.Outcome),
             snapshot.MySeatIndex,
-            seatPlayers);
+            seatPlayers,
+            snapshot.ActiveSeatForfeitDeadline);
 }

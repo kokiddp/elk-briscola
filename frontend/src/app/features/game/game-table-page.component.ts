@@ -63,7 +63,6 @@ export class GameTablePageComponent implements OnInit, OnDestroy {
   readonly chatLog = this.game.chatLog;
   readonly disconnectDeadline = this.game.disconnectDeadline;
   readonly disconnects = this.game.disconnects;
-  readonly idleWarnings = this.game.idleWarnings;
   readonly lastFinished = this.game.lastFinished;
 
   readonly isReady = computed(() => this.state() !== null);
@@ -163,20 +162,38 @@ export class GameTablePageComponent implements OnInit, OnDestroy {
    *  the opponent area + the end-game dialog. */
   readonly playerFor = (seatIndex: number) => this.state()?.seatPlayers?.[seatIndex] ?? null;
 
-  /** Auto-resign deadline for a given seat, or null if the server
-   *  hasn't fired an idleWarning for them yet. */
-  readonly idleDeadlineFor = (seatIndex: number): Date | null =>
-    this.idleWarnings().find((w) => w.seatIndex === seatIndex)?.deadline ?? null;
-
-  /** Auto-resign deadline for the local player, or null. Drives the
-   *  countdown chip that hovers over MyHand when the server is about
-   *  to forfeit us for thinking too long. */
-  readonly myIdleDeadline = computed<Date | null>(() => {
-    const me = this.mySeatIndex();
-    if (me === null) {
+  /** Active-seat forfeit deadline as a Date, parsed once per snapshot.
+   *  The server resets this with every move, so the countdown the UI
+   *  renders is a per-turn timer rather than a stale 90s-after-idle
+   *  window. */
+  readonly activeForfeitDeadline = computed<Date | null>(() => {
+    const iso = this.state()?.activeSeatForfeitDeadline ?? null;
+    if (!iso) {
       return null;
     }
-    return this.idleDeadlineFor(me);
+    const d = new Date(iso);
+    return Number.isNaN(d.getTime()) ? null : d;
+  });
+
+  /** Forfeit deadline for `seatIndex` only when it's their turn; null
+   *  otherwise so the chip stays on the seat that's actually thinking. */
+  readonly idleDeadlineFor = (seatIndex: number): Date | null => {
+    const s = this.state();
+    if (!s || s.nextToPlaySeat !== seatIndex) {
+      return null;
+    }
+    return this.activeForfeitDeadline();
+  };
+
+  /** Deadline for the local player, if it's their turn. Drives the
+   *  countdown badge in the top-right of MyHand. */
+  readonly myIdleDeadline = computed<Date | null>(() => {
+    const me = this.mySeatIndex();
+    const s = this.state();
+    if (me === null || !s || s.nextToPlaySeat !== me) {
+      return null;
+    }
+    return this.activeForfeitDeadline();
   });
 
   private readonly nowSig = signal(Date.now());

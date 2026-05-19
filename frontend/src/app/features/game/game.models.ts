@@ -63,6 +63,12 @@ export interface RedactedStateForUser {
    *  on every snapshot the server pushes, and patched in-place on
    *  ranking-updated events as games finish. */
   seatPlayers?: (PlayerInfo | null)[];
+  /** ISO-8601 UTC timestamp at which the active seat auto-forfeits if
+   *  they haven't played by then. Resets on every move (the server
+   *  recomputes from `lastMoveCompletedAt + IdleForfeitSeconds`); null
+   *  outside the Playing / LastHand phases. Clients render a per-turn
+   *  countdown from this. */
+  activeSeatForfeitDeadline?: string | null;
 }
 
 export interface GameChatMessage {

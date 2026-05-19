@@ -153,4 +153,12 @@ public sealed record RedactedStateForUser(
     ImmutableArray<PlayedCard> CurrentTrick,
     ImmutableArray<int> SeatScores,
     GameOutcome? Outcome,
-    int? MySeatIndex);
+    int? MySeatIndex,
+    /// <summary>
+    /// Absolute UTC instant at which <c>NextToPlaySeat</c> auto-forfeits
+    /// for idleness. Recomputed at each snapshot from
+    /// <c>_lastMoveCompletedAt + Game:IdleForfeitSeconds</c>; null outside
+    /// the Playing / LastHand phases. Clients render this as a per-turn
+    /// countdown that resets every move.
+    /// </summary>
+    DateTimeOffset? ActiveSeatForfeitDeadline);

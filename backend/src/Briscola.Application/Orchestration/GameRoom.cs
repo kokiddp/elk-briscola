@@ -515,6 +515,15 @@ public sealed class GameRoom : IAsyncDisposable
             mySeatIndex = seat;
         }
 
+        // The active seat's forfeit deadline is reset every move via
+        // _lastMoveCompletedAt; surfacing it here lets every client run
+        // a per-turn countdown without having to know IdleForfeitSeconds
+        // out-of-band. Null outside the actively-playing phases.
+        DateTimeOffset? activeSeatForfeitDeadline =
+            _state.Phase is GamePhase.Playing or GamePhase.LastHand
+                ? _lastMoveCompletedAt.AddSeconds(_options.IdleForfeitSeconds)
+                : null;
+
         return new RedactedStateForUser(
             _state.GameId,
             _state.Mode,
@@ -532,7 +541,8 @@ public sealed class GameRoom : IAsyncDisposable
             _state.CurrentTrick,
             _state.SeatScores,
             _state.Outcome,
-            mySeatIndex);
+            mySeatIndex,
+            activeSeatForfeitDeadline);
     }
 
     private async Task RejectAsync(Guid targetUserId, InvalidMoveCode code, CancellationToken ct)
