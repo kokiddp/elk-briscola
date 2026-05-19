@@ -2009,28 +2009,28 @@ test('two players play a 2p game to completion', async ({ browser }) => {
 
 ## Phase 14 — Documentation polish & release
 
-### Step 14.1 — `docs/architecture.md` [S]
+### Step 14.1 — `docs/architecture.md` [S] [x]
 
 - C4-style diagrams (system context, container, component) using Mermaid.
 - Match the implementation; cite `Phase`/file paths.
 
-### Step 14.2 — `docs/game-rules.md` [S]
+### Step 14.2 — `docs/game-rules.md` [S] [x]
 
 - Mirror of the README's rules section, but extended with engine-implementation notes (e.g. "the Strength function is `CardTables.Strength`") so it's the natural reading order for someone trying to understand the engine.
 
-### Step 14.3 — `docs/api.md` [S]
+### Step 14.3 — `docs/api.md` [S] [x]
 
-- REST: include the OpenAPI YAML (`api/v1/openapi.yaml` produced by Swashbuckle at build).
+- REST: links to the live OpenAPI JSON (`/swagger/v1/swagger.json` produced by Swashbuckle); inline table mirrors the surface. AsyncAPI sidecar updated to carry `seatPlayers` + `activeSeatForfeitDeadline` + the `rankingUpdated` push. Nginx now proxies `/swagger`, `/scalar`, `/docs` through to the API so the human-readable doc UIs are reachable via `:8080` when the stack runs in `Development` mode (production still 404s those paths intentionally).
 - SignalR: hand-written; method-by-method. Examples of payloads.
 
-### Step 14.4 — ADRs [S]
+### Step 14.4 — ADRs [S] [x]
 
 - `0002-server-authoritative-game-state.md`.
 - `0003-signalr-over-raw-websockets.md`.
 - `0004-pluggable-card-sets.md`.
 - `0005-snapshot-store-not-event-sourcing.md`.
 
-### Step 14.5 — Release [S]
+### Step 14.5 — Release [S] [ ]
 
 - Update `README.md` Definition-of-Done to all checked.
 - Tag `v1.0.0`.
