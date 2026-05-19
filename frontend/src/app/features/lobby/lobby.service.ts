@@ -111,6 +111,23 @@ export class LobbyService {
   readonly pendingGameId = computed<string | null>(() => this.pendingGame()?.id ?? null);
   readonly hasPendingGame = computed<boolean>(() => this.pendingGameId() !== null);
 
+  /**
+   * The Running game (if any) the current user is seated at. Mirrors
+   * `pendingGame` for the post-start phase, so the top-nav can offer a
+   * "resume" entry that takes them back to /game/:id from anywhere.
+   */
+  readonly currentRunningGame = computed<GameSummary | null>(() => {
+    const me = this.auth.currentUser()?.id;
+    if (!me) return null;
+    return (
+      this.runningGamesSig().find((g) => (g.seatPlayers ?? []).some((p) => p?.userId === me)) ??
+      null
+    );
+  });
+  readonly currentRunningGameId = computed<string | null>(
+    () => this.currentRunningGame()?.id ?? null,
+  );
+
   clearLastStartedGameId(): void {
     this.lastStartedGameIdSig.set(null);
   }

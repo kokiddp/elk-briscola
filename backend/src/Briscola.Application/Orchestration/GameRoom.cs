@@ -239,8 +239,13 @@ public sealed class GameRoom : IAsyncDisposable
             await SaveFinishedAsync(EndedReason.Normal, now, ct).ConfigureAwait(false);
         }
 
-        await PublishSnapshotsAsync(now, ct).ConfigureAwait(false);
+        // Stamp the turn-start instant BEFORE publishing the snapshot, so
+        // RedactedStateForUser.ActiveSeatForfeitDeadline reflects the new
+        // turn's window (now + IdleForfeitSeconds) rather than the previous
+        // turn's stale deadline. Without this the per-turn countdown chip
+        // never resets between moves.
         _lastMoveCompletedAt = now;
+        await PublishSnapshotsAsync(now, ct).ConfigureAwait(false);
         _idleWarnedForSeat = null;
         ScheduleIdleChecks();
     }

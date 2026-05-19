@@ -1,6 +1,7 @@
 import { Component, computed, inject } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { AuthService } from '../../core/auth.service';
+import { LobbyService } from '../../features/lobby/lobby.service';
 import { I18nPipe } from '../i18n.pipe';
 
 @Component({
@@ -43,7 +44,18 @@ import { I18nPipe } from '../i18n.pipe';
             </a>
           </nav>
 
-          <div class="ml-auto flex items-center gap-3">
+          @if (currentGameId(); as gid) {
+            <a
+              [routerLink]="['/game', gid]"
+              data-testid="nav-resume-game"
+              class="ml-auto inline-flex h-8 items-center gap-1.5 rounded-md bg-warm-400 px-3 text-sm font-semibold text-table-900 shadow ring-1 ring-warm-500/30 transition hover:bg-warm-200"
+            >
+              <span aria-hidden="true">▶</span>
+              {{ 'nav.resumeGame' | t }}
+            </a>
+          }
+
+          <div [class.ml-auto]="!currentGameId()" class="flex items-center gap-3">
             <span class="hidden text-sm text-stone-600 sm:inline" data-testid="nav-user">
               {{ displayName() }}
             </span>
@@ -64,11 +76,16 @@ import { I18nPipe } from '../i18n.pipe';
 export class TopNavComponent {
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
+  private readonly lobby = inject(LobbyService);
 
   readonly visible = computed(() => this.auth.isAuthenticated());
   readonly displayName = computed(
     () => this.auth.currentUser()?.displayName ?? this.auth.currentUser()?.username ?? '',
   );
+  /** A Running game the user is seated at — surfaces a "Resume" button
+   *  so they can get back to the table after wandering off to /profile
+   *  or /lobby mid-match. */
+  readonly currentGameId = this.lobby.currentRunningGameId;
 
   async logout(): Promise<void> {
     await this.auth.logout();

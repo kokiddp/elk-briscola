@@ -162,6 +162,13 @@ export class GameTablePageComponent implements OnInit, OnDestroy {
    *  the opponent area + the end-game dialog. */
   readonly playerFor = (seatIndex: number) => this.state()?.seatPlayers?.[seatIndex] ?? null;
 
+  /** Per-seat display name strings ready to feed the scoreboard, in
+   *  seat order. Falls back to an empty string per seat so the
+   *  scoreboard's own fallback (`Seat {n}`) can kick in. */
+  readonly seatNames = computed<string[]>(() =>
+    (this.state()?.seatPlayers ?? []).map((p) => p?.displayName ?? ''),
+  );
+
   /** Active-seat forfeit deadline as a Date, parsed once per snapshot.
    *  The server resets this with every move, so the countdown the UI
    *  renders is a per-turn timer rather than a stale 90s-after-idle

@@ -50,6 +50,16 @@ describe('ScoreboardComponent — 4p team math', () => {
     expect(values).toEqual(['55', '25']);
   });
 
+  it('labels each team with both members when seat names are available', async () => {
+    await setup({
+      mode: 'FourPlayerTeams',
+      seatScores: [0, 0, 0, 0],
+      seatNames: ['Alice', 'Bob', 'Carol', 'Dan'],
+    });
+    const labels = screen.getAllByTestId('score-label').map((el) => el.textContent?.trim());
+    expect(labels).toEqual(['Alice + Carol', 'Bob + Dan']);
+  });
+
   it('highlights Team A when seat 0 or 2 is active', async () => {
     await setup({ mode: 'FourPlayerTeams', seatScores: [0, 0, 0, 0], nextToPlaySeat: 2 });
     const rows = screen.getAllByTestId('score-row');

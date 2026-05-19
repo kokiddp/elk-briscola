@@ -3,6 +3,7 @@
   "nav.lobby": "Lobby",
   "nav.profile": "Profilo",
   "nav.logout": "Esci",
+  "nav.resumeGame": "Torna alla partita",
   "auth.login.title": "Accedi",
   "auth.login.submit": "Accedi",
   "auth.login.submitting": "Accesso in corso…",
