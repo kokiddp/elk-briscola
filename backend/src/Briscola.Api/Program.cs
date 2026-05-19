@@ -96,6 +96,10 @@ builder.Services.AddSingleton<IConfigureOptions<JwtBearerOptions>>(sp =>
 
         opts.RequireHttpsMetadata = !env.IsDevelopment();
         opts.SaveToken = false;
+        // Suppress WWW-Authenticate "error_description" payloads outside
+        // Development so a 401 response doesn't include the raw inner
+        // validation exception (which can echo the offending token).
+        opts.IncludeErrorDetails = env.IsDevelopment();
         opts.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,
@@ -122,6 +126,21 @@ builder.Services.AddSingleton<IConfigureOptions<JwtBearerOptions>>(sp =>
                 if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs"))
                 {
                     ctx.Token = accessToken;
+
+                    // Strip the raw token from the request's query string
+                    // *after* consuming it so any downstream logging that
+                    // surfaces the URL (Serilog request-summary if a future
+                    // contributor turns on EnrichDiagnosticContext with the
+                    // QueryString; Microsoft.AspNetCore.* warnings on 4xx;
+                    // etc.) doesn't accidentally leak the bearer JWT into
+                    // stdout + the rolling log files. We keep the param
+                    // key so log readers can still see *that* a token was
+                    // present without seeing its value.
+                    System.Collections.Generic.Dictionary<string, Microsoft.Extensions.Primitives.StringValues> scrubbed =
+                        ctx.Request.Query.ToDictionary(static kv => kv.Key, static kv => kv.Value, StringComparer.OrdinalIgnoreCase);
+                    scrubbed["access_token"] = "<redacted>";
+                    ctx.Request.QueryString = Microsoft.AspNetCore.Http.QueryString.Create(scrubbed.Select(static kv =>
+                        new System.Collections.Generic.KeyValuePair<string, string?>(kv.Key, kv.Value.ToString())));
                 }
 
                 return Task.CompletedTask;
