@@ -13,5 +13,14 @@ internal sealed class RefreshTokenConfiguration : IEntityTypeConfiguration<Refre
         builder.Property(t => t.TokenHash).HasMaxLength(128).IsRequired();
         builder.HasIndex(t => t.TokenHash).IsUnique();
         builder.HasIndex(t => t.UserId);
+
+        // Concurrency guard on the revocation transition. Two concurrent
+        // RotateAsync calls against the same row would both load RevokedAt
+        // = null and both write RevokedAt = now without this — and both
+        // commit, producing two valid child tokens off one parent. With
+        // IsConcurrencyToken(), EF emits `WHERE RevokedAt = @originalNull`
+        // on the UPDATE, the loser raises DbUpdateConcurrencyException,
+        // and the in-flight INSERT of the new token rolls back with it.
+        builder.Property(t => t.RevokedAt).IsConcurrencyToken();
     }
 }

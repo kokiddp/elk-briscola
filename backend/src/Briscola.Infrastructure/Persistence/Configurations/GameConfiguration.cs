@@ -22,9 +22,15 @@ internal sealed class GameConfiguration : IEntityTypeConfiguration<GameEntity>
 
         builder.Property(g => g.PasswordHash).HasMaxLength(128);
 
-        // Plain long, application-managed concurrency token. Explicitly NOT
-        // IsRowVersion() — the application contract talks in `long Version`.
-        builder.Property(g => g.Version).IsRequired();
+        // Application-managed concurrency token. NOT IsRowVersion() — we keep
+        // a plain long because the contract surfaces `long Version` to the
+        // application layer; an SQL-server-style rowversion would force a
+        // `byte[]` shape. IsConcurrencyToken() instructs EF to emit
+        // `WHERE Version = @old` on every UPDATE so two concurrent writers
+        // can't both read v=N and both commit v=N+1 — the loser raises
+        // DbUpdateConcurrencyException, which EfGameRepository converts to
+        // a `false` return so the application-level retry kicks in.
+        builder.Property(g => g.Version).IsRequired().IsConcurrencyToken();
 
         builder.HasIndex(g => g.Status);
         builder.HasIndex(g => g.CreatedAt);

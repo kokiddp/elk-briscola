@@ -100,7 +100,19 @@ public sealed class RefreshTokenService(
 
         var newAccess = issuer.CreateAccessToken(user);
 
-        await db.SaveChangesAsync(ct).ConfigureAwait(false);
+        try
+        {
+            await db.SaveChangesAsync(ct).ConfigureAwait(false);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            // Another rotate of the same parent token beat us to it. EF
+            // rolls back the staged INSERT of the new child along with
+            // the failed UPDATE of existing.RevokedAt. Treat it as a
+            // reuse attempt — the client is presenting a token that's
+            // now revoked by the winning sibling.
+            return new RefreshResult.Failure(RefreshFailureReason.Reuse);
+        }
 
         return new RefreshResult.Success(new IssuedTokenPair(newAccess, newSecret));
     }
