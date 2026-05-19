@@ -19,6 +19,11 @@ export class EndGameDialogComponent {
   readonly result = input.required<GameFinishedEvent>();
   readonly mode = input.required<GameMode>();
   readonly mySeat = input<number | null>(null);
+  /** Spectators have no rooting interest — they should see a neutral
+   *  "game ended" banner, not the seat-relative win/lose copy. The
+   *  game-table page already knows isSpectator from the route + the
+   *  GameService, so we forward it here. */
+  readonly isSpectator = input<boolean>(false);
   /** Per-seat names + Elos pulled from the final snapshot. The Elo
    *  values are post-game (the rankingUpdated push fires before
    *  GameFinished, see GameRoom.SaveFinishedAsync). */
@@ -43,6 +48,11 @@ export class EndGameDialogComponent {
   readonly isDraw = computed(() => this.result().outcome.kind === 'Draw');
 
   readonly bannerKey = computed<string>(() => {
+    // Spectators never get a personal win/lose banner — they're not
+    // playing. Show the neutral game-ended copy regardless of outcome.
+    if (this.isSpectator()) {
+      return 'game.end.gameEnded';
+    }
     if (this.isDraw()) {
       return 'game.end.draw';
     }

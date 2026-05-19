@@ -129,6 +129,7 @@
   "game.end.youLose": "Hai perso.",
   "game.end.draw": "Pareggio.",
   "game.end.result": "Partita terminata.",
+  "game.end.gameEnded": "Partita terminata.",
   "game.end.back": "Torna alla lobby",
   "game.end.reason.Normal": "Partita conclusa.",
   "game.end.reason.ForfeitDisconnect": "Avversario disconnesso.",

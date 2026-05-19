@@ -129,6 +129,7 @@
   "game.end.youLose": "You lost.",
   "game.end.draw": "Draw.",
   "game.end.result": "Game over.",
+  "game.end.gameEnded": "Game ended.",
   "game.end.back": "Back to lobby",
   "game.end.reason.Normal": "Played to the end.",
   "game.end.reason.ForfeitDisconnect": "Opponent disconnected.",

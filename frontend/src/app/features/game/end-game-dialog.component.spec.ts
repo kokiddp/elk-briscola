@@ -16,6 +16,7 @@ async function setup(opts: {
   result?: GameFinishedEvent;
   mode?: GameMode;
   mySeat?: number | null;
+  isSpectator?: boolean;
 }) {
   const onBack = vi.fn<() => void>();
   const r = await render(EndGameDialogComponent, {
@@ -23,6 +24,7 @@ async function setup(opts: {
       result: opts.result ?? makeResult(),
       mode: opts.mode ?? 'TwoPlayer',
       mySeat: opts.mySeat ?? null,
+      isSpectator: opts.isSpectator ?? false,
     },
     on: { backToLobby: () => onBack() },
   });
@@ -74,6 +76,14 @@ describe('EndGameDialogComponent', () => {
     const { onBack } = await setup({ mySeat: 0 });
     fireEvent.click(screen.getByTestId('end-back-to-lobby'));
     expect(onBack).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows the neutral "Game ended" banner for spectators', async () => {
+    // Even when the spectator would otherwise be "seated at 0" (i.e.
+    // the winning seat), the spectator banner must never say "You won".
+    await setup({ mySeat: 0, isSpectator: true });
+    expect(screen.getByTestId('end-banner')).toHaveTextContent(/ended/i);
+    expect(screen.getByTestId('end-banner')).not.toHaveTextContent(/won|lost/i);
   });
 
   it('shows the forfeit-disconnect reason label', async () => {
