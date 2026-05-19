@@ -85,23 +85,18 @@ public sealed class LobbyPushTests : HubTestHarness
     }
 
     [Fact]
-    public async Task gameUpdated_fires_on_an_open_leave()
+    public async Task gameEnded_fires_when_the_last_player_leaves_an_open_game()
     {
         TokenResponse observer = await RegisterAndLoginAsync("observer");
         TokenResponse alice = await RegisterAndLoginAsync("alice");
 
         HubConnection lobbyHub = BuildHubConnection("/hubs/lobby", observer.AccessToken);
-        List<GameSummaryDto> updates = [];
         TaskCompletionSource<GameSummaryDto> created =
             new(TaskCreationOptions.RunContinuationsAsynchronously);
-        TaskCompletionSource<GameSummaryDto> leaveSeen =
+        TaskCompletionSource<Guid> ended =
             new(TaskCreationOptions.RunContinuationsAsynchronously);
         lobbyHub.On<GameSummaryDto>("GameCreated", s => created.TrySetResult(s));
-        lobbyHub.On<GameSummaryDto>("GameUpdated", s =>
-        {
-            updates.Add(s);
-            if (s.OccupiedSeats == 0) leaveSeen.TrySetResult(s);
-        });
+        lobbyHub.On<Guid>("GameEnded", id => ended.TrySetResult(id));
         await lobbyHub.StartAsync();
         await lobbyHub.InvokeAsync("SubscribeOpen");
 
@@ -114,9 +109,11 @@ public sealed class LobbyPushTests : HubTestHarness
 
         await aliceHttp.PostAsync($"/api/v1/games/{open.Id}/leave", content: null);
 
-        GameSummaryDto after = await leaveSeen.Task.WaitAsync(TimeSpan.FromSeconds(5));
-        after.OccupiedSeats.Should().Be(0);
-        after.Status.Should().Be(GameStatus.Open);
+        // The lone creator leaving drains the table — the lobby gets a
+        // GameEnded push (not GameUpdated) so the open list drops the
+        // row immediately instead of showing a 0-of-2 ghost record.
+        Guid endedId = await ended.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        endedId.Should().Be(open.Id);
 
         await lobbyHub.DisposeAsync();
     }

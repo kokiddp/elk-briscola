@@ -154,6 +154,30 @@ public sealed class LobbyServiceTests
 
         GameRecord? after = await fixture.Games.GetAsync(created.Id, CancellationToken.None);
         after!.SeatUserIds.Should().OnlyContain(static userId => userId == null);
+        // Lone-creator leave drains the table — the game collapses to
+        // Abandoned immediately rather than lingering as a 0-of-N Open row.
+        after.Status.Should().Be(GameStatus.Abandoned);
+        after.EndedAt.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task Leave_with_other_seated_players_keeps_game_open()
+    {
+        TestFixture fixture = new();
+        Guid creator = Guid.NewGuid();
+        Guid second = Guid.NewGuid();
+        GameRecord created = await fixture.Service.CreateAsync(
+            new CreateGameRequest(GameMode.FourPlayerTeams, "table", IsPrivate: false, Password: null),
+            creator,
+            CancellationToken.None);
+        await fixture.Service.JoinAsync(created.Id, second, password: null, CancellationToken.None);
+
+        await fixture.Service.LeaveAsync(created.Id, second, CancellationToken.None);
+
+        GameRecord? after = await fixture.Games.GetAsync(created.Id, CancellationToken.None);
+        after!.Status.Should().Be(GameStatus.Open);
+        after.SeatUserIds.Should().Contain(creator);
+        after.EndedAt.Should().BeNull();
     }
 
     [Fact]

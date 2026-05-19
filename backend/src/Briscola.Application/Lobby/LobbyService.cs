@@ -157,14 +157,38 @@ public sealed class LobbyService(
                 return;
             }
 
-            GameRecord desired = record with { SeatUserIds = record.SeatUserIds.SetItem(seat, null) };
+            ImmutableArray<Guid?> nextSeats = record.SeatUserIds.SetItem(seat, null);
+            DateTimeOffset now = clock.UtcNow;
+            // If the leaver was the last player at the table, the row would
+            // sit around as an empty Open game until the janitor reaped it
+            // on its next minute tick. That's a confusing window — the
+            // lobby would show a 0/N seat row that nobody can usefully
+            // join. Collapse the game straight to Abandoned + emit
+            // GameEnded so the SPA drops it from the open list immediately.
+            bool lastPlayerLeft = nextSeats.All(static id => !id.HasValue);
+            GameRecord desired = lastPlayerLeft
+                ? record with
+                {
+                    SeatUserIds = nextSeats,
+                    Status = GameStatus.Abandoned,
+                    EndedAt = now,
+                }
+                : record with { SeatUserIds = nextSeats };
             bool updated = await games.UpdateAsync(desired, ct).ConfigureAwait(false);
             if (updated)
             {
                 GameRecord saved = desired with { Version = desired.Version + 1 };
-                GameSummary updatedSummary = await BuildSummaryAsync(saved, ct).ConfigureAwait(false);
-                await eventBus.PublishAsync(
-                    new LobbyGameUpdatedEvent(saved.Id, clock.UtcNow, updatedSummary), ct).ConfigureAwait(false);
+                if (lastPlayerLeft)
+                {
+                    await eventBus.PublishAsync(
+                        new LobbyGameEndedEvent(saved.Id, now), ct).ConfigureAwait(false);
+                }
+                else
+                {
+                    GameSummary updatedSummary = await BuildSummaryAsync(saved, ct).ConfigureAwait(false);
+                    await eventBus.PublishAsync(
+                        new LobbyGameUpdatedEvent(saved.Id, now, updatedSummary), ct).ConfigureAwait(false);
+                }
                 return;
             }
         }

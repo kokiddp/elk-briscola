@@ -105,10 +105,12 @@ public sealed class GameHubTests : HubTestHarness
 
         await aliceHub.InvokeAsync("LeaveGame", open.Id);
 
-        // Seat 0 (alice) is now vacant.
+        // Alice was the only seated player, so the game collapses straight
+        // to Abandoned rather than lingering as an empty Open row that
+        // the lobby would render with a 0/N seat count.
         GameDetailDto after = (await aliceHttp.GetFromJsonAsync<GameDetailDto>(
             $"/api/v1/games/{open.Id}", TestJsonOptions.Default))!;
-        after.Status.Should().Be(GameStatus.Open);
+        after.Status.Should().Be(GameStatus.Abandoned);
         after.Seats[0].Should().BeNull();
 
         await aliceHub.DisposeAsync();
