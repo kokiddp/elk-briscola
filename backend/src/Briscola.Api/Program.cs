@@ -140,6 +140,19 @@ builder.Services.AddCors(opts =>
 {
     CorsOptions cors = builder.Configuration.GetSection(CorsOptions.SectionName).Get<CorsOptions>()
         ?? new CorsOptions();
+
+    // Refuse to start in Production with no allowed origins. The
+    // empty-list path below falls back to AllowAnyOrigin(), which is a
+    // reasonable Dev posture but a deploy-time foot-gun if Cors:AllowedOrigins
+    // is omitted from the server's env. Fail loudly here instead of
+    // silently exposing the API to any origin.
+    if (cors.AllowedOrigins.Length == 0 && builder.Environment.IsProduction())
+    {
+        throw new InvalidOperationException(
+            "Cors:AllowedOrigins is empty in Production. Set the ALLOWED_ORIGIN env "
+          + "(or Cors__AllowedOrigins__0) to the SPA's origin before starting the API.");
+    }
+
     opts.AddPolicy(CorsOptions.PolicyName, policy =>
     {
         if (cors.AllowedOrigins.Length == 0)
