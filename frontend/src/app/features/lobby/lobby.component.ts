@@ -1,5 +1,5 @@
 import { Component, OnInit, effect, inject, signal } from '@angular/core';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { ErrorToastService } from '../../core/error-toast.service';
 import { I18nService } from '../../core/i18n.service';
 import { I18nPipe } from '../../shared/i18n.pipe';
@@ -11,7 +11,7 @@ import { LobbyService } from './lobby.service';
 @Component({
   selector: 'bri-lobby',
   standalone: true,
-  imports: [I18nPipe, CreateGameDialogComponent, LobbyChatPanelComponent],
+  imports: [I18nPipe, RouterLink, CreateGameDialogComponent, LobbyChatPanelComponent],
   templateUrl: './lobby.component.html',
   styleUrl: './lobby.component.scss',
 })

@@ -73,6 +73,7 @@
   "lobby.join": "Join",
   "lobby.joining": "Joining…",
   "lobby.waiting": "Waiting…",
+  "lobby.spectate": "Spectate",
   "lobby.alreadyInGame": "You're already in a game — leave the lobby seat first.",
   "lobby.mode.twoPlayer": "2 players",
   "lobby.mode.fourPlayerTeams": "4 players (teams)",

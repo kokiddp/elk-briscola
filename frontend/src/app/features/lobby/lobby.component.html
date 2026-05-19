@@ -131,16 +131,35 @@
           <ul data-testid="running-list" class="flex flex-col gap-2">
             @for (game of runningGames(); track game.id) {
               <li
-                class="grid grid-cols-[auto_1fr_auto] items-center gap-3 rounded-md bg-stone-50 px-3 py-2 ring-1 ring-inset ring-stone-200"
+                class="grid grid-cols-[auto_1fr_auto_auto] items-center gap-3 rounded-md bg-stone-50 px-3 py-2 ring-1 ring-inset ring-stone-200"
               >
                 <span
                   class="rounded-full bg-stone-200 px-2 py-0.5 text-xs font-medium text-stone-700"
                 >
                   {{ modeLabel(game.mode) }}
                 </span>
+                <span class="flex flex-wrap items-center gap-1.5">
+                  @for (p of game.seatPlayers ?? []; track $index) {
+                    @if (p) {
+                      <span
+                        class="inline-flex items-center gap-1 rounded-md bg-white px-2 py-0.5 text-xs ring-1 ring-inset ring-stone-200"
+                      >
+                        <span class="font-medium text-stone-900">{{ p.displayName }}</span>
+                        <span class="font-mono tabular-nums text-stone-500">{{ p.elo }}</span>
+                      </span>
+                    }
+                  }
+                </span>
                 <span class="font-mono text-xs tabular-nums text-stone-500">
                   {{ game.occupiedSeats }} / {{ game.totalSeats }}
                 </span>
+                <a
+                  [routerLink]="['/game', game.id, 'spectate']"
+                  data-testid="spectate-button"
+                  class="inline-flex h-8 items-center justify-center rounded-md bg-stone-700 px-3 text-xs font-semibold text-white shadow-sm transition hover:bg-stone-800"
+                >
+                  {{ 'lobby.spectate' | t }}
+                </a>
               </li>
             }
           </ul>

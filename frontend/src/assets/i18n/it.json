@@ -73,6 +73,7 @@
   "lobby.join": "Entra",
   "lobby.joining": "Entrando…",
   "lobby.waiting": "In attesa…",
+  "lobby.spectate": "Osserva",
   "lobby.alreadyInGame": "Sei già in una partita — esci dal tavolo prima.",
   "lobby.mode.twoPlayer": "2 giocatori",
   "lobby.mode.fourPlayerTeams": "4 giocatori (squadre)",
