@@ -58,6 +58,7 @@
         "playerDisconnected": { "$ref": "#/components/messages/PlayerDisconnected" },
         "playerReconnected": { "$ref": "#/components/messages/PlayerReconnected" },
         "idleWarning": { "$ref": "#/components/messages/IdleWarning" },
+        "rankingUpdated": { "$ref": "#/components/messages/RankingUpdated" },
         "gameChatMessage": { "$ref": "#/components/messages/GameChatMessage" },
         "invalidMove": { "$ref": "#/components/messages/InvalidMove" }
       }
@@ -211,8 +212,14 @@
     "game.IdleWarning": {
       "action": "receive",
       "channel": { "$ref": "#/channels/game" },
-      "summary": "Soft warning when the active seat has been idle past Game:IdleWarnSeconds; ForfeitIdle fires at Game:IdleForfeitSeconds if no move arrives.",
+      "summary": "Soft warning when the active seat has been idle past Game:IdleWarnSeconds; ForfeitIdle fires at Game:IdleForfeitSeconds if no move arrives. Kept for back-compat — the per-turn countdown is now driven by RedactedStateForUser.activeSeatForfeitDeadline, which resets every move.",
       "messages": [{ "$ref": "#/channels/game/messages/idleWarning" }]
+    },
+    "game.RankingUpdated": {
+      "action": "receive",
+      "channel": { "$ref": "#/channels/game" },
+      "summary": "Fires once per affected user when a Running game finishes. The SPA patches seatPlayers[i].elo in-place so the end-game dialog renders post-game Elo.",
+      "messages": [{ "$ref": "#/channels/game/messages/rankingUpdated" }]
     },
     "game.ChatMessage": {
       "action": "receive",
@@ -373,6 +380,10 @@
           }
         }
       },
+      "RankingUpdated": {
+        "name": "RankingUpdated",
+        "payload": { "$ref": "#/components/schemas/RankingUpdated" }
+      },
       "GameChatMessage": {
         "name": "GameChatMessage",
         "payload": { "$ref": "#/components/schemas/GameChatMessageDto" }
@@ -478,7 +489,39 @@
             "type": "integer",
             "nullable": true,
             "description": "Calling player's seat index. Null on the spectator + broadcast variants."
+          },
+          "seatPlayers": {
+            "type": "array",
+            "items": { "anyOf": [{ "$ref": "#/components/schemas/PlayerInfo" }, { "type": "null" }] },
+            "description": "Per-seat display name + current Elo, or null where the seat is empty. Patched in-place on rankingUpdated."
+          },
+          "activeSeatForfeitDeadline": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "UTC instant at which NextToPlaySeat auto-forfeits for idleness. Recomputed at every snapshot from lastMoveCompletedAt + Game:IdleForfeitSeconds; null outside the Playing / LastHand phases. Drives the per-turn countdown chip in the table UI — supersedes the legacy idleWarning push."
           }
+        }
+      },
+      "PlayerInfo": {
+        "type": "object",
+        "required": ["userId", "displayName", "elo"],
+        "properties": {
+          "userId": { "type": "string", "format": "uuid" },
+          "displayName": { "type": "string" },
+          "elo": { "type": "integer" }
+        }
+      },
+      "RankingUpdated": {
+        "type": "object",
+        "required": ["userId", "elo", "wins", "losses", "draws", "gamesPlayed"],
+        "properties": {
+          "userId": { "type": "string", "format": "uuid" },
+          "elo": { "type": "integer" },
+          "wins": { "type": "integer" },
+          "losses": { "type": "integer" },
+          "draws": { "type": "integer" },
+          "gamesPlayed": { "type": "integer" }
         }
       },
       "GameSummaryDto": {

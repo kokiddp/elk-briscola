@@ -84,6 +84,27 @@ must be set or the api will refuse to start.
 | `IMAGE_TAG` / `GHCR_NAMESPACE` | optional | Used by `docker compose pull` against ghcr.io |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | optional | When set, the api swaps the dev console exporter for OTLP |
 
+## Enabling the API doc UIs
+
+The Swagger UI, Scalar, AsyncAPI viewer, and the `/docs` landing page are mounted by `Briscola.Api` only when `ASPNETCORE_ENVIRONMENT=Development`. The production stack ships with the env defaulted to `Production`, so all of `/swagger`, `/scalar`, `/docs/asyncapi`, etc. return 404. To enable them on a local stack:
+
+```bash
+ASPNETCORE_ENVIRONMENT=Development docker compose up -d
+```
+
+Then browse:
+
+| URL | What it is |
+|---|---|
+| `http://localhost:8080/docs` | Landing page that links the three UIs + raw JSON. |
+| `http://localhost:8080/swagger` | Swagger UI (classic try-it-out console). |
+| `http://localhost:8080/scalar` | Scalar — modern docs UI with code samples in curl / JS / Python / C# / Go / etc. and an interactive request builder. |
+| `http://localhost:8080/swagger/v1/swagger.json` | Raw OpenAPI v3 spec. Feed into `openapi-generator`, NSwag, etc. |
+| `http://localhost:8080/docs/asyncapi.json` | Raw AsyncAPI v3 spec for the SignalR hubs. |
+| `http://localhost:8080/docs/asyncapi` | Rendered AsyncAPI viewer. |
+
+The frontend nginx proxies all four paths through to the API; no SPA index fallback intercepts them. The API still 404s if the env stays at `Production`.
+
 ## Backups
 
 Snapshotting the `pgdata` volume is the safest path; here's the
