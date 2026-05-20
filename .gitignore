@@ -56,3 +56,8 @@ test-results/
 
 # Misc build outputs
 *.log
+# Serilog rolling-file sink directories — Briscola.Api drops daily logs
+# under wwwroot-adjacent /logs/ in Development. The *.log glob above
+# would catch the files but the directory itself can still leak into
+# clones if a contributor commits an empty placeholder.
+**/logs/
