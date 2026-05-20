@@ -2,7 +2,7 @@
 
 # Stage 1 — build the Angular bundle. node:22-alpine matches the engines
 # pin in package.json + the GitHub Actions runner.
-FROM node:22-alpine AS build
+FROM node:22-alpine@sha256:b2358485e3e33bc3a33114d2b1bdb18cdbe4df01bd2b257198eb51beb1f026c5 AS build
 WORKDIR /src
 
 # Lock + manifest first for the install cache layer.
@@ -17,7 +17,7 @@ RUN npm run build
 # and ships gzip + brotli-less defaults. We override the default site
 # with a SPA-aware config (try_files fallback, long-cache hashed assets,
 # no-cache on index.html).
-FROM nginx:alpine AS runtime
+FROM nginx:alpine@sha256:8491795299c8e739b7fcc6285d531d9812ce2666e07bd3dd8db00020ad132295 AS runtime
 
 # Drop the default site config and ship our own.
 RUN rm /etc/nginx/conf.d/default.conf

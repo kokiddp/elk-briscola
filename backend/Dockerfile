@@ -3,7 +3,7 @@
 # Stage 1 — restore + publish on the .NET 10 SDK image. Copy csproj
 # files first so `dotnet restore` lands in its own layer and is reused
 # across iterations when only source files change.
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0@sha256:dc8430e6024d454edadad1e160e1973be3cabbb7125998ef190d9e5c6adf7dbb AS build
 WORKDIR /src
 
 # Solution + Directory.Build.props (TargetFramework, analyzer config etc.)
@@ -43,7 +43,7 @@ RUN dotnet publish src/Briscola.Api/Briscola.Api.csproj \
 # cleanly) and copy the binary + transitive .so deps into the chiseled
 # runtime. The chiseled-extra image otherwise has no shell, package
 # manager, or curl, so the HEALTHCHECK couldn't probe /healthz.
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS curl-stage
+FROM mcr.microsoft.com/dotnet/sdk:10.0@sha256:dc8430e6024d454edadad1e160e1973be3cabbb7125998ef190d9e5c6adf7dbb AS curl-stage
 RUN apt-get update \
  && apt-get install -y --no-install-recommends curl \
  && rm -rf /var/lib/apt/lists/*
@@ -64,7 +64,7 @@ RUN mkdir -p /opt/curl /opt/curl/usr/bin /opt/curl/lib /opt/curl/lib64 \
 RUN /opt/curl/lib64/ld-linux-x86-64.so.2 --library-path /opt/curl/lib \
         /opt/curl/usr/bin/curl --version
 
-FROM mcr.microsoft.com/dotnet/aspnet:10.0-noble-chiseled-extra AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:10.0-noble-chiseled-extra@sha256:f923ccdc2dcd2da06c3e8dae929b9fef5b9041612c95784d79c371a6a2c25b04 AS runtime
 WORKDIR /app
 
 # Drop curl + its dependencies into the chiseled rootfs.
