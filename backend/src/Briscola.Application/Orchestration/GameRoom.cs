@@ -30,6 +30,16 @@ public sealed class GameRoom : IAsyncDisposable
     private readonly Dictionary<int, Guid> _seatToUserId = [];
     private readonly Dictionary<int, ConnectionStatus> _seatStatuses = [];
     private readonly Dictionary<int, IDisposable> _reconnectTimers = [];
+
+    /// <summary>
+    /// Pending idle-tick disposables (warn + forfeit). Mutated *only*
+    /// from <see cref="ProcessLoopAsync"/> — every Schedule/Cancel call
+    /// site is reached via <see cref="ApplyAsync"/>. Timer fire-callbacks
+    /// don't touch this list; they re-enter via <see cref="EnqueueAsync"/>
+    /// and the next loop iteration handles cleanup. Do not call
+    /// <see cref="ScheduleIdleChecks"/> / <see cref="CancelIdleTimers"/>
+    /// from any thread other than the loop or this invariant breaks.
+    /// </summary>
     private readonly List<IDisposable> _idleTimers = [];
     private readonly Task _processLoop;
 
