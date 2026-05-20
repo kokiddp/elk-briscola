@@ -201,6 +201,28 @@ public sealed class LobbyServiceTests
     }
 
     [Fact]
+    public async Task Rejoining_a_private_game_with_no_password_still_idempotent_for_a_seated_user()
+    {
+        // Audit L10: the seated-user idempotency check used to run AFTER
+        // ValidatePrivateGame, so a user already in the seat retrying
+        // the call without re-supplying their password got InvalidPassword
+        // instead of a clean no-op.
+        TestFixture fixture = new();
+        Guid creator = Guid.NewGuid();
+        GameRecord created = await fixture.Service.CreateAsync(
+            new CreateGameRequest(GameMode.TwoPlayer, "secret", IsPrivate: true, Password: "open-sesame"),
+            creator,
+            CancellationToken.None);
+
+        // Creator retries WITHOUT supplying the password.
+        Func<Task> act = () => fixture.Service.JoinAsync(
+            created.Id, creator, password: null, CancellationToken.None);
+
+        // No throw: the call should short-circuit on the seated check.
+        await act.Should().NotThrowAsync();
+    }
+
+    [Fact]
     public async Task Join_full_open_record_reports_conflict()
     {
         TestFixture fixture = new();

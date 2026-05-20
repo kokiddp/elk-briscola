@@ -95,12 +95,18 @@ public sealed class LobbyService(
         for (int attempt = 0; attempt < MaxJoinRetries; attempt++)
         {
             GameRecord record = await LoadOpenGameAsync(gameId, ct).ConfigureAwait(false);
-            ValidatePrivateGame(record, password);
 
+            // Idempotency check FIRST. A caller who's already seated
+            // shouldn't be told their password is wrong — they're
+            // already in, the call's a no-op. The previous order
+            // surfaced InvalidPassword to a re-presenting seated user
+            // with the wrong (or missing) password in their retry. L10.
             if (record.SeatUserIds.Contains(userId))
             {
                 return record;
             }
+
+            ValidatePrivateGame(record, password);
 
             int seat = FirstFreeSeat(record);
             ImmutableArray<Guid?> seats = record.SeatUserIds.SetItem(seat, userId);

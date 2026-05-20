@@ -1,11 +1,17 @@
 using System.Diagnostics.CodeAnalysis;
 using Briscola.Application.Ports;
+using Microsoft.Extensions.Logging;
 
 namespace Briscola.Application.Orchestration.Timers;
 
 [ExcludeFromCodeCoverage]
-public sealed class SystemTimerService(IClock clock) : ITimerService
+public sealed partial class SystemTimerService(IClock clock, ILogger<SystemTimerService>? logger = null)
+    : ITimerService
 {
+    [LoggerMessage(EventId = 1, Level = LogLevel.Error,
+        Message = "SystemTimerService callback threw — the timer fire was lost.")]
+    private static partial void LogCallbackFailed(ILogger logger, Exception ex);
+
     public IDisposable ScheduleAt(DateTimeOffset at, Func<CancellationToken, ValueTask> callback)
     {
         ArgumentNullException.ThrowIfNull(callback);
@@ -16,7 +22,7 @@ public sealed class SystemTimerService(IClock clock) : ITimerService
             due = TimeSpan.Zero;
         }
 
-        return new TimerRegistration(due, callback);
+        return new TimerRegistration(due, callback, logger);
     }
 
     private sealed class TimerRegistration : IDisposable
@@ -25,7 +31,10 @@ public sealed class SystemTimerService(IClock clock) : ITimerService
         private readonly CancellationTokenSource _cts = new();
         private bool _disposed;
 
-        public TimerRegistration(TimeSpan due, Func<CancellationToken, ValueTask> callback)
+        public TimerRegistration(
+            TimeSpan due,
+            Func<CancellationToken, ValueTask> callback,
+            ILogger<SystemTimerService>? logger)
         {
             _timer = new Timer(
                 static state =>
@@ -33,7 +42,7 @@ public sealed class SystemTimerService(IClock clock) : ITimerService
                     TimerState timerState = (TimerState)state!;
                     _ = timerState.FireAsync();
                 },
-                new TimerState(callback, _cts.Token),
+                new TimerState(callback, _cts.Token, logger),
                 due,
                 Timeout.InfiniteTimeSpan);
         }
@@ -53,7 +62,8 @@ public sealed class SystemTimerService(IClock clock) : ITimerService
 
         private sealed record TimerState(
             Func<CancellationToken, ValueTask> Callback,
-            CancellationToken CancellationToken)
+            CancellationToken CancellationToken,
+            ILogger<SystemTimerService>? Logger)
         {
             public async Task FireAsync()
             {
@@ -62,7 +72,22 @@ public sealed class SystemTimerService(IClock clock) : ITimerService
                     return;
                 }
 
-                await Callback(CancellationToken).ConfigureAwait(false);
+                try
+                {
+                    await Callback(CancellationToken).ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    // Without this catch the timer-pool thread silently
+                    // dropped any exception thrown by the callback (e.g. a
+                    // disposed orchestrator scope), leaving an idle-tick
+                    // forfeit unfired with no operator-visible signal.
+                    // Audit L8.
+                    if (Logger is not null)
+                    {
+                        LogCallbackFailed(Logger, ex);
+                    }
+                }
             }
         }
     }

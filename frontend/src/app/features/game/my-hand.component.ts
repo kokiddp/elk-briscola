@@ -1,11 +1,12 @@
 import { Component, computed, input, output } from '@angular/core';
+import { I18nPipe } from '../../shared/i18n.pipe';
 import { CardComponent } from './card.component';
 import { Card, cardKey } from './game.models';
 
 @Component({
   selector: 'bri-my-hand',
   standalone: true,
-  imports: [CardComponent],
+  imports: [CardComponent, I18nPipe],
   templateUrl: './my-hand.component.html',
   styleUrl: './my-hand.component.scss',
 })

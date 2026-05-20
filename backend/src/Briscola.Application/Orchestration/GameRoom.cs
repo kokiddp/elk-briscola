@@ -155,10 +155,29 @@ public sealed class GameRoom : IAsyncDisposable
         // are applied. Without this, restarting the process and rehydrating an
         // in-flight game would cause MoveIndex to restart at 0 and collide with
         // the unique (GameId, MoveIndex) index documented in the README schema.
-        await using IGameRepositoryScope hydrateScope = _gamesFactory.Create();
-        _moveIndex = await hydrateScope.Repository
-            .GetNextMoveIndexAsync(_state.GameId, CancellationToken.None)
-            .ConfigureAwait(false);
+        try
+        {
+            await using IGameRepositoryScope hydrateScope = _gamesFactory.Create();
+            _moveIndex = await hydrateScope.Repository
+                .GetNextMoveIndexAsync(_state.GameId, CancellationToken.None)
+                .ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            // If hydrate fails (DB unavailable at room construction) the
+            // loop used to just throw out of ProcessLoopAsync — the task
+            // faulted, but any EnqueueAsync was already blocked on
+            // completion.Task, so the producer would hang forever.
+            // Drain everything currently in the channel + every later
+            // arrival with the same hydrate failure so callers fail fast.
+            // Audit L9.
+            _commands.Writer.TryComplete(ex);
+            while (_commands.Reader.TryRead(out QueuedCommand pending))
+            {
+                pending.Completion.TrySetException(ex);
+            }
+            return;
+        }
 
         await foreach (QueuedCommand queued in _commands.Reader.ReadAllAsync().ConfigureAwait(false))
         {

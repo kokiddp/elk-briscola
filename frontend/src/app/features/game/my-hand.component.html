@@ -12,7 +12,7 @@
       [class.cursor-not-allowed]="!isPlayable(card)"
       [disabled]="!isPlayable(card)"
       (click)="onCardClick(card)"
-      [attr.aria-label]="card.rank + ' di ' + card.suit"
+      [attr.aria-label]="'game.card.ariaLabel' | t: { rank: card.rank, suit: card.suit }"
       data-testid="hand-card"
     >
       <bri-card [card]="card" [highlighted]="isPlayable(card)" />

@@ -123,6 +123,7 @@
   "game.chat.empty": "Nessun messaggio.",
   "game.chat.tacticalBanner": "Fase tattica — coordinati con il tuo compagno.",
   "game.spectator.banner": "Stai osservando — non puoi giocare né chattare.",
+  "game.card.ariaLabel": "{rank} di {suit}",
   "game.reconnect.message": "Il posto {seat} sta riconnettendosi…",
   "game.reconnect.messageGeneric": "Un giocatore sta riconnettendosi…",
   "game.reconnect.countdown": "{seconds}s rimanenti",

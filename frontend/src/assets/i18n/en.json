@@ -123,6 +123,7 @@
   "game.chat.empty": "No messages yet.",
   "game.chat.tacticalBanner": "Tactical phase — coordinate with your partner.",
   "game.spectator.banner": "Spectating — you can't play or chat.",
+  "game.card.ariaLabel": "{rank} of {suit}",
   "game.reconnect.message": "Seat {seat} is reconnecting…",
   "game.reconnect.messageGeneric": "A player is reconnecting…",
   "game.reconnect.countdown": "{seconds}s remaining",

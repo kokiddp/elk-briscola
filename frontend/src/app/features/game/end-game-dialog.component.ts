@@ -69,24 +69,24 @@ export class EndGameDialogComponent {
     const eloOf = (i: number): number | null => players[i]?.elo ?? null;
     if (this.mode() === 'FourPlayerTeams') {
       // Team labels = the two seats on the team, comma-separated.
+      // Team Elo is the post-game average, null if either seat is
+      // anonymous. One divide per team — clearer than the previous
+      // nested null-guards.
+      const teamElo = (a: number, b: number): number | null => {
+        const ea = eloOf(a);
+        const eb = eloOf(b);
+        return ea !== null && eb !== null ? Math.round((ea + eb) / 2) : null;
+      };
       return [
         {
           label: [nameOf(0), nameOf(2)].join(' + '),
           score: (scores[0] ?? 0) + (scores[2] ?? 0),
-          // Show the team's average post-game Elo; null if either seat
-          // doesn't have a player entry.
-          elo:
-            eloOf(0) !== null && eloOf(2) !== null
-              ? Math.round(((eloOf(0) ?? 0) + (eloOf(2) ?? 0)) / 2)
-              : null,
+          elo: teamElo(0, 2),
         },
         {
           label: [nameOf(1), nameOf(3)].join(' + '),
           score: (scores[1] ?? 0) + (scores[3] ?? 0),
-          elo:
-            eloOf(1) !== null && eloOf(3) !== null
-              ? Math.round(((eloOf(1) ?? 0) + (eloOf(3) ?? 0)) / 2)
-              : null,
+          elo: teamElo(1, 3),
         },
       ];
     }
