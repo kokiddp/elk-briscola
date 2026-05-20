@@ -1,7 +1,8 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { Router } from '@angular/router';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthService } from '../../core/auth.service';
 import { GameSummary } from './lobby.models';
 import { LobbyService } from './lobby.service';
@@ -210,5 +211,84 @@ describe('LobbyService event reducers', () => {
     });
     expect(svc.chatLog()).toHaveLength(1);
     expect(svc.chatLog()[0]?.text).toBe('hi');
+  });
+});
+
+describe('LobbyService auto-route gate (H4)', () => {
+  function setupWith(url: string) {
+    const navigateByUrl = vi.fn(() => Promise.resolve(true));
+    const routerStub = {
+      get url() {
+        return url;
+      },
+      navigateByUrl,
+    } as unknown as Router;
+
+    TestBed.configureTestingModule({
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        {
+          provide: AuthService,
+          useValue: {
+            getAccessTokenAsync: () => Promise.resolve('test-token'),
+            currentUser: () => ({ id: 'me' }),
+          } as unknown as AuthService,
+        },
+        { provide: Router, useValue: routerStub },
+        LobbyService,
+      ],
+    });
+    const svc = TestBed.inject(LobbyService);
+    return { svc, navigateByUrl };
+  }
+
+  function seatMeIn(svc: LobbyService, gameId: string) {
+    // Inject an open game with the current user seated so pendingGameId
+    // captures, then drive the lastStartedGameIdSig transition by hand.
+    (svc as unknown as { onGameCreated(s: GameSummary): void }).onGameCreated({
+      id: gameId,
+      mode: 'TwoPlayer',
+      name: 'pending',
+      status: 'Open',
+      occupiedSeats: 1,
+      totalSeats: 2,
+      isPrivate: false,
+      createdAt: '2026-05-20T12:00:00Z',
+      startedAt: null,
+      seatPlayers: [{ userId: 'me', displayName: 'me', elo: 1500 }, null],
+    } as GameSummary);
+    TestBed.flushEffects();
+  }
+
+  function fireStarted(svc: LobbyService, gameId: string) {
+    (svc as unknown as { onGameStarted(id: string): void }).onGameStarted(gameId);
+    TestBed.flushEffects();
+  }
+
+  it('navigates into /game/:id from /lobby when the pending game starts', () => {
+    const { svc, navigateByUrl } = setupWith('/lobby');
+    const gid = '00000000-0000-0000-0000-00000000aaaa';
+    seatMeIn(svc, gid);
+    fireStarted(svc, gid);
+    expect(navigateByUrl).toHaveBeenCalledWith(`/game/${gid}`);
+  });
+
+  it('navigates into /game/:id from /profile when the pending game starts', () => {
+    const { svc, navigateByUrl } = setupWith('/profile');
+    const gid = '00000000-0000-0000-0000-00000000bbbb';
+    seatMeIn(svc, gid);
+    fireStarted(svc, gid);
+    expect(navigateByUrl).toHaveBeenCalledWith(`/game/${gid}`);
+  });
+
+  it('does NOT navigate when the user is already on a /game/* route', () => {
+    // Spectator watching one game, separate pending game of theirs
+    // fills — they should stay where they are.
+    const { svc, navigateByUrl } = setupWith('/game/00000000-0000-0000-0000-000000000111');
+    const gid = '00000000-0000-0000-0000-00000000cccc';
+    seatMeIn(svc, gid);
+    fireStarted(svc, gid);
+    expect(navigateByUrl).not.toHaveBeenCalled();
   });
 });

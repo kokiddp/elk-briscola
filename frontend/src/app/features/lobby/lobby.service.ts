@@ -53,6 +53,12 @@ export class LobbyService {
 
     // Global auto-route: whenever the user's pending game transitions
     // to Running, navigate them into the table from wherever they are.
+    //
+    // Exception: if the user is *already* on a /game/* route — playing
+    // or spectating something else — don't yank them away. The audit
+    // (H4) flagged the previous unconditional nav as a UX hazard: a
+    // spectator watching one match would get teleported the moment a
+    // separate pending game of theirs filled.
     effect(() => {
       const started = this.lastStartedGameIdSig();
       if (!started) {
@@ -61,6 +67,12 @@ export class LobbyService {
       if (started === this.lastSeenPendingGameId) {
         this.lastSeenPendingGameId = null;
         this.lastStartedGameIdSig.set(null);
+        if (this.router.url.startsWith('/game/')) {
+          // User already on a game route — leave them be. We do clear
+          // the captured pendingGameId so a subsequent transition (a
+          // new pending game) can route normally.
+          return;
+        }
         void this.router.navigateByUrl(`/game/${started}`);
       }
     });
