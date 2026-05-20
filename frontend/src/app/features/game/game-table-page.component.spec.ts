@@ -355,6 +355,28 @@ describe('GameTablePageComponent — mySeat latching', () => {
     fixture.detectChanges();
     expect(screen.getAllByTestId('opponent-slot')).toHaveLength(1);
   });
+
+  it('latches via server-provided mySeatIndex even on a fresh 4p deal (H6)', async () => {
+    // The audit's H6: with a fresh 4p deal every seat has 3 cards, so
+    // the fallback heuristic (compare against myHand.length) is
+    // ambiguous and never latches. Trust the wire-provided mySeatIndex
+    // — it's populated for every seated player today and lets us
+    // render the table immediately. Without this fix the table would
+    // sit empty until counts diverged after the first move.
+    const fresh4p: RedactedStateForUser = {
+      ...SNAPSHOT_4P,
+      handCountsBySeat: [3, 3, 3, 3],
+      myHand: [
+        { suit: 'Bastoni', rank: 'Asso' },
+        { suit: 'Bastoni', rank: 'Tre' },
+        { suit: 'Bastoni', rank: 'Re' },
+      ],
+      mySeatIndex: 2,
+    };
+    await setup({ state: fresh4p });
+    // Latched → 3 opponent slots rendered (the other three seats).
+    expect(screen.getAllByTestId('opponent-slot')).toHaveLength(3);
+  });
 });
 
 describe('GameTablePageComponent — opponentSlots rotation (4p)', () => {
