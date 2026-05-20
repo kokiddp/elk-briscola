@@ -110,16 +110,36 @@ public sealed partial class GameEventDispatcher : BackgroundService
         ChatMessageEvent => Task.CompletedTask, // chat is broadcast directly by GameHub.SendChat
         LobbyGameCreatedEvent lc =>
             LobbyGroup().GameCreated(ToSummaryDto(lc.Summary)),
+        // Seat-change on an open game invalidates any cached seat-
+        // players snapshot. We don't proactively rebuild — just evict;
+        // the next Joined / StateUpdated for the game will re-resolve.
+        // Audit M4.
         LobbyGameUpdatedEvent lu =>
-            LobbyGroup().GameUpdated(ToSummaryDto(lu.Summary)),
+            DispatchLobbyUpdatedAsync(lu),
         LobbyGameStartedEvent ls =>
             LobbyGroup().GameStarted(ls.GameId),
         LobbyGameEndedEvent le =>
-            LobbyGroup().GameEnded(le.GameId),
+            DispatchLobbyEndedAsync(le),
         _ => Task.CompletedTask,
     };
 
     private ILobbyClient LobbyGroup() => _lobby.Clients.Group(LobbyHub.OpenLobbyGroup);
+
+    private Task DispatchLobbyUpdatedAsync(LobbyGameUpdatedEvent evt)
+    {
+        _seatPlayersByGame.TryRemove(evt.GameId, out _);
+        return LobbyGroup().GameUpdated(ToSummaryDto(evt.Summary));
+    }
+
+    private Task DispatchLobbyEndedAsync(LobbyGameEndedEvent evt)
+    {
+        // Belt-and-suspenders eviction. GameFinished already evicts via
+        // DispatchGameFinishedAsync, but the open-lobby janitor's path
+        // (a lone-leaver abandon) only emits LobbyGameEnded — without
+        // this the cache would stick around for an already-dead game.
+        _seatPlayersByGame.TryRemove(evt.GameId, out _);
+        return LobbyGroup().GameEnded(evt.GameId);
+    }
 
     private async Task DispatchJoinedAsync(JoinedEvent evt)
     {

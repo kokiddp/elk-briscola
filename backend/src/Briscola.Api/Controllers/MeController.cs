@@ -25,15 +25,18 @@ public sealed class MeController : ControllerBase
     private readonly UserManager<ApplicationUser> _users;
     private readonly IRankingRepository _rankings;
     private readonly MatchHistoryService _history;
+    private readonly ICardSetCatalog _cardSets;
 
     public MeController(
         UserManager<ApplicationUser> users,
         IRankingRepository rankings,
-        MatchHistoryService history)
+        MatchHistoryService history,
+        ICardSetCatalog cardSets)
     {
         _users = users;
         _rankings = rankings;
         _history = history;
+        _cardSets = cardSets;
     }
 
     /// <summary>Get the authenticated user's profile + current ranking.</summary>
@@ -56,9 +59,9 @@ public sealed class MeController : ControllerBase
 
     /// <summary>Update mutable profile fields (display name, active card set).</summary>
     /// <remarks>
-    /// Only the fields present in the body are updated. Unknown
-    /// <c>activeCardSetId</c> values are accepted on the server but the
-    /// frontend should validate against <c>GET /api/v1/card-sets</c>.
+    /// Only the fields present in the body are updated. The
+    /// <c>activeCardSetId</c>, if supplied, must match an id from
+    /// <c>GET /api/v1/card-sets</c>; otherwise the endpoint rejects with 400.
     /// </remarks>
     /// <response code="200">Profile after the patch.</response>
     /// <response code="400">Validation failed (e.g. display name too long).</response>
@@ -84,6 +87,18 @@ public sealed class MeController : ControllerBase
 
         if (!string.IsNullOrEmpty(request.ActiveCardSetId) && request.ActiveCardSetId != user.ActiveCardSetId)
         {
+            // Validate against the on-disk catalog. Otherwise the
+            // client's "active set" can point at a deleted-or-never-
+            // existed manifest and JwtIssuer would embed the bogus
+            // id as a claim on the next /login.
+            if (!_cardSets.Contains(request.ActiveCardSetId))
+            {
+                return BadRequest(new
+                {
+                    code = "UnknownCardSet",
+                    activeCardSetId = request.ActiveCardSetId,
+                });
+            }
             user.ActiveCardSetId = request.ActiveCardSetId;
             changed = true;
         }
