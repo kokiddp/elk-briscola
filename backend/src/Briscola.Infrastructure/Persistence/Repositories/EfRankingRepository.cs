@@ -102,16 +102,34 @@ public sealed class EfRankingRepository(BriscolaDbContext db, IClock clock) : IR
 
     public async Task MarkProcessedGameAsync(Guid gameId, CancellationToken ct)
     {
-        var exists = await db.RankingProcessedGames
-            .AnyAsync(r => r.GameId == gameId, ct)
-            .ConfigureAwait(false);
-        if (exists)
+        // Race-free: just INSERT and treat a PK-conflict as success.
+        // The previous SELECT-then-INSERT was a classic TOCTOU — two
+        // concurrent finishers of the same game could both read
+        // "doesn't exist" and both attempt the insert, the second one
+        // blowing up on the PK uniqueness constraint. Single round-trip
+        // happy path + a recovery path that detaches the tracked
+        // entity so the change tracker doesn't keep retrying.
+        RankingProcessedGameEntity entity = new() { GameId = gameId };
+        db.RankingProcessedGames.Add(entity);
+        try
         {
-            return;
+            await db.SaveChangesAsync(ct).ConfigureAwait(false);
         }
-
-        db.RankingProcessedGames.Add(new RankingProcessedGameEntity { GameId = gameId });
-        await db.SaveChangesAsync(ct).ConfigureAwait(false);
+        catch (DbUpdateException)
+        {
+            bool alreadyMarked = await db.RankingProcessedGames
+                .AsNoTracking()
+                .AnyAsync(r => r.GameId == gameId, ct)
+                .ConfigureAwait(false);
+            db.Entry(entity).State = EntityState.Detached;
+            if (!alreadyMarked)
+            {
+                // Some other DbUpdateException — rethrow so the caller
+                // sees the real failure (FK violation, connection lost,
+                // etc.) instead of silently swallowing it.
+                throw;
+            }
+        }
     }
 
     private static RankingRecord ToRecord(RankingEntity e) =>

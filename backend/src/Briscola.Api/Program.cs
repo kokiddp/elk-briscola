@@ -301,9 +301,46 @@ if (migrations.RunOnStartup)
     await db.Database.MigrateAsync().ConfigureAwait(false);
 }
 {
+    // Hydrate the orchestrator only when the schema is up-to-date.
+    // If Migrations:RunOnStartup is off and the deployer hasn't run
+    // migrations out-of-band, HydrateAsync's ListByStatusAsync would
+    // hit a missing table and crash the host. Skip hydration in that
+    // case and let the orchestrator start empty — incoming requests
+    // against unknown game ids will 404 from the controllers until
+    // someone applies the schema.
     Briscola.Application.Orchestration.GameOrchestrator orchestrator =
         app.Services.GetRequiredService<Briscola.Application.Orchestration.GameOrchestrator>();
-    await orchestrator.HydrateAsync(app.Lifetime.ApplicationStopping).ConfigureAwait(false);
+    if (migrations.RunOnStartup || await SchemaReadyAsync(app.Services).ConfigureAwait(false))
+    {
+        await orchestrator.HydrateAsync(app.Lifetime.ApplicationStopping).ConfigureAwait(false);
+    }
+    else
+    {
+        app.Logger.LogWarning(
+            "Skipping GameOrchestrator hydration — Migrations:RunOnStartup is false and the Games table is not present. "
+          + "Apply migrations out-of-band before serving traffic, then restart.");
+    }
+}
+
+static async Task<bool> SchemaReadyAsync(IServiceProvider services)
+{
+    using IServiceScope scope = services.CreateScope();
+    BriscolaDbContext db = scope.ServiceProvider.GetRequiredService<BriscolaDbContext>();
+    try
+    {
+        // Cheapest probe — `CanConnect` returns true on connectivity
+        // alone, so we cross-check by reading the migrations history.
+        if (!await db.Database.CanConnectAsync().ConfigureAwait(false))
+        {
+            return false;
+        }
+        IEnumerable<string> applied = await db.Database.GetAppliedMigrationsAsync().ConfigureAwait(false);
+        return applied.Any();
+    }
+    catch
+    {
+        return false;
+    }
 }
 
 // 13) Middleware pipeline (order matters).
