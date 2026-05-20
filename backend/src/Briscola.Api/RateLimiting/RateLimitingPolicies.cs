@@ -10,6 +10,8 @@ public static class RateLimitingPolicies
     public const string AuthLogin = "auth-login";
     public const string AuthRegister = "auth-register";
     public const string AuthRefresh = "auth-refresh";
+    public const string AuthChangePassword = "auth-change-password";
+    public const string AuthLogout = "auth-logout";
 
     /// <summary>
     /// Default REST rate limits. Each policy is overridable via config under
@@ -25,6 +27,14 @@ public static class RateLimitingPolicies
             [AuthLogin] = (5, TimeSpan.FromMinutes(1)),
             [AuthRegister] = (3, TimeSpan.FromHours(1)),
             [AuthRefresh] = (30, TimeSpan.FromMinutes(1)),
+            // change-password takes the *current* password and a new
+            // one — a stolen access token can therefore be used to
+            // brute-force the current password against an active session.
+            // Cap by user, generously enough for legitimate retries.
+            [AuthChangePassword] = (5, TimeSpan.FromMinutes(15)),
+            // Logout is cheap server-side, but uncapped it can be used
+            // to spray-revoke refresh tokens at full HTTP throughput.
+            [AuthLogout] = (30, TimeSpan.FromMinutes(1)),
         };
 
     public static void Configure(RateLimiterOptions options)
@@ -39,6 +49,8 @@ public static class RateLimitingPolicies
         (int permit, TimeSpan window) login = ReadLimits(configuration, AuthLogin);
         (int permit, TimeSpan window) register = ReadLimits(configuration, AuthRegister);
         (int permit, TimeSpan window) refresh = ReadLimits(configuration, AuthRefresh);
+        (int permit, TimeSpan window) changePassword = ReadLimits(configuration, AuthChangePassword);
+        (int permit, TimeSpan window) logout = ReadLimits(configuration, AuthLogout);
 
         options.AddPolicy(AuthLogin, ctx =>
             RateLimitPartition.GetFixedWindowLimiter(
@@ -67,6 +79,26 @@ public static class RateLimitingPolicies
                 {
                     PermitLimit = refresh.permit,
                     Window = refresh.window,
+                    QueueLimit = 0,
+                }));
+
+        options.AddPolicy(AuthChangePassword, ctx =>
+            RateLimitPartition.GetFixedWindowLimiter(
+                partitionKey: PartitionByUser(ctx),
+                factory: _ => new FixedWindowRateLimiterOptions
+                {
+                    PermitLimit = changePassword.permit,
+                    Window = changePassword.window,
+                    QueueLimit = 0,
+                }));
+
+        options.AddPolicy(AuthLogout, ctx =>
+            RateLimitPartition.GetFixedWindowLimiter(
+                partitionKey: PartitionByUser(ctx),
+                factory: _ => new FixedWindowRateLimiterOptions
+                {
+                    PermitLimit = logout.permit,
+                    Window = logout.window,
                     QueueLimit = 0,
                 }));
     }

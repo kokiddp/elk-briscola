@@ -162,6 +162,7 @@ public sealed class AuthController : ControllerBase
     /// <response code="204">Token revoked or already absent.</response>
     [HttpPost("logout")]
     [Authorize]
+    [EnableRateLimiting(RateLimiting.RateLimitingPolicies.AuthLogout)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<IActionResult> Logout([FromBody] LogoutRequest request, CancellationToken ct)
     {
@@ -182,6 +183,7 @@ public sealed class AuthController : ControllerBase
     /// <response code="400">Current password wrong, or new password violates policy.</response>
     [HttpPost("change-password")]
     [Authorize]
+    [EnableRateLimiting(RateLimiting.RateLimitingPolicies.AuthChangePassword)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request, CancellationToken _)
