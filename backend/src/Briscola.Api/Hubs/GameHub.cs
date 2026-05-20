@@ -36,7 +36,6 @@ public sealed class GameHub : Hub<IGameClient>
     public const string SpectatorGroupSuffix = ":spectators";
     private const string JoinedGamesItemKey = "JoinedGames";
     private const string SpectatedGamesItemKey = "SpectatedGames";
-    private const string RateLimiterItemKey = "HubRateLimiter";
     private const int MaxChatTextLength = 500;
 
     // Rate-limit policies. Defaults from TODO Phase 5.6:
@@ -53,6 +52,7 @@ public sealed class GameHub : Hub<IGameClient>
     private readonly IChatRepository _chat;
     private readonly IClock _clock;
     private readonly Briscola.Application.Telemetry.BriscolaMetrics _metrics;
+    private readonly Briscola.Api.Hubs.Limits.HubMethodRateLimiter _rateLimiter;
 
     public GameHub(
         GameOrchestrator orchestrator,
@@ -61,7 +61,8 @@ public sealed class GameHub : Hub<IGameClient>
         IChatRepository chat,
         IClock clock,
         IOptions<HubRateLimitOptions> rateLimits,
-        Briscola.Application.Telemetry.BriscolaMetrics metrics)
+        Briscola.Application.Telemetry.BriscolaMetrics metrics,
+        Briscola.Api.Hubs.Limits.HubMethodRateLimiter rateLimiter)
     {
         ArgumentNullException.ThrowIfNull(rateLimits);
         _orchestrator = orchestrator;
@@ -71,6 +72,7 @@ public sealed class GameHub : Hub<IGameClient>
         _clock = clock;
         _rateLimits = rateLimits.Value;
         _metrics = metrics;
+        _rateLimiter = rateLimiter;
     }
 
     public override async Task OnConnectedAsync()
@@ -342,20 +344,19 @@ public sealed class GameHub : Hub<IGameClient>
             return true;
         }
 
-        return GetRateLimiter().TryAcquire(method, permits, TimeSpan.FromSeconds(windowSeconds));
-    }
-
-    private HubMethodRateLimiter GetRateLimiter()
-    {
-        if (Context.Items.TryGetValue(RateLimiterItemKey, out object? raw)
-            && raw is HubMethodRateLimiter limiter)
+        // Bucket by Context.UserIdentifier (the JWT `sub` claim), not by
+        // connection. A user that opens N WebSockets would otherwise get
+        // N× the budget — the audit's H1 finding. Unauthenticated
+        // connections shouldn't reach hub methods at all (the [Authorize]
+        // attribute on this hub blocks them), but if Context.UserIdentifier
+        // is somehow null we fall through to admitting; the engine's
+        // own validation is the second line of defense.
+        if (!Guid.TryParse(Context.UserIdentifier, out Guid userId))
         {
-            return limiter;
+            return true;
         }
 
-        HubMethodRateLimiter created = new(_clock);
-        Context.Items[RateLimiterItemKey] = created;
-        return created;
+        return _rateLimiter.TryAcquire(userId, method, permits, TimeSpan.FromSeconds(windowSeconds));
     }
 
     private void TrackJoinedGame(Guid gameId) =>

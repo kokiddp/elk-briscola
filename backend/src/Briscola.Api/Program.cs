@@ -215,6 +215,11 @@ builder.Services
         options.PayloadSerializerOptions.Converters.Add(new JsonStringEnumConverter());
         options.PayloadSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
     });
+
+// Hub rate limiter — singleton so PlayCard / SendChat budgets are
+// bucketed per-user (JWT sub), not per-connection. Otherwise a client
+// opening N WebSockets under one user would get N× the budget.
+builder.Services.AddSingleton<Briscola.Api.Hubs.Limits.HubMethodRateLimiter>();
 builder.Services.AddHostedService<Briscola.Api.Hubs.GameEventDispatcher>();
 
 // 10) Card-set catalog (loaded from wwwroot/card-sets at startup). Also
