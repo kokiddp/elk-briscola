@@ -254,6 +254,72 @@ describe('GameService.disconnect (no connection)', () => {
   });
 });
 
+describe('GameService disconnect-on-logout effect (H5)', () => {
+  it('drops the hub connection when AuthService.currentUser() flips to null', async () => {
+    // Wire a writable currentUser signal so the effect inside the
+    // service can react to the logout transition. We also stub the
+    // connection field to a fake disconnectable so the effect doesn't
+    // need a real WebSocket to assert against.
+    const { signal } = await import('@angular/core');
+    const userSig = signal<{ id: string } | null>({ id: 'u1' });
+    TestBed.configureTestingModule({
+      providers: [
+        {
+          provide: AuthService,
+          useValue: {
+            getAccessTokenAsync: () => Promise.resolve('t'),
+            currentUser: userSig,
+          } as unknown as AuthService,
+        },
+        GameService,
+      ],
+    });
+    const svc = TestBed.inject(GameService);
+
+    let stopCalls = 0;
+    const fakeConn = {
+      state: 'Connected',
+      invoke: () => Promise.resolve(),
+      stop: () => {
+        stopCalls++;
+        return Promise.resolve();
+      },
+    };
+    // Inject the fake connection directly into the private field
+    // — same pattern the rest of the file uses to poke at internals.
+    (svc as unknown as { connection: typeof fakeConn }).connection = fakeConn;
+
+    userSig.set(null);
+    TestBed.flushEffects();
+    // disconnect() is async; wait one microtask tick.
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(stopCalls).toBeGreaterThan(0);
+  });
+
+  it('does not call disconnect if no connection was ever opened', async () => {
+    const { signal } = await import('@angular/core');
+    const userSig = signal<{ id: string } | null>({ id: 'u1' });
+    TestBed.configureTestingModule({
+      providers: [
+        {
+          provide: AuthService,
+          useValue: {
+            getAccessTokenAsync: () => Promise.resolve('t'),
+            currentUser: userSig,
+          } as unknown as AuthService,
+        },
+        GameService,
+      ],
+    });
+    const svc = TestBed.inject(GameService);
+    userSig.set(null);
+    TestBed.flushEffects();
+    // No connection → no throw, no state change.
+    expect(svc.state()).toBeNull();
+  });
+});
+
 describe('GameService spectator flag', () => {
   it('is false by default', () => {
     const svc = makeService();

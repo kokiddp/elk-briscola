@@ -1,4 +1,4 @@
-import { computed, inject, Injectable, signal } from '@angular/core';
+import { computed, effect, inject, Injectable, signal } from '@angular/core';
 import { HubConnection, HubConnectionState } from '@microsoft/signalr';
 import { AuthService } from '../../core/auth.service';
 import type { MeResponse } from '../../core/models';
@@ -37,6 +37,21 @@ export class GameService {
   private connectPromise: Promise<void> | null = null;
   private currentGameId: string | null = null;
   private currentSpectator = false;
+
+  constructor() {
+    // Drop the SignalR connection when the authenticated user goes
+    // away (logout, or the access token's security stamp got bumped
+    // by a password change). Mirrors what LobbyService already does:
+    // without this the game hub kept running with a revoked token
+    // until the next SignalR reconnect failure, leaking a socket and
+    // possibly surfacing the previous session's chat backlog after
+    // re-login. Audit H5.
+    effect(() => {
+      if (this.auth.currentUser() === null && this.connection) {
+        void this.disconnect();
+      }
+    });
+  }
 
   readonly state = computed(() => this.stateSig());
   readonly chatLog = computed(() => this.chatLogSig());
