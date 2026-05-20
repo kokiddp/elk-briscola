@@ -29,6 +29,38 @@ public sealed class AuthFlowTests : RestTestBase
     }
 
     [Fact]
+    public async Task Register_returns_201_with_id_and_username_and_does_not_issue_tokens()
+    {
+        // Audit H14 pin: docs/api.md previously claimed /register returns
+        // { accessToken, refreshToken, expiresAt }. The real shape is
+        // 201 Created with { id, username } and a Location header — the
+        // client must follow up with /login. If a future commit changes
+        // the response shape (e.g. starts auto-issuing tokens), this
+        // test catches it before the docs drift.
+        using HttpClient client = Factory.CreateClient();
+
+        HttpResponseMessage register = await client.PostAsJsonAsync("/api/v1/auth/register",
+            new RegisterRequest(
+                Username: "carol",
+                Email: "carol@example.com",
+                Password: "Strong-Pass-123",
+                DisplayName: "Carol"));
+
+        register.StatusCode.Should().Be(HttpStatusCode.Created);
+        register.Headers.Location.Should().NotBeNull();
+        register.Headers.Location!.AbsolutePath.Should().EndWith("/api/v1/me");
+
+        using System.IO.Stream body = await register.Content.ReadAsStreamAsync();
+        System.Text.Json.JsonDocument doc =
+            await System.Text.Json.JsonDocument.ParseAsync(body);
+        // Exactly { id, username } — no token-shaped fields.
+        doc.RootElement.TryGetProperty("id", out _).Should().BeTrue();
+        doc.RootElement.TryGetProperty("username", out _).Should().BeTrue();
+        doc.RootElement.TryGetProperty("accessToken", out _).Should().BeFalse();
+        doc.RootElement.TryGetProperty("refreshToken", out _).Should().BeFalse();
+    }
+
+    [Fact]
     public async Task Refresh_rotates_tokens_and_replayed_refresh_is_rejected()
     {
         using HttpClient client = Factory.CreateClient();

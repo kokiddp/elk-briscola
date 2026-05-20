@@ -32,10 +32,11 @@ Access tokens are short-lived (15 minutes); refresh tokens are single-use and ro
 
 | Method | Path | Body | 200 / 201 response | Notes |
 |---|---|---|---|---|
-| `POST` | `/api/v1/auth/register` | `{ username, email, password, displayName? }` | `{ accessToken, refreshToken, expiresAt }` | Auto-authenticates the new user. |
-| `POST` | `/api/v1/auth/login` | `{ usernameOrEmail, password }` | same | Returns `401` with `invalid_credentials` on bad password. |
-| `POST` | `/api/v1/auth/refresh` | `{ refreshToken }` | same | Old refresh token is single-use; reuse triggers chain revocation. |
-| `POST` | `/api/v1/auth/logout` | `{ refreshToken }` | `204` | Invalidates the refresh-token chain. |
+| `POST` | `/api/v1/auth/register` | `{ username, email, password, displayName? }` | `201` with `{ id, username }` + `Location: /api/v1/me` | Does **not** auto-authenticate. Client must follow up with `POST /auth/login` to get tokens. |
+| `POST` | `/api/v1/auth/login` | `{ usernameOrEmail, password }` | `{ accessToken, refreshToken, expiresAt }` | Returns `401` with `invalid_credentials` on bad password. |
+| `POST` | `/api/v1/auth/refresh` | `{ refreshToken }` | `{ accessToken, refreshToken, expiresAt }` | Old refresh token is single-use; reuse triggers chain revocation. |
+| `POST` | `/api/v1/auth/logout` | `{ refreshToken }` | `204` | Invalidates the refresh-token chain. Rate-limited per user (30/min). |
+| `POST` | `/api/v1/auth/change-password` | `{ currentPassword, newPassword }` | `204` | Bumps the user's `SecurityStamp`, invalidating outstanding access tokens. Rate-limited per user (5/15min). |
 
 ### Profile
 
