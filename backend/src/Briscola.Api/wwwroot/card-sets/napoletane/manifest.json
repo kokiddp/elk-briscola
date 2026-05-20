@@ -1,0 +1,9 @@
+{
+  "id": "napoletane",
+  "name": "Napoletane",
+  "license": "Public Domain — sourced from https://commons.wikimedia.org/wiki/Category:Naples_deck (40 numbered card files + Carte Napoletane retro.jpg + Carte napoletane al completo.jpg)",
+  "preview": "preview.jpg",
+  "fileExtension": "jpg",
+  "filePattern": "{suit}-{rank}.{ext}",
+  "back": "back.jpg"
+}
