@@ -25,16 +25,24 @@ public sealed class OpenLobbyJanitor(
         }
     }
 
+    /// <summary>
+    /// Per-iteration cap on the number of expired games processed in a
+    /// single tick. Bounds the worst-case fan-out of LobbyGameEnded
+    /// publishes if a backlog accumulates (e.g. the janitor was idle
+    /// for several windows). The next tick picks up any leftover.
+    /// </summary>
+    private const int MaxPerTick = 500;
+
     public async Task RunOnceAsync(CancellationToken ct)
     {
         await using IGameRepositoryScope scope = gamesFactory.Create();
         IGameRepository games = scope.Repository;
-        IReadOnlyList<GameRecord> records =
-            await games.ListByStatusAsync(GameStatus.Open, take: int.MaxValue, ct).ConfigureAwait(false);
         DateTimeOffset now = clock.UtcNow;
         DateTimeOffset cutoff = now.AddMinutes(-options.Value.OpenLobbyTtlMinutes);
+        IReadOnlyList<GameRecord> records =
+            await games.ListExpiredOpenAsync(cutoff, MaxPerTick, ct).ConfigureAwait(false);
 
-        foreach (GameRecord record in records.Where(r => r.CreatedAt < cutoff))
+        foreach (GameRecord record in records)
         {
             GameRecord abandoned = record with { Status = GameStatus.Abandoned, EndedAt = now };
             bool updated = await games.UpdateAsync(abandoned, ct).ConfigureAwait(false);

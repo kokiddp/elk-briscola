@@ -35,6 +35,29 @@ public sealed class EfGameRepository(BriscolaDbContext db) : IGameRepository
         return rows.Select(ToRecord).ToList();
     }
 
+    public async Task<IReadOnlyList<GameRecord>> ListExpiredOpenAsync(
+        DateTimeOffset cutoff,
+        int take,
+        CancellationToken ct)
+    {
+        if (take < 1)
+        {
+            return [];
+        }
+
+        // SQL filter on (Status, CreatedAt) — uses the existing IX_Games_Status
+        // + IX_Games_CreatedAt indexes. Without this the janitor used to pull
+        // every open row into memory each minute and filter client-side.
+        var rows = await db.Games.AsNoTracking()
+            .Include(g => g.Seats)
+            .Where(g => g.Status == GameStatus.Open && g.CreatedAt < cutoff)
+            .OrderBy(g => g.CreatedAt)
+            .Take(take)
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+        return rows.Select(ToRecord).ToList();
+    }
+
     public async Task CreateAsync(GameRecord record, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(record);

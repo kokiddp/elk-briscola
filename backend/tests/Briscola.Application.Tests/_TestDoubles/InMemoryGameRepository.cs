@@ -36,6 +36,22 @@ internal sealed class InMemoryGameRepository : IGameRepository
         }
     }
 
+    public Task<IReadOnlyList<GameRecord>> ListExpiredOpenAsync(
+        DateTimeOffset cutoff,
+        int take,
+        CancellationToken ct)
+    {
+        lock (_gate)
+        {
+            IReadOnlyList<GameRecord> records = _games.Values
+                .Where(g => g.Status == GameStatus.Open && g.CreatedAt < cutoff)
+                .OrderBy(g => g.CreatedAt)
+                .Take(take)
+                .ToArray();
+            return Task.FromResult(records);
+        }
+    }
+
     public Task CreateAsync(GameRecord record, CancellationToken ct)
     {
         lock (_gate)
