@@ -136,37 +136,44 @@ public sealed class RefreshTokenService(
 
     private async Task RevokeDescendantsAsync(Guid rootId, DateTimeOffset now, CancellationToken ct)
     {
-        // Walk the chain forward via ReplacedByTokenId. We process each row's
-        // own revocation status, then enqueue its replacement. The seen-set
-        // is populated as we visit so a malformed cycle can't loop forever.
-        var seen = new HashSet<Guid>();
-        var queue = new Queue<Guid>();
-        queue.Enqueue(rootId);
+        // One round-trip to materialise every token belonging to this
+        // user, then walk the (Id → ReplacedByTokenId) chain entirely
+        // in memory. The previous design did one SQL query per
+        // descendant — on a long chain that's a per-link RTT, plus
+        // every replay attack is uncapped at the DB. We pin a small
+        // hop cap as a defense-in-depth against malformed chains; the
+        // seen-set catches cycles separately.
+        const int MaxChainHops = 64;
 
-        while (queue.Count > 0)
+        // Get the root first so we have its UserId; if it's gone there's
+        // nothing to revoke.
+        RefreshTokenEntity? root = await db.RefreshTokens
+            .FirstOrDefaultAsync(t => t.Id == rootId, ct)
+            .ConfigureAwait(false);
+        if (root is null)
         {
-            var id = queue.Dequeue();
-            if (!seen.Add(id))
-            {
-                continue;
-            }
+            return;
+        }
 
-            var row = await db.RefreshTokens
-                .FirstOrDefaultAsync(t => t.Id == id, ct)
-                .ConfigureAwait(false);
-            if (row is null)
-            {
-                continue;
-            }
+        Dictionary<Guid, RefreshTokenEntity> byId = await db.RefreshTokens
+            .Where(t => t.UserId == root.UserId)
+            .ToDictionaryAsync(t => t.Id, ct)
+            .ConfigureAwait(false);
 
+        HashSet<Guid> seen = [];
+        Guid? cursor = rootId;
+        int hops = 0;
+        while (cursor is { } id && hops++ < MaxChainHops && seen.Add(id))
+        {
+            if (!byId.TryGetValue(id, out RefreshTokenEntity? row))
+            {
+                break;
+            }
             if (row.RevokedAt is null)
             {
                 row.RevokedAt = now;
             }
-            if (row.ReplacedByTokenId is { } next)
-            {
-                queue.Enqueue(next);
-            }
+            cursor = row.ReplacedByTokenId;
         }
     }
 }
