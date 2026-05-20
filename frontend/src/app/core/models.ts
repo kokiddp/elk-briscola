@@ -40,6 +40,11 @@ export interface ChangePasswordRequest {
   newPassword: string;
 }
 
+export interface ChangeEmailRequest {
+  currentPassword: string;
+  newEmail: string;
+}
+
 export type GameMode = 'TwoPlayer' | 'FourPlayerTeams';
 
 export type MatchOutcomeKind = 'Win' | 'Draw';

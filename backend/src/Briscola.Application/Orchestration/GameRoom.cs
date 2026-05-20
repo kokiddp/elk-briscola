@@ -172,7 +172,7 @@ public sealed class GameRoom : IAsyncDisposable
             // arrival with the same hydrate failure so callers fail fast.
             // Audit L9.
             _commands.Writer.TryComplete(ex);
-            while (_commands.Reader.TryRead(out QueuedCommand pending))
+            while (_commands.Reader.TryRead(out QueuedCommand? pending) && pending is not null)
             {
                 pending.Completion.TrySetException(ex);
             }

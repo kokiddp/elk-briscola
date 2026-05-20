@@ -249,6 +249,90 @@ public sealed class AuthController : ControllerBase
         return NoContent();
     }
 
+    /// <summary>Change the authenticated user's email.</summary>
+    /// <remarks>
+    /// Requires re-presenting the current password — protects against a
+    /// stolen access token quietly re-binding the account to an
+    /// attacker-controlled inbox. Identity bumps the user's
+    /// <c>SecurityStamp</c> on success, invalidating every still-valid
+    /// access token issued before this call. The new email must not
+    /// already be in use; conflicts come back as 409.
+    /// </remarks>
+    /// <response code="204">Email changed; outstanding access tokens are now invalidated.</response>
+    /// <response code="400">Current password wrong, new email malformed, or empty.</response>
+    /// <response code="409">An account with that email already exists.</response>
+    [HttpPost("change-email")]
+    [Authorize]
+    [EnableRateLimiting(RateLimiting.RateLimitingPolicies.AuthChangeEmail)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> ChangeEmail([FromBody] ChangeEmailRequest request, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        ApplicationUser? user = await _users.GetUserAsync(User).ConfigureAwait(false);
+        if (user is null)
+        {
+            return Unauthorized();
+        }
+
+        // Step 1: confirm the caller actually knows the current password.
+        // Without this an attacker with a stolen access token could silently
+        // rebind the account to an inbox they own and then trigger
+        // password reset elsewhere.
+        if (!await _users.CheckPasswordAsync(user, request.CurrentPassword).ConfigureAwait(false))
+        {
+            return BadRequest(new { code = "InvalidCurrentPassword" });
+        }
+
+        // Step 2: validation that's cheaper than the duplicate-check round-trip.
+        if (string.IsNullOrWhiteSpace(request.NewEmail))
+        {
+            return BadRequest(new { code = "EmailRequired" });
+        }
+
+        string normalized = _users.NormalizeEmail(request.NewEmail);
+        if (string.Equals(normalized, user.NormalizedEmail, StringComparison.Ordinal))
+        {
+            // Same email — no-op, but return success so an idempotent
+            // client retry doesn't get a confusing failure.
+            return NoContent();
+        }
+
+        // Step 3: uniqueness pre-check so we can return 409 distinctly
+        // from validation failures. UserManager.SetEmailAsync doesn't
+        // enforce uniqueness in the normal flow — Identity expects you
+        // to wire confirmation tokens. We're skipping confirmation for
+        // v1 (no email infra) so the controller does the check directly.
+        bool taken = await _db.Users
+            .AnyAsync(u => u.Id != user.Id && u.NormalizedEmail == normalized, ct)
+            .ConfigureAwait(false);
+        if (taken)
+        {
+            return Conflict(new { code = "EmailAlreadyTaken" });
+        }
+
+        IdentityResult result = await _users.SetEmailAsync(user, request.NewEmail).ConfigureAwait(false);
+        if (!result.Succeeded)
+        {
+            return BadRequest(new
+            {
+                code = "ChangeEmailFailed",
+                errors = result.Errors.Select(e => new { e.Code, e.Description }),
+            });
+        }
+
+        // Bump the security stamp so outstanding access tokens are
+        // invalidated on the next request — same posture as
+        // change-password. SetEmailAsync only bumps the stamp when
+        // RequireConfirmedEmail is on; we want it bumped unconditionally
+        // because the account binding changed.
+        await _users.UpdateSecurityStampAsync(user).ConfigureAwait(false);
+
+        return NoContent();
+    }
+
     private async Task<ApplicationUser?> ResolveAsync(string usernameOrEmail)
     {
         if (usernameOrEmail.Contains('@', StringComparison.Ordinal))

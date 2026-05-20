@@ -1,4 +1,5 @@
 using System.Reflection;
+using Microsoft.Extensions.Logging;
 using System.Text;
 using System.Text.Json.Serialization;
 using Briscola.Api;
@@ -316,9 +317,7 @@ if (migrations.RunOnStartup)
     }
     else
     {
-        app.Logger.LogWarning(
-            "Skipping GameOrchestrator hydration — Migrations:RunOnStartup is false and the Games table is not present. "
-          + "Apply migrations out-of-band before serving traffic, then restart.");
+        SkipHydration(app.Logger);
     }
 }
 
@@ -460,4 +459,9 @@ static byte[]? TryDecodeBase64(string s)
     catch (FormatException) { return null; }
 }
 
-public partial class Program;
+public partial class Program
+{
+    [LoggerMessage(EventId = 100, Level = LogLevel.Warning,
+        Message = "Skipping GameOrchestrator hydration — Migrations:RunOnStartup is false and the Games table is not present. Apply migrations out-of-band before serving traffic, then restart.")]
+    private static partial void SkipHydration(Microsoft.Extensions.Logging.ILogger logger);
+}

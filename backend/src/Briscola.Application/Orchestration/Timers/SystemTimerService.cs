@@ -42,7 +42,7 @@ public sealed partial class SystemTimerService(IClock clock, ILogger<SystemTimer
                     TimerState timerState = (TimerState)state!;
                     _ = timerState.FireAsync();
                 },
-                new TimerState(callback, _cts.Token, logger),
+                new TimerState(callback, logger, _cts.Token),
                 due,
                 Timeout.InfiniteTimeSpan);
         }
@@ -62,8 +62,8 @@ public sealed partial class SystemTimerService(IClock clock, ILogger<SystemTimer
 
         private sealed record TimerState(
             Func<CancellationToken, ValueTask> Callback,
-            CancellationToken CancellationToken,
-            ILogger<SystemTimerService>? Logger)
+            ILogger<SystemTimerService>? Logger,
+            CancellationToken CancellationToken)
         {
             public async Task FireAsync()
             {

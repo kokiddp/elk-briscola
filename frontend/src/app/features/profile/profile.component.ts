@@ -1,10 +1,13 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Router } from '@angular/router';
 import { CardSetService } from '../../card-sets/card-set.service';
 import { AuthService } from '../../core/auth.service';
 import { ErrorToastService } from '../../core/error-toast.service';
 import { I18nService } from '../../core/i18n.service';
 import { MatchHistoryEntry, MatchHistoryPage } from '../../core/models';
 import { I18nPipe } from '../../shared/i18n.pipe';
+import { ChangeEmailFormComponent } from './change-email-form.component';
+import { ChangePasswordFormComponent } from './change-password-form.component';
 import { MatchHistoryService } from './history.service';
 
 const HISTORY_PAGE_SIZE = 10;
@@ -12,7 +15,7 @@ const HISTORY_PAGE_SIZE = 10;
 @Component({
   selector: 'bri-profile',
   standalone: true,
-  imports: [I18nPipe],
+  imports: [I18nPipe, ChangeEmailFormComponent, ChangePasswordFormComponent],
   templateUrl: './profile.component.html',
   styleUrl: './profile.component.scss',
 })
@@ -22,6 +25,7 @@ export class ProfileComponent implements OnInit {
   private readonly history = inject(MatchHistoryService);
   private readonly toast = inject(ErrorToastService);
   private readonly i18n = inject(I18nService);
+  private readonly router = inject(Router);
 
   readonly user = this.auth.currentUser;
   readonly manifests = this.cardSets.manifests;
@@ -180,5 +184,86 @@ export class ProfileComponent implements OnInit {
     } finally {
       this.pendingId.set(null);
     }
+  }
+
+  /**
+   * Handlers for the security section. Both change-* endpoints bump the
+   * server-side SecurityStamp, so the access token in flight is now
+   * invalid. We could try to ride the refresh-token flow, but the
+   * cleanest UX is: surface a toast, log the user out, push them to
+   * /login. The next sign-in pulls fresh tokens against the updated
+   * credentials.
+   */
+  readonly emailSubmitting = signal(false);
+  async onEmailSubmit(payload: { currentPassword: string; newEmail: string }): Promise<void> {
+    if (this.emailSubmitting()) return;
+    this.emailSubmitting.set(true);
+    try {
+      await this.auth.changeEmail({
+        currentPassword: payload.currentPassword,
+        newEmail: payload.newEmail,
+      });
+      this.toast.success(this.i18n.t('profile.security.email.success'));
+      await this.signOutAndRedirect();
+    } catch (err) {
+      this.toast.error(this.errorMessage(err, 'profile.security.email.failed'));
+    } finally {
+      this.emailSubmitting.set(false);
+    }
+  }
+
+  readonly passwordSubmitting = signal(false);
+  async onPasswordSubmit(payload: { currentPassword: string; newPassword: string }): Promise<void> {
+    if (this.passwordSubmitting()) return;
+    this.passwordSubmitting.set(true);
+    try {
+      await this.auth.changePassword({
+        currentPassword: payload.currentPassword,
+        newPassword: payload.newPassword,
+      });
+      this.toast.success(this.i18n.t('profile.security.password.success'));
+      await this.signOutAndRedirect();
+    } catch (err) {
+      this.toast.error(this.errorMessage(err, 'profile.security.password.failed'));
+    } finally {
+      this.passwordSubmitting.set(false);
+    }
+  }
+
+  private async signOutAndRedirect(): Promise<void> {
+    await this.auth.logout();
+    await this.router.navigateByUrl('/login');
+  }
+
+  /**
+   * Surface the server's structured error code when one is available.
+   * The backend's 4xx bodies are shaped `{ code: string, ... }` —
+   * 'InvalidCurrentPassword' / 'EmailAlreadyTaken' / 'ChangePasswordFailed' / etc.
+   * We map known codes to i18n keys; everything else falls back to the
+   * provided generic key. Defensive: HTTP errors that come back without
+   * a body still get the fallback.
+   */
+  private errorMessage(err: unknown, fallbackKey: string): string {
+    const code = this.extractErrorCode(err);
+    if (code === 'InvalidCurrentPassword') {
+      return this.i18n.t('profile.security.errors.InvalidCurrentPassword');
+    }
+    if (code === 'EmailAlreadyTaken') {
+      return this.i18n.t('profile.security.errors.EmailAlreadyTaken');
+    }
+    if (code === 'EmailRequired') {
+      return this.i18n.t('profile.security.errors.EmailRequired');
+    }
+    return this.i18n.t(fallbackKey);
+  }
+
+  private extractErrorCode(err: unknown): string | null {
+    if (typeof err !== 'object' || err === null) return null;
+    const e = err as { error?: unknown; status?: number };
+    if (typeof e.error === 'object' && e.error !== null) {
+      const body = e.error as { code?: unknown };
+      if (typeof body.code === 'string') return body.code;
+    }
+    return null;
   }
 }

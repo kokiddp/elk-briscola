@@ -26,6 +26,11 @@ public sealed record ChangePasswordRequest(
     string NewPassword);
 
 [ExcludeFromCodeCoverage]
+public sealed record ChangeEmailRequest(
+    string CurrentPassword,
+    string NewEmail);
+
+[ExcludeFromCodeCoverage]
 public sealed record TokenResponse(
     string AccessToken,
     DateTimeOffset AccessTokenExpiresAt,

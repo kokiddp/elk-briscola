@@ -2,6 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { computed, inject, Injectable, signal } from '@angular/core';
 import { firstValueFrom, Observable, of, tap } from 'rxjs';
 import {
+  ChangeEmailRequest,
   ChangePasswordRequest,
   LoginRequest,
   MeResponse,
@@ -94,6 +95,22 @@ export class AuthService {
 
   async changePassword(req: ChangePasswordRequest): Promise<void> {
     await firstValueFrom(this.http.post(`${API_PREFIX}/auth/change-password`, req));
+  }
+
+  /**
+   * Change the authenticated user's email. Server bumps the security
+   * stamp on success, so the next request with the current access
+   * token will 401 — callers should re-login (or rely on the refresh
+   * flow to pick up a new pair). The cached `currentUser().email` is
+   * patched in place here for immediate-UI consistency; a subsequent
+   * `refreshMe()` would re-fetch the canonical row.
+   */
+  async changeEmail(req: ChangeEmailRequest): Promise<void> {
+    await firstValueFrom(this.http.post(`${API_PREFIX}/auth/change-email`, req));
+    const current = this.user();
+    if (current) {
+      this.user.set({ ...current, email: req.newEmail });
+    }
   }
 
   refresh(): Promise<string | null> {

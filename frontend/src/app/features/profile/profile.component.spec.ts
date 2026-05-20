@@ -30,7 +30,13 @@ const PIACENTINE: CardSetManifest = {
   back: 'back.svg',
 };
 
-function authStub(): AuthService {
+function authStub(
+  overrides: Partial<{
+    changeEmail: (req: { currentPassword: string; newEmail: string }) => Promise<void>;
+    changePassword: (req: { currentPassword: string; newPassword: string }) => Promise<void>;
+    logout: () => Promise<void>;
+  }> = {},
+): AuthService {
   const me: MeResponse = {
     id: 'u1',
     username: 'alice',
@@ -44,6 +50,9 @@ function authStub(): AuthService {
     // ProfileComponent.ngOnInit refreshes /me on mount so the ranking
     // widget doesn't lag behind. Stub returns the cached value.
     refreshMe: () => Promise.resolve(me),
+    changeEmail: overrides.changeEmail ?? vi.fn(() => Promise.resolve()),
+    changePassword: overrides.changePassword ?? vi.fn(() => Promise.resolve()),
+    logout: overrides.logout ?? vi.fn(() => Promise.resolve()),
   } as unknown as AuthService;
 }
 
@@ -100,22 +109,28 @@ async function setup(
     setActive?: (id: string) => Promise<void>;
     historyPages?: MatchHistoryPage[];
     historyRejects?: boolean;
+    auth?: AuthService;
   } = {},
 ) {
   const cardSets = cardSetStub(opts);
   const history = historyStub({ pages: opts.historyPages, rejectOnLoad: opts.historyRejects });
   const toastError = vi.fn();
-  const toast = { error: toastError } as unknown as ErrorToastService;
+  const toastSuccess = vi.fn();
+  const toast = {
+    error: toastError,
+    success: toastSuccess,
+  } as unknown as ErrorToastService;
+  const auth = opts.auth ?? authStub();
   const r = await render(ProfileComponent, {
     providers: [
       provideRouter([]),
-      { provide: AuthService, useValue: authStub() },
+      { provide: AuthService, useValue: auth },
       { provide: CardSetService, useValue: cardSets.svc },
       { provide: MatchHistoryService, useValue: history.svc },
       { provide: ErrorToastService, useValue: toast },
     ],
   });
-  return { ...r, ...cardSets, ...history, toastError };
+  return { ...r, ...cardSets, ...history, toastError, toastSuccess, auth };
 }
 
 describe('ProfileComponent', () => {
@@ -324,6 +339,120 @@ describe('ProfileComponent match history', () => {
     // Empty/list views must not render while the section is in the error state.
     expect(screen.queryByTestId('history-empty')).toBeNull();
     expect(screen.queryByTestId('history-list')).toBeNull();
+  });
+});
+
+describe('ProfileComponent security section', () => {
+  it('renders the change-email + change-password forms', async () => {
+    await setup();
+    expect(screen.getByTestId('change-email-form')).toBeInTheDocument();
+    expect(screen.getByTestId('change-password-form')).toBeInTheDocument();
+  });
+
+  it('disables the change-email submit until the form is valid', async () => {
+    await setup();
+    const btn = screen.getByTestId('change-email-submit') as HTMLButtonElement;
+    expect(btn.disabled).toBe(true);
+    const newEmail = screen.getByTestId('change-email-new') as HTMLInputElement;
+    const pwd = screen.getByTestId('change-email-current-password') as HTMLInputElement;
+    const { fireEvent } = await import('@testing-library/angular');
+    fireEvent.input(newEmail, { target: { value: 'new@example.com' } });
+    fireEvent.input(pwd, { target: { value: 'Strong-Pass-123' } });
+    expect(btn.disabled).toBe(false);
+  });
+
+  it('calls AuthService.changeEmail with the entered values + logs out on success', async () => {
+    const changeEmail = vi.fn(() => Promise.resolve());
+    const logout = vi.fn(() => Promise.resolve());
+    const auth = authStub({ changeEmail, logout });
+    const { fixture, toastSuccess } = await setup({ auth });
+
+    const { fireEvent } = await import('@testing-library/angular');
+    fireEvent.input(screen.getByTestId('change-email-new'), {
+      target: { value: 'new@example.com' },
+    });
+    fireEvent.input(screen.getByTestId('change-email-current-password'), {
+      target: { value: 'Strong-Pass-123' },
+    });
+    fireEvent.click(screen.getByTestId('change-email-submit'));
+    await fixture.whenStable();
+
+    expect(changeEmail).toHaveBeenCalledWith({
+      currentPassword: 'Strong-Pass-123',
+      newEmail: 'new@example.com',
+    });
+    expect(logout).toHaveBeenCalled();
+    expect(toastSuccess).toHaveBeenCalled();
+  });
+
+  it('maps an InvalidCurrentPassword error to the i18n key in a toast', async () => {
+    const changeEmail = vi.fn(() =>
+      Promise.reject({ status: 400, error: { code: 'InvalidCurrentPassword' } }),
+    );
+    const logout = vi.fn(() => Promise.resolve());
+    const auth = authStub({ changeEmail, logout });
+    const { fixture, toastError } = await setup({ auth });
+
+    const { fireEvent } = await import('@testing-library/angular');
+    fireEvent.input(screen.getByTestId('change-email-new'), {
+      target: { value: 'new@example.com' },
+    });
+    fireEvent.input(screen.getByTestId('change-email-current-password'), {
+      target: { value: 'wrong' },
+    });
+    fireEvent.click(screen.getByTestId('change-email-submit'));
+    await fixture.whenStable();
+
+    expect(toastError).toHaveBeenCalled();
+    // Logout should NOT happen on failure.
+    expect(logout).not.toHaveBeenCalled();
+  });
+
+  it('requires confirm-password to match new-password before enabling submit', async () => {
+    await setup();
+    const btn = screen.getByTestId('change-password-submit') as HTMLButtonElement;
+    const { fireEvent } = await import('@testing-library/angular');
+    fireEvent.input(screen.getByTestId('change-password-current'), {
+      target: { value: 'Strong-Pass-123' },
+    });
+    fireEvent.input(screen.getByTestId('change-password-new'), {
+      target: { value: 'Different-Pass-456' },
+    });
+    fireEvent.input(screen.getByTestId('change-password-confirm'), {
+      target: { value: 'Mismatched-Pass' },
+    });
+    expect(btn.disabled).toBe(true);
+    fireEvent.input(screen.getByTestId('change-password-confirm'), {
+      target: { value: 'Different-Pass-456' },
+    });
+    expect(btn.disabled).toBe(false);
+  });
+
+  it('calls AuthService.changePassword + logs out on success', async () => {
+    const changePassword = vi.fn(() => Promise.resolve());
+    const logout = vi.fn(() => Promise.resolve());
+    const auth = authStub({ changePassword, logout });
+    const { fixture, toastSuccess } = await setup({ auth });
+
+    const { fireEvent } = await import('@testing-library/angular');
+    fireEvent.input(screen.getByTestId('change-password-current'), {
+      target: { value: 'Strong-Pass-123' },
+    });
+    fireEvent.input(screen.getByTestId('change-password-new'), {
+      target: { value: 'Different-Pass-456' },
+    });
+    fireEvent.input(screen.getByTestId('change-password-confirm'), {
+      target: { value: 'Different-Pass-456' },
+    });
+    fireEvent.click(screen.getByTestId('change-password-submit'));
+    await fixture.whenStable();
+
+    expect(changePassword).toHaveBeenCalledWith({
+      currentPassword: 'Strong-Pass-123',
+      newPassword: 'Different-Pass-456',
+    });
+    expect(logout).toHaveBeenCalled();
+    expect(toastSuccess).toHaveBeenCalled();
   });
 });
 

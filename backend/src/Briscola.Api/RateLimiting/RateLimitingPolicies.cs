@@ -11,6 +11,7 @@ public static class RateLimitingPolicies
     public const string AuthRegister = "auth-register";
     public const string AuthRefresh = "auth-refresh";
     public const string AuthChangePassword = "auth-change-password";
+    public const string AuthChangeEmail = "auth-change-email";
     public const string AuthLogout = "auth-logout";
 
     /// <summary>
@@ -32,6 +33,10 @@ public static class RateLimitingPolicies
             // brute-force the current password against an active session.
             // Cap by user, generously enough for legitimate retries.
             [AuthChangePassword] = (5, TimeSpan.FromMinutes(15)),
+            // change-email also takes the *current* password as confirmation,
+            // so it's another brute-force surface against the same plaintext.
+            // Same per-user policy as change-password.
+            [AuthChangeEmail] = (5, TimeSpan.FromMinutes(15)),
             // Logout is cheap server-side, but uncapped it can be used
             // to spray-revoke refresh tokens at full HTTP throughput.
             [AuthLogout] = (30, TimeSpan.FromMinutes(1)),
@@ -50,6 +55,7 @@ public static class RateLimitingPolicies
         (int permit, TimeSpan window) register = ReadLimits(configuration, AuthRegister);
         (int permit, TimeSpan window) refresh = ReadLimits(configuration, AuthRefresh);
         (int permit, TimeSpan window) changePassword = ReadLimits(configuration, AuthChangePassword);
+        (int permit, TimeSpan window) changeEmail = ReadLimits(configuration, AuthChangeEmail);
         (int permit, TimeSpan window) logout = ReadLimits(configuration, AuthLogout);
 
         options.AddPolicy(AuthLogin, ctx =>
@@ -89,6 +95,16 @@ public static class RateLimitingPolicies
                 {
                     PermitLimit = changePassword.permit,
                     Window = changePassword.window,
+                    QueueLimit = 0,
+                }));
+
+        options.AddPolicy(AuthChangeEmail, ctx =>
+            RateLimitPartition.GetFixedWindowLimiter(
+                partitionKey: PartitionByUser(ctx),
+                factory: _ => new FixedWindowRateLimiterOptions
+                {
+                    PermitLimit = changeEmail.permit,
+                    Window = changeEmail.window,
                     QueueLimit = 0,
                 }));
 

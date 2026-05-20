@@ -170,6 +170,40 @@
 
   <section
     class="rounded-2xl border border-stone-200 bg-white p-6 shadow-sm"
+    aria-labelledby="security-heading"
+    data-testid="security-section"
+  >
+    <div class="mb-4 flex flex-col gap-1">
+      <h2 id="security-heading" class="font-display text-xl font-semibold text-stone-900">
+        {{ 'profile.security.title' | t }}
+      </h2>
+      <p class="text-sm text-stone-500">{{ 'profile.security.hint' | t }}</p>
+    </div>
+    <div class="grid gap-6 md:grid-cols-2">
+      <article aria-labelledby="security-email-heading">
+        <h3 id="security-email-heading" class="mb-2 text-base font-semibold text-stone-900">
+          {{ 'profile.security.email.title' | t }}
+        </h3>
+        <bri-change-email-form
+          [currentEmail]="user()?.email ?? ''"
+          [submitting]="emailSubmitting()"
+          (submitted)="onEmailSubmit($event)"
+        />
+      </article>
+      <article aria-labelledby="security-password-heading">
+        <h3 id="security-password-heading" class="mb-2 text-base font-semibold text-stone-900">
+          {{ 'profile.security.password.title' | t }}
+        </h3>
+        <bri-change-password-form
+          [submitting]="passwordSubmitting()"
+          (submitted)="onPasswordSubmit($event)"
+        />
+      </article>
+    </div>
+  </section>
+
+  <section
+    class="rounded-2xl border border-stone-200 bg-white p-6 shadow-sm"
     aria-labelledby="card-sets-heading"
   >
     <div class="mb-4 flex flex-col gap-1">

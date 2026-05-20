@@ -37,6 +37,7 @@ Access tokens are short-lived (15 minutes); refresh tokens are single-use and ro
 | `POST` | `/api/v1/auth/refresh` | `{ refreshToken }` | `{ accessToken, refreshToken, expiresAt }` | Old refresh token is single-use; reuse triggers chain revocation. |
 | `POST` | `/api/v1/auth/logout` | `{ refreshToken }` | `204` | Invalidates the refresh-token chain. Rate-limited per user (30/min). |
 | `POST` | `/api/v1/auth/change-password` | `{ currentPassword, newPassword }` | `204` | Bumps the user's `SecurityStamp`, invalidating outstanding access tokens. Rate-limited per user (5/15min). |
+| `POST` | `/api/v1/auth/change-email` | `{ currentPassword, newEmail }` | `204` | Requires the current password as confirmation. Bumps `SecurityStamp` on success (outstanding access tokens become invalid). Rejects with `409 EmailAlreadyTaken` if the new address is in use, `400 InvalidCurrentPassword` on bad confirmation, `400 EmailRequired` when blank. Same address → no-op `204`. Rate-limited per user (5/15min). |
 
 ### Profile
 

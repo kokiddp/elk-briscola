@@ -1,0 +1,60 @@
+<form
+  [formGroup]="form"
+  (ngSubmit)="onSubmit()"
+  novalidate
+  class="flex flex-col gap-3"
+  data-testid="change-email-form"
+>
+  <p class="text-sm text-stone-600">
+    {{ 'profile.security.email.currentLabel' | t }}
+    <strong class="font-mono text-stone-900">{{ currentEmail() || '—' }}</strong>
+  </p>
+  <label class="flex flex-col gap-1">
+    <span class="text-sm font-medium text-stone-700">
+      {{ 'profile.security.email.newLabel' | t }}
+    </span>
+    <input
+      type="email"
+      formControlName="newEmail"
+      autocomplete="email"
+      data-testid="change-email-new"
+      class="rounded-md border border-stone-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30"
+    />
+    @if (form.controls.newEmail.touched && form.controls.newEmail.invalid) {
+      <span class="text-xs text-rose-700">
+        @if (form.controls.newEmail.hasError('required')) {
+          {{ 'auth.validation.required' | t }}
+        } @else if (form.controls.newEmail.hasError('email')) {
+          {{ 'auth.validation.emailShape' | t }}
+        }
+      </span>
+    }
+  </label>
+  <label class="flex flex-col gap-1">
+    <span class="text-sm font-medium text-stone-700">
+      {{ 'profile.security.currentPasswordLabel' | t }}
+    </span>
+    <input
+      type="password"
+      formControlName="currentPassword"
+      autocomplete="current-password"
+      data-testid="change-email-current-password"
+      class="rounded-md border border-stone-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30"
+    />
+    @if (form.controls.currentPassword.touched && form.controls.currentPassword.invalid) {
+      <span class="text-xs text-rose-700">{{ 'auth.validation.required' | t }}</span>
+    }
+  </label>
+  <button
+    type="submit"
+    [disabled]="submitting() || form.invalid"
+    data-testid="change-email-submit"
+    class="self-start inline-flex h-9 items-center justify-center rounded-md bg-brand-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60"
+  >
+    @if (submitting()) {
+      {{ 'profile.security.email.submitting' | t }}
+    } @else {
+      {{ 'profile.security.email.submit' | t }}
+    }
+  </button>
+</form>
