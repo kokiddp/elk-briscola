@@ -1,9 +1,9 @@
 {
   "id": "piacentine",
   "name": "Piacentine",
-  "license": "Pending — see README §Card sets sourcing note",
-  "preview": "preview.svg",
-  "fileExtension": "svg",
+  "license": "Public Domain — pip cards (28) synthesized at build time by compositing N copies of the PD Suit_{Bastoni,Coppe,Denari,Spade}.svg icons from https://commons.wikimedia.org/wiki/Category:Piacenza_deck onto a card-shaped canvas; face cards (12) sliced from the PD Carte_piacentine_al_completo.jpg in the same Commons category. Synthesis preserves the exact pip artwork the original PD Piacentine-{C,D,S}*.svg files use, so all pip cards share one consistent visual style. The card back is a synthetic ornamental design (no PD Piacentine back exists on Commons).",
+  "preview": "preview.jpg",
+  "fileExtension": "jpg",
   "filePattern": "{suit}-{rank}.{ext}",
-  "back": "back.svg"
+  "back": "back.jpg"
 }

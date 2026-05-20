@@ -37,6 +37,61 @@ public sealed class CardSetsControllerTests : RestTestBase
     }
 
     [Fact]
+    public async Task Returns_the_piacentine_set_with_jpg_assets()
+    {
+        using HttpClient client = Factory.CreateClient();
+        CardSetManifestDto[] catalog =
+            (await client.GetFromJsonAsync<CardSetManifestDto[]>(
+                "/api/v1/card-sets", TestJsonOptions.Default))!;
+
+        CardSetManifestDto? piacentine = catalog.FirstOrDefault(m => m.Id == "piacentine");
+        piacentine.Should().NotBeNull();
+        piacentine!.Name.Should().Be("Piacentine");
+        piacentine.FileExtension.Should().Be("jpg");
+        piacentine.Preview.Should().Be("preview.jpg");
+        piacentine.Back.Should().Be("back.jpg");
+        piacentine.Path.Should().Be("/card-sets/piacentine/");
+        // Audit-friendly licence string should credit the Commons source.
+        piacentine.License.ToLowerInvariant().Should().Contain("commons");
+    }
+
+    [Fact]
+    public async Task Piacentine_serves_one_card_per_suit_rank_slot()
+    {
+        // Spot-check a pip-synthesized and a face-sliced card per suit
+        // — the build process treats those two halves differently
+        // (pip cards composited from Suit_*.svg, face cards sliced from
+        // Carte_piacentine_al_completo.jpg), so this catches a regression
+        // in either pipeline.
+        using HttpClient client = Factory.CreateClient();
+        string[] urls =
+        [
+            // pip
+            "/card-sets/piacentine/denari-asso.jpg",
+            "/card-sets/piacentine/coppe-sei.jpg",
+            "/card-sets/piacentine/bastoni-tre.jpg",
+            "/card-sets/piacentine/spade-sette.jpg",
+            // face
+            "/card-sets/piacentine/denari-fante.jpg",
+            "/card-sets/piacentine/coppe-cavallo.jpg",
+            "/card-sets/piacentine/bastoni-re.jpg",
+            "/card-sets/piacentine/spade-fante.jpg",
+            // back + preview
+            "/card-sets/piacentine/back.jpg",
+            "/card-sets/piacentine/preview.jpg",
+        ];
+        foreach (string url in urls)
+        {
+            HttpResponseMessage r = await client.GetAsync(url);
+            r.StatusCode.Should().Be(HttpStatusCode.OK, $"{url} should be served");
+            r.Content.Headers.ContentType?.MediaType.Should().Be("image/jpeg");
+            long? length = r.Content.Headers.ContentLength;
+            length.Should().NotBeNull();
+            length!.Value.Should().BeGreaterThan(1024, $"{url} should not be an empty placeholder");
+        }
+    }
+
+    [Fact]
     public async Task Napoletane_serves_each_of_the_40_card_assets_plus_back_plus_preview()
     {
         // Spot-check rather than fanning out 42 requests: one card per
