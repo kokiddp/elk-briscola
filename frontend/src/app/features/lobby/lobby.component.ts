@@ -4,6 +4,7 @@ import { ErrorToastService } from '../../core/error-toast.service';
 import { I18nService } from '../../core/i18n.service';
 import { I18nPipe } from '../../shared/i18n.pipe';
 import { CreateGameDialogComponent } from './create-game-dialog.component';
+import { JoinPasswordDialogComponent } from './join-password-dialog.component';
 import { LobbyChatPanelComponent } from './lobby-chat-panel.component';
 import { CreateGameRequest, GameSummary } from './lobby.models';
 import { LobbyService } from './lobby.service';
@@ -11,7 +12,13 @@ import { LobbyService } from './lobby.service';
 @Component({
   selector: 'bri-lobby',
   standalone: true,
-  imports: [I18nPipe, RouterLink, CreateGameDialogComponent, LobbyChatPanelComponent],
+  imports: [
+    I18nPipe,
+    RouterLink,
+    CreateGameDialogComponent,
+    JoinPasswordDialogComponent,
+    LobbyChatPanelComponent,
+  ],
   templateUrl: './lobby.component.html',
   styleUrl: './lobby.component.scss',
 })
@@ -104,23 +111,39 @@ export class LobbyComponent implements OnInit {
     }
   }
 
+  /** Game currently awaiting a password from the user via the join
+   *  dialog. Non-null means the modal is open. */
+  readonly passwordPromptFor = signal<GameSummary | null>(null);
+
   async onJoin(game: GameSummary): Promise<void> {
     if (this.joiningId()) {
       return;
     }
+    if (game.isPrivate) {
+      // Show the modal — the rest of the flow continues from
+      // onPasswordSubmitted once the user submits.
+      this.passwordPromptFor.set(game);
+      return;
+    }
+    await this.performJoin(game, null);
+  }
+
+  async onPasswordSubmitted(password: string): Promise<void> {
+    const game = this.passwordPromptFor();
+    if (!game) {
+      return;
+    }
+    this.passwordPromptFor.set(null);
+    await this.performJoin(game, password);
+  }
+
+  onPasswordCancelled(): void {
+    this.passwordPromptFor.set(null);
+  }
+
+  private async performJoin(game: GameSummary, password: string | null): Promise<void> {
     this.joiningId.set(game.id);
     try {
-      let password: string | null = null;
-      if (game.isPrivate) {
-        const prompted =
-          typeof window !== 'undefined'
-            ? window.prompt(this.i18n.t('lobby.join.passwordPrompt'))
-            : null;
-        if (prompted === null) {
-          return;
-        }
-        password = prompted;
-      }
       const detail = await this.lobby.joinGame(game.id, password);
       if (detail.status === 'Running') {
         await this.router.navigateByUrl(`/game/${game.id}`);

@@ -177,4 +177,12 @@
       (cancelled)="closeCreateDialog()"
     />
   }
+
+  @if (passwordPromptFor()) {
+    <bri-join-password-dialog
+      [submitting]="joiningId() !== null"
+      (submitted)="onPasswordSubmitted($event)"
+      (cancelled)="onPasswordCancelled()"
+    />
+  }
 </section>

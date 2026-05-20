@@ -185,28 +185,36 @@ describe('LobbyComponent join flow', () => {
     expect(nav).toHaveBeenCalledWith('/game/g1');
   });
 
-  it('prompts for password on a private game and joins with it', async () => {
+  it('opens the join-password modal on a private game and joins with the entered value', async () => {
     const { joinGame, router, fixture } = await setup({ open: [OPEN_PRIVATE] });
     const nav = vi.spyOn(router, 'navigateByUrl').mockResolvedValue(true);
-    const prompt = vi.spyOn(window, 'prompt').mockReturnValue('letmein');
 
     fireEvent.click(screen.getByTestId('join-button'));
     await fixture.whenStable();
 
-    expect(prompt).toHaveBeenCalledTimes(1);
+    // The modal is mounted; window.prompt is NOT used.
+    const dialog = screen.getByTestId('join-password-dialog');
+    expect(dialog).toBeInTheDocument();
+    const input = screen.getByTestId('join-password-input') as HTMLInputElement;
+    fireEvent.input(input, { target: { value: 'letmein' } });
+    fireEvent.click(screen.getByTestId('join-password-submit'));
+    await fixture.whenStable();
+
     expect(joinGame).toHaveBeenCalledWith('g-priv', 'letmein');
     expect(nav).toHaveBeenCalledWith('/game/g-priv');
   });
 
-  it('cancels the join if the password prompt is dismissed', async () => {
+  it('does not join when the password modal is cancelled', async () => {
     const { joinGame, router, fixture } = await setup({ open: [OPEN_PRIVATE] });
     const nav = vi.spyOn(router, 'navigateByUrl').mockResolvedValue(true);
-    vi.spyOn(window, 'prompt').mockReturnValue(null);
 
     fireEvent.click(screen.getByTestId('join-button'));
+    await fixture.whenStable();
+    fireEvent.click(screen.getByTestId('join-password-cancel'));
     await fixture.whenStable();
 
     expect(joinGame).not.toHaveBeenCalled();
     expect(nav).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('join-password-dialog')).toBeNull();
   });
 });
