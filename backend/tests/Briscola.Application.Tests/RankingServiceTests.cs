@@ -143,4 +143,26 @@ public sealed class RankingServiceTests
 
     private static GameResultRecord Result(GameOutcomeKind kind, int? winnerKey) =>
         new(Guid.NewGuid(), kind, winnerKey, "[60,60]", null, EndedReason.Normal);
+
+    [Fact]
+    public async Task GetManyAsync_returns_one_entry_per_distinct_id_and_seeds_defaults()
+    {
+        // Three known users + one unknown — the unknown should get the
+        // 1500-Elo default the single-row GetAsync contract guarantees.
+        Guid known = Guid.NewGuid();
+        Guid second = Guid.NewGuid();
+        Guid unknown = Guid.NewGuid();
+        InMemoryRankingRepository repo = new(Now);
+        repo.Set(new RankingRecord(known, 1600, 4, 1, 0, 5, Now));
+        repo.Set(new RankingRecord(second, 1450, 0, 2, 1, 3, Now));
+
+        IReadOnlyDictionary<Guid, RankingRecord> got = await repo.GetManyAsync(
+            new[] { known, second, unknown, known /* duplicate */ },
+            CancellationToken.None);
+
+        got.Should().HaveCount(3);
+        got[known].Elo.Should().Be(1600);
+        got[second].Elo.Should().Be(1450);
+        got[unknown].Elo.Should().Be(1500, "default Elo seeded on first read");
+    }
 }

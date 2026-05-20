@@ -22,6 +22,23 @@ internal sealed class InMemoryRankingRepository(DateTimeOffset now) : IRankingRe
         return Task.FromResult(record);
     }
 
+    public Task<IReadOnlyDictionary<Guid, RankingRecord>> GetManyAsync(
+        IEnumerable<Guid> userIds,
+        CancellationToken ct)
+    {
+        Dictionary<Guid, RankingRecord> result = [];
+        foreach (Guid id in userIds.Distinct())
+        {
+            if (!_rankings.TryGetValue(id, out RankingRecord? record))
+            {
+                record = RankingService.NewUserRanking(id, now);
+                _rankings[id] = record;
+            }
+            result[id] = record;
+        }
+        return Task.FromResult<IReadOnlyDictionary<Guid, RankingRecord>>(result);
+    }
+
     public Task UpdateAsync(RankingRecord record, CancellationToken ct)
     {
         _rankings[record.UserId] = record;

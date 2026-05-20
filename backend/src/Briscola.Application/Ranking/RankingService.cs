@@ -97,13 +97,17 @@ public sealed class RankingService(IRankingRepository rankings, IClock clock)
 
     private async Task<RankingRecord[]> LoadManyAsync(Guid[] userIds, CancellationToken ct)
     {
-        List<RankingRecord> records = new(userIds.Length);
-        foreach (Guid userId in userIds)
+        // Bulk lookup: one DB round-trip total regardless of seat count.
+        // Preserve input ordering — RankingService's Updated() walk pairs
+        // each record with its seat-matched outcome by index.
+        IReadOnlyDictionary<Guid, RankingRecord> map =
+            await rankings.GetManyAsync(userIds, ct).ConfigureAwait(false);
+        RankingRecord[] records = new RankingRecord[userIds.Length];
+        for (int i = 0; i < userIds.Length; i++)
         {
-            records.Add(await rankings.GetAsync(userId, ct).ConfigureAwait(false));
+            records[i] = map[userIds[i]];
         }
-
-        return [.. records];
+        return records;
     }
 
     private RankingRecord Updated(RankingRecord record, int delta, double score)

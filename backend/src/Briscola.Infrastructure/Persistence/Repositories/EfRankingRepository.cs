@@ -27,6 +27,49 @@ public sealed class EfRankingRepository(BriscolaDbContext db, IClock clock) : IR
         return fresh;
     }
 
+    public async Task<IReadOnlyDictionary<Guid, RankingRecord>> GetManyAsync(
+        IEnumerable<Guid> userIds,
+        CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(userIds);
+
+        // Dedup before the round-trip so a 4p game whose seats happen to
+        // include the same user twice (shouldn't happen, but the engine
+        // accepts repeats) doesn't multiply SQL parameters.
+        Guid[] distinct = userIds.Distinct().ToArray();
+        if (distinct.Length == 0)
+        {
+            return new Dictionary<Guid, RankingRecord>();
+        }
+
+        var existing = await db.Rankings.AsNoTracking()
+            .Where(r => distinct.Contains(r.UserId))
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+
+        Dictionary<Guid, RankingRecord> result = existing.ToDictionary(
+            e => e.UserId,
+            ToRecord);
+
+        // Seed defaults for any id not already present — matches the
+        // single-row GetAsync contract so callers can rely on a populated
+        // entry for every id they asked about.
+        Guid[] missing = distinct.Where(id => !result.ContainsKey(id)).ToArray();
+        if (missing.Length > 0)
+        {
+            DateTimeOffset now = clock.UtcNow;
+            foreach (Guid id in missing)
+            {
+                RankingRecord fresh = RankingService.NewUserRanking(id, now);
+                db.Rankings.Add(ToEntity(fresh));
+                result[id] = fresh;
+            }
+            await db.SaveChangesAsync(ct).ConfigureAwait(false);
+        }
+
+        return result;
+    }
+
     public async Task UpdateAsync(RankingRecord record, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(record);
