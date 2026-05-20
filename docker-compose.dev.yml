@@ -21,7 +21,11 @@ services:
       POSTGRES_PASSWORD: briscola-dev
       POSTGRES_DB: briscola
     ports:
-      - "5432:5432"
+      # Bind to loopback only — the dev password is `briscola-dev`,
+      # and exposing it on 0.0.0.0:5432 would let anyone on the same
+      # network ride it. The dev API + Angular dev server live on the
+      # same host, so loopback is sufficient.
+      - "127.0.0.1:5432:5432"
     volumes:
       - briscola-dev-pgdata:/var/lib/postgresql/data
     healthcheck:

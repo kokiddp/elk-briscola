@@ -67,13 +67,16 @@ jobs:
           retention-days: 14
 
       - name: Audit NuGet packages for high/critical CVEs
+        working-directory: backend
         # Per the Phase 11.4 security checklist. We fail the build only on
         # high or critical advisories; lower-severity items show up in the
-        # output for follow-up but don't gate the merge.
+        # output for follow-up but don't gate the merge. We also fail if
+        # `dotnet list` itself errors — the previous `|| true` swallowed
+        # that and let a crashed scan look like a clean run (audit M11).
         run: |
           set -euo pipefail
           dotnet list Briscola.sln package --vulnerable --include-transitive \
-            > vuln.txt 2>&1 || true
+            > vuln.txt 2>&1
           cat vuln.txt
           if grep -E 'Severity: (High|Critical)' vuln.txt > /dev/null; then
             echo "::error::High/Critical NuGet vulnerability found"

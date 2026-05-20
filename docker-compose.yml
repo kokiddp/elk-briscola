@@ -32,6 +32,18 @@ services:
       dockerfile: Dockerfile
     image: ghcr.io/${GHCR_NAMESPACE:-elk-briscola}/api:${IMAGE_TAG:-latest}
     restart: unless-stopped
+    # Container-hardening defaults: drop every Linux capability the
+    # chiseled .NET runtime doesn't actually need (it needs none — it
+    # only binds an unprivileged port and reads/writes its own files),
+    # read-only rootfs with a tmpfs for any scratch writes the runtime
+    # makes, no-new-privileges to block any setuid escape. Audit M9.
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
     environment:
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
       ConnectionStrings__Provider: Postgres
@@ -62,6 +74,15 @@ services:
       dockerfile: Dockerfile
     image: ghcr.io/${GHCR_NAMESPACE:-elk-briscola}/frontend:${IMAGE_TAG:-latest}
     restart: unless-stopped
+    # The official nginx:alpine entrypoint chowns /var/cache/nginx/* on
+    # boot before dropping to the unprivileged `nginx` user, so we
+    # leave CHOWN + SETUID/SETGID + DAC_OVERRIDE in place + skip
+    # read_only. cap_drop: ALL + read_only on this image would crash
+    # the container during the boot scripts (chown EPERM). We still
+    # apply no-new-privileges so any setuid binary inside the image
+    # can't escalate.
+    security_opt:
+      - no-new-privileges:true
     depends_on:
       api:
         condition: service_healthy

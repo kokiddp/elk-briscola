@@ -31,6 +31,27 @@ public sealed class AuthController : ControllerBase
     private readonly IClock _clock;
     private readonly BriscolaDbContext _db;
 
+    /// <summary>
+    /// PBKDF2 hash used to equalize Login's user-not-found path against
+    /// the happy path. Lazy-initialized off the configured PasswordHasher
+    /// so the timing matches whatever cost factor Identity is set to.
+    /// </summary>
+    private static string? _dummyHash;
+    private static readonly object _dummyHashGate = new();
+    private string DummyHash
+    {
+        get
+        {
+            if (_dummyHash is not null) return _dummyHash;
+            lock (_dummyHashGate)
+            {
+                _dummyHash ??= _users.PasswordHasher
+                    .HashPassword(new ApplicationUser(), "timing-equalizer-sentinel-pass-1");
+            }
+            return _dummyHash;
+        }
+    }
+
     public AuthController(
         UserManager<ApplicationUser> users,
         JwtIssuer issuer,
@@ -113,8 +134,25 @@ public sealed class AuthController : ControllerBase
         ArgumentNullException.ThrowIfNull(request);
 
         ApplicationUser? user = await ResolveAsync(request.UsernameOrEmail).ConfigureAwait(false);
-        if (user is null
-            || !await _users.CheckPasswordAsync(user, request.Password).ConfigureAwait(false))
+        bool passwordOk;
+        if (user is null)
+        {
+            // Equalize timing on the user-not-found branch — without
+            // this an attacker can distinguish "no such user" from
+            // "wrong password" by the response latency (no PBKDF2 work
+            // happens when CheckPasswordAsync is skipped). Hash the
+            // presented password against a precomputed sentinel hash
+            // so the cost matches the happy path's verify. Audit M7.
+            _ = _users.PasswordHasher.VerifyHashedPassword(
+                new ApplicationUser(), DummyHash, request.Password);
+            passwordOk = false;
+        }
+        else
+        {
+            passwordOk = await _users.CheckPasswordAsync(user, request.Password).ConfigureAwait(false);
+        }
+
+        if (user is null || !passwordOk)
         {
             return Unauthorized(new { code = "InvalidCredentials" });
         }

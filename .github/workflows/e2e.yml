@@ -61,6 +61,12 @@ jobs:
         working-directory: frontend
         run: npx playwright install --with-deps chromium
 
+      - name: Set up Docker Buildx
+        # Buildx is what `docker compose up --build` ends up calling
+        # under the hood when the GHA cache exporter is requested.
+        # Without it, the next two steps' cache lookups are no-ops.
+        uses: docker/setup-buildx-action@v3
+
       - name: Generate compose secrets
         # The compose stack refuses to start if POSTGRES_PASSWORD /
         # JWT_SIGNING_KEY aren't set. Generate ephemeral ones for this
@@ -83,8 +89,26 @@ jobs:
         # before we pay the image-build cost.
         run: docker compose config --quiet
 
-      - name: Build + start compose stack
-        run: docker compose up -d --build --wait --wait-timeout 180
+      - name: Build images via Buildx with GHA cache
+        # Use docker compose's bake integration so each service's layers
+        # come from / push to the GHA cache. Saves ~5-8 min per PR on a
+        # warm cache versus a from-scratch rebuild on the runner.
+        env:
+          # `docker compose build --pull` would defeat the digest pin —
+          # we want the existing pinned digest to win, not whatever
+          # registry returns today. Bake honors the existing image refs.
+          COMPOSE_BAKE: 'true'
+        run: |
+          set -euo pipefail
+          docker buildx bake \
+            --file docker-compose.yml \
+            --set "*.cache-from=type=gha,scope=elk-briscola" \
+            --set "*.cache-to=type=gha,scope=elk-briscola,mode=max" \
+            --load \
+            api frontend
+
+      - name: Start compose stack
+        run: docker compose up -d --wait --wait-timeout 180
 
       - name: Show stack state (sanity)
         if: always()
