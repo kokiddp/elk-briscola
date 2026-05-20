@@ -1,5 +1,6 @@
 import { Component, OnDestroy, OnInit, computed, effect, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
+import { ClockService } from '../../core/clock.service';
 import { ErrorToastService } from '../../core/error-toast.service';
 import { I18nService } from '../../core/i18n.service';
 import { I18nPipe } from '../../shared/i18n.pipe';
@@ -57,6 +58,7 @@ export class GameTablePageComponent implements OnInit, OnDestroy {
   private readonly game = inject(GameService);
   private readonly toast = inject(ErrorToastService);
   private readonly i18n = inject(I18nService);
+  private readonly clock = inject(ClockService);
 
   readonly state = this.game.state;
   readonly legalMoves = this.game.legalMoves;
@@ -203,26 +205,24 @@ export class GameTablePageComponent implements OnInit, OnDestroy {
     return this.activeForfeitDeadline();
   });
 
-  private readonly nowSig = signal(Date.now());
   readonly myIdleSecondsRemaining = computed<number | null>(() => {
     const dl = this.myIdleDeadline();
     if (!dl) {
       return null;
     }
-    const ms = dl.getTime() - this.nowSig();
+    const ms = dl.getTime() - this.clock.now();
     return Math.max(0, Math.ceil(ms / 1000));
   });
 
   constructor() {
-    // Tick the local-idle clock every second when there's a deadline to
-    // count down to. Paused otherwise so it doesn't churn the change
-    // detector during normal play.
+    // Subscribe to the shared 1Hz clock while a deadline is active.
+    // Pauses automatically when there's nothing to count down to (M6).
     effect((onCleanup) => {
       if (!this.myIdleDeadline()) {
         return;
       }
-      const id = setInterval(() => this.nowSig.set(Date.now()), 1000);
-      onCleanup(() => clearInterval(id));
+      const unsub = this.clock.subscribe();
+      onCleanup(unsub);
     });
 
     // Latch mySeat the first time we can identify it unambiguously.

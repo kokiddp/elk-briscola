@@ -1,4 +1,5 @@
-import { Component, computed, effect, input, signal } from '@angular/core';
+import { Component, computed, effect, inject, input } from '@angular/core';
+import { ClockService } from '../../core/clock.service';
 import { I18nPipe } from '../../shared/i18n.pipe';
 import { CardComponent } from './card.component';
 
@@ -28,23 +29,27 @@ export class OpponentAreaComponent {
     return Array.from({ length: n }, (_, i) => i);
   });
 
-  private readonly nowSig = signal(Date.now());
+  private readonly clock = inject(ClockService);
   readonly idleSecondsRemaining = computed<number | null>(() => {
     const dl = this.idleDeadline();
     if (!dl) {
       return null;
     }
-    const ms = dl.getTime() - this.nowSig();
+    const ms = dl.getTime() - this.clock.now();
     return Math.max(0, Math.ceil(ms / 1000));
   });
 
   constructor() {
+    // Subscribe to the shared ClockService while a deadline is active.
+    // Each instance refs the clock once and unsubs when the deadline
+    // clears or the component is destroyed; the service maintains a
+    // single 1-second interval shared across all consumers (M6).
     effect((onCleanup) => {
       if (!this.idleDeadline()) {
         return;
       }
-      const id = setInterval(() => this.nowSig.set(Date.now()), 1000);
-      onCleanup(() => clearInterval(id));
+      const unsub = this.clock.subscribe();
+      onCleanup(unsub);
     });
   }
 }
